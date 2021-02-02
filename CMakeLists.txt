@@ -2,13 +2,26 @@ cmake_minimum_required(VERSION 3.11)
 include(FetchContent)
 project(serverless-rdma)
 
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+
 ###
-# Optional: use an existing installation
+# Optional: use existing installations
 ###
 set(CXXOPTS_PATH "" CACHE STRING "Path to installation of cxxopts")
 if( NOT CXXOPTS_PATH STREQUAL "")
   set(cxxopts_DIR "${CXXOPTS_PATH}/lib/cmake/cxxopts")
 endif()
+set(LIBRDMACM_PATH "" CACHE STRING "Path to installation of librdmacm")
+if( NOT LIBRDMACM_PATH STREQUAL "")
+  set(PKG_CONFIG_PATH "${PKG_CONFIG_PATH} ${LIBRDMACM_PATH}/lib/pkgconfig")
+endif()
+
+###
+# librdmacm
+###
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(rdmacm REQUIRED IMPORTED_TARGET librdmacm)
 
 ###
 # External dependencies
@@ -28,10 +41,32 @@ endif()
 include_directories($<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
 
 ###
+# Main pass: build C++14, PIC and no RTTI
+###
+file(GLOB rdmalib_files "rdmalib/lib/*.cpp")
+add_library(rdmalib STATIC ${rdmalib_files})
+target_include_directories(rdmalib PUBLIC "rdmalib/include")
+target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:PkgConfig::rdmacm,INTERFACE_INCLUDE_DIRECTORIES>)
+set_target_properties(rdmalib PROPERTIES POSITION_INDEPENDENT_CODE On)
+set_target_properties(rdmalib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
+target_include_directories(rdmalib PUBLIC PkgConfig::rdmacm)
+
+###
 # Client
 ###
 add_executable(client client/client.cpp)
-set_property(TARGET client PROPERTY CXX_STANDARD 14)
 add_dependencies(client cxxopts::cxxopts)
+add_dependencies(client rdmalib)
+target_include_directories(client PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(client PRIVATE rdmalib)
 set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 
+###
+# Server
+###
+add_executable(server server/server.cpp)
+set_property(TARGET server PROPERTY CXX_STANDARD 14)
+target_include_directories(client PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
+add_dependencies(server cxxopts::cxxopts)
+add_dependencies(server rdmalib)
+set_target_properties(server PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
