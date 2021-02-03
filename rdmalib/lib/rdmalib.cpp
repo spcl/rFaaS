@@ -1,5 +1,6 @@
 
 #include <cassert>
+#include <cstdio>
 
 // inet_ntoa
 #include <arpa/inet.h>
@@ -10,10 +11,12 @@ namespace rdmalib {
 
   RDMAState::RDMAState()
   {
+    this->_id = nullptr;
     this->_ec = rdma_create_event_channel();
     assert(this->_ec);
     // TODO: do we really want TCP-like communication here?
-    assert(!rdma_create_id(this->_ec, &this->_id, nullptr, RDMA_PS_TCP));
+    int ret = rdma_create_id(this->_ec, &this->_id, nullptr, RDMA_PS_TCP);
+    assert(!ret);
   }
 
   RDMAState::~RDMAState()

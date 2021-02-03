@@ -17,6 +17,7 @@ namespace rdmalib {
       _addr.sin_family = AF_INET;
       _addr.sin_port = htons(port);
       _port = port;
+      printf("%d\n",_addr.sin_port);
     }
   };
 
