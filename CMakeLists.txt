@@ -49,7 +49,7 @@ target_include_directories(rdmalib PUBLIC "rdmalib/include")
 target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:PkgConfig::rdmacm,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(rdmalib PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(rdmalib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
-target_include_directories(rdmalib PUBLIC PkgConfig::rdmacm)
+target_link_libraries(rdmalib PUBLIC PkgConfig::rdmacm)
 
 ###
 # Client
@@ -65,8 +65,8 @@ set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 # Server
 ###
 add_executable(server server/server.cpp)
-set_property(TARGET server PROPERTY CXX_STANDARD 14)
-target_include_directories(client PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
 add_dependencies(server cxxopts::cxxopts)
 add_dependencies(server rdmalib)
+target_include_directories(server PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(server PRIVATE rdmalib)
 set_target_properties(server PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
