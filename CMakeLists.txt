@@ -29,6 +29,10 @@ endif()
 ###
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(rdmacm REQUIRED IMPORTED_TARGET librdmacm)
+###
+# libibverbs
+###
+pkg_check_modules(ibverbs REQUIRED IMPORTED_TARGET libibverbs)
 
 ###
 # External dependencies
@@ -73,9 +77,13 @@ file(GLOB rdmalib_files "rdmalib/lib/*.cpp")
 add_library(rdmalib STATIC ${rdmalib_files})
 target_include_directories(rdmalib PUBLIC "rdmalib/include")
 target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:PkgConfig::rdmacm,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:PkgConfig::ibverbs,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rdmalib PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(rdmalib PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(rdmalib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
 target_link_libraries(rdmalib PUBLIC PkgConfig::rdmacm)
+target_link_libraries(rdmalib PUBLIC PkgConfig::ibverbs)
+target_link_libraries(rdmalib PRIVATE spdlog::spdlog)
 
 ###
 # Client
