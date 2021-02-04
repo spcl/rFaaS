@@ -125,7 +125,9 @@ namespace rdmalib {
   RDMAActive::~RDMAActive()
   {
     rdma_destroy_qp(this->_conn.id);
+    ibv_dealloc_pd(this->_pd);
     rdma_destroy_ep(this->_conn.id);
+    rdma_destroy_id(this->_conn.id);
   }
 
   void RDMAActive::allocate()
@@ -187,21 +189,6 @@ namespace rdmalib {
     _listen_id(nullptr),
     _pd(nullptr)
   {
-    //this->_id = nullptr;
-    ////this->_ec = rdma_create_event_channel();
-    ////assert(this->_ec);
-    //// TODO: do we really want TCP-like communication here?
-    ////int ret = rdma_create_id(this->_ec, &this->_id, nullptr, RDMA_PS_TCP);
-    ////assert(!ret);
-    //int ret;
-    //struct rdma_addrinfo hints;
-    //struct rdma_addrinfo *addrinfo;
-    //memset(&hints, 0, sizeof hints);
-    //hints.ai_flags = RAI_PASSIVE;
-    //hints.ai_port_space = RDMA_PS_TCP;
-    //char strport[80];
-    //sprintf(strport, "%d", 10000);
-
     // Size of Queue Pair
     _cfg.attr.cap.max_send_wr = 1;
     _cfg.attr.cap.max_recv_wr = 5;
@@ -218,8 +205,13 @@ namespace rdmalib {
 
   RDMAPassive::~RDMAPassive()
   {
-    //ibv_dealloc_pd(this->_pd);
+    for(auto & c : _connections) {
+      rdma_destroy_qp(c.id);
+      rdma_destroy_id(c.id);
+    }
+    ibv_dealloc_pd(this->_pd);
     rdma_destroy_ep(this->_listen_id);
+    rdma_destroy_id(this->_listen_id);
   }
 
   void RDMAPassive::allocate()
@@ -234,11 +226,6 @@ namespace rdmalib {
     // Alocate protection domain
     expect_nonnull(_pd = ibv_alloc_pd(_listen_id->verbs));
   }
-
-  //ibv_qp* RDMAPassive::qp() const
-  //{
-  //  return this->_qp;
-  //}
 
   ibv_pd* RDMAPassive::pd() const
   {
@@ -300,22 +287,5 @@ namespace rdmalib {
     while(ibv_poll_cq(conn.qp->send_cq, 1, &wc) == 0);
     return wc;
   }
-
-  //RDMAConnect RDMAState::connect() const
-  //{}
-
-  //RDMAListen::RDMAListen(rdma_event_channel * ec, rdma_cm_id * id, int port)
-  //  //_addr(port)
-  //{
-  //  this->_ec = ec;
-
-
-  //  // The cast is safe.
-  //  // https://stackoverflow.com/questions/18609397/whats-the-difference-between-sockaddr-sockaddr-in-and-sockaddr-in6
-  //  //assert(!rdma_bind_addr(id, reinterpret_cast<sockaddr*>(&this->_addr._addr)));
-
-  //  //this->_addr._port = ntohs(rdma_get_src_port(id));
-  //  //spdlog::info("Listening on port {}", this->_addr._port);
-  //}
 
 }
