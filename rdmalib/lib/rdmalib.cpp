@@ -44,6 +44,10 @@ namespace rdmalib { namespace impl {
   {
     _mr = ibv_reg_mr(pd, _ptr, _bytes, access);
     expect_nonnull(_mr);
+    spdlog::debug(
+      "Allocated {} bytes, address {}, lkey {}, rkey {}",
+      _bytes, fmt::ptr(_mr->addr), _mr->lkey, _mr->rkey
+    );
   }
 
   size_t Buffer::size() const
@@ -104,20 +108,20 @@ namespace rdmalib {
   {
     // Size of Queue Pair
     // Maximum requests in send queue
-    _cfg.attr.cap.max_send_wr = 1;
+    _cfg.attr.cap.max_send_wr = 10;
     // Maximum requests in receive queue
-    _cfg.attr.cap.max_recv_wr = 1;
+    _cfg.attr.cap.max_recv_wr = 10;
     // Maximal number of scatter-gather requests in a work request in send queue
     _cfg.attr.cap.max_send_sge = 1;
     // Maximal number of scatter-gather requests in a work request in receive queue
     _cfg.attr.cap.max_recv_sge = 1;
     // Max inlined message size
-    _cfg.attr.cap.max_inline_data = 0;
+    _cfg.attr.cap.max_inline_data = 56;
     // Reliable connection
     _cfg.attr.qp_type = IBV_QPT_RC;
 
-    _cfg.conn_param.responder_resources = 0;
-    _cfg.conn_param.initiator_depth =  0;
+    _cfg.conn_param.responder_resources = 5;
+    _cfg.conn_param.initiator_depth =  5;
     _cfg.conn_param.retry_count = 3;  
     _cfg.conn_param.rnr_retry_count = 3; 
   }
@@ -180,6 +184,7 @@ namespace rdmalib {
   {
     struct ibv_wc wc;
     while(ibv_poll_cq(_conn.qp->recv_cq, 1, &wc) == 0);
+    spdlog::debug("Received WC {} Status {}", wc.wr_id, ibv_wc_status_str(wc.status));
     return wc;
   }
 
@@ -190,15 +195,15 @@ namespace rdmalib {
     _pd(nullptr)
   {
     // Size of Queue Pair
-    _cfg.attr.cap.max_send_wr = 1;
-    _cfg.attr.cap.max_recv_wr = 5;
+    _cfg.attr.cap.max_send_wr = 10;
+    _cfg.attr.cap.max_recv_wr = 10;
     _cfg.attr.cap.max_send_sge = 1;
     _cfg.attr.cap.max_recv_sge = 1;
-    _cfg.attr.cap.max_inline_data = 0;
+    _cfg.attr.cap.max_inline_data = 56;
     _cfg.attr.qp_type = IBV_QPT_RC;
 
-    _cfg.conn_param.responder_resources = 0;
-    _cfg.conn_param.initiator_depth = 0;
+    _cfg.conn_param.responder_resources = 5;
+    _cfg.conn_param.initiator_depth = 5;
     _cfg.conn_param.retry_count = 3; 
     _cfg.conn_param.rnr_retry_count = 3;  
   }
@@ -285,6 +290,7 @@ namespace rdmalib {
   {
     struct ibv_wc wc;
     while(ibv_poll_cq(conn.qp->send_cq, 1, &wc) == 0);
+    spdlog::debug("Send WC {} Status {}", wc.wr_id, ibv_wc_status_str(wc.status));
     return wc;
   }
 
