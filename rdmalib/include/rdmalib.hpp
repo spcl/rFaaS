@@ -112,15 +112,31 @@ namespace rdmalib {
   };
 
   struct ScatterGatherElement {
-    ibv_sge sge;
+    // smallvector in practice
+    std::vector<ibv_sge> _sges;
+
+    ScatterGatherElement();
 
     template<typename T>
     ScatterGatherElement(const Buffer<T> & buf)
     {
-      sge.addr = buf.ptr();
-      sge.length = buf.size();
-      sge.lkey = buf.lkey();
+      add(buf);
     }
+
+    template<typename T>
+    void add(const Buffer<T> & buf)
+    {
+      //emplace_back for structs will be supported in C++20
+      _sges.push_back({buf.ptr(), buf.size(), buf.lkey()});
+    }
+
+    ibv_sge * array();
+    size_t size();
+  };
+
+  enum class QueueType{
+    SEND,
+    RECV
   };
 
   struct RDMAActive {
@@ -139,8 +155,12 @@ namespace rdmalib {
     ibv_pd* pd() const;
 
     int32_t post_recv(ScatterGatherElement && elem);
+    int32_t _post_write(ScatterGatherElement && elems, ibv_send_wr wr);
+    int32_t post_write(ScatterGatherElement && elems, uintptr_t addr, int rkey);
+    int32_t post_write(ScatterGatherElement && elems, uintptr_t addr, int rkey, uint32_t immediate);
+    int32_t post_atomics(ScatterGatherElement && elems, uintptr_t addr, int rkey, uint64_t add);
     // Blocking, no timeout
-    ibv_wc poll_wc();
+    ibv_wc poll_wc(QueueType);
   };
 
   struct RDMAPassive {
@@ -150,6 +170,7 @@ namespace rdmalib {
     rdma_cm_id* _listen_id;
     ibv_pd* _pd;
     std::vector<Connection> _connections;
+    int32_t _req_count;
 
     RDMAPassive(const std::string & ip, int port);
     ~RDMAPassive();
@@ -157,8 +178,10 @@ namespace rdmalib {
     ibv_pd* pd() const;
     std::optional<Connection> poll_events();
 
+    // initializer list is not move aware but that shouldn't be a problem
     int32_t post_send(const Connection & conn, ScatterGatherElement && elem);
-    ibv_wc poll_wc(const Connection & conn);
+    int32_t post_recv(const Connection & conn, ScatterGatherElement && elem);
+    ibv_wc poll_wc(const Connection & conn, QueueType);
   };
 
   //struct RDMAState {
