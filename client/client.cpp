@@ -29,7 +29,6 @@ int main(int argc, char ** argv)
   else
     spdlog::set_level(spdlog::level::info);
   spdlog::info("Executing serverless-rdma client!");
-  spdlog::info("{0:x}, {1}", opts["addr"].as<uintptr_t>(), opts["rkey"].as<int>());
 
   // Start RDMA connection
   rdmalib::Buffer<char> mr(4096), mr2(4096);

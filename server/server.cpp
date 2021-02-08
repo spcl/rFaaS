@@ -8,6 +8,7 @@
 #include <infiniband/verbs.h>
 
 #include <rdmalib.hpp>
+#include "server.hpp"
 
 
 int main(int argc, char ** argv)
@@ -47,6 +48,8 @@ int main(int argc, char ** argv)
     spdlog::info("Message sent {} {}, retry", ibv_wc_status_str(wc.status), wc.wr_id);
   } while(wc.status != 0);
 
+  server::FunctionsDB db;
+  server::Executors exec(2);
   // immediate
   state.post_recv(*conn, {});
   //state.poll_wc(*conn, rdmalib::QueueType::RECV);
@@ -63,14 +66,18 @@ int main(int argc, char ** argv)
   //  spdlog::error("Post receive unsuccesful, reason {} {}", errno, strerror(errno));
   //  return -1;
   //}
-
+  int buffer = 0;
   while(1) {
     //auto wc = state.poll_wc(*conn);
     struct ibv_wc wc;
     int ret = ibv_poll_cq(conn->qp->recv_cq, 1, &wc);
-    if(ret != 0) 
+    if(ret != 0) {
       spdlog::info("WC status {} {}", ibv_wc_status_str(wc.status), ntohl(wc.imm_data));
-    else
+      buffer = ntohl(wc.imm_data);
+      exec.enable(0, db.functions["test"], &buffer);
+      exec.enable(1, db.functions["test"], &buffer);
+      exec.wakeup();
+    } else
       spdlog::info("No events");
     for(int i = 0; i < 100; ++i)
       printf("%d ", mr.data()[i]);

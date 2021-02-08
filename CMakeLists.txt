@@ -101,10 +101,11 @@ set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 ###
 # Server
 ###
-add_executable(server server/server.cpp)
+add_executable(server server/server.cpp server/functions.cpp)
 add_dependencies(server cxxopts::cxxopts)
 add_dependencies(server spdlog::spdlog)
 add_dependencies(server rdmalib)
+target_include_directories(server PRIVATE server/)
 target_include_directories(server PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(server PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(server PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
