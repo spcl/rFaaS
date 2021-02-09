@@ -5,9 +5,8 @@
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/rdmalib.hpp>
+#include <rdmalib/server.hpp>
 
-#include <rdma/rdma_verbs.h>
-#include <infiniband/verbs.h>
 
 int main(int argc, char ** argv)
 {
@@ -15,12 +14,9 @@ int main(int argc, char ** argv)
   cxxopts::Options options("serverless-rdma-client", "Invoke functions");
   options.add_options()
     ("d,debug", "Enable debugging", cxxopts::value<bool>()->default_value("false"))
-    ("a,address", "Server address", cxxopts::value<std::string>())
-    ("p,port", "Server port", cxxopts::value<int>())
     ("i,invocations", "Invocations", cxxopts::value<int>())
-    ("r,rkey", "Invocations", cxxopts::value<int>())
-    ("m,addr", "Invocations", cxxopts::value<uintptr_t>())
     ("n,name", "Function name", cxxopts::value<std::string>())
+    ("f,file", "Server status", cxxopts::value<std::string>())
     ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
   ;
   auto opts = options.parse(argc, argv);
@@ -30,9 +26,13 @@ int main(int argc, char ** argv)
     spdlog::set_level(spdlog::level::info);
   spdlog::info("Executing serverless-rdma client!");
 
+  std::ifstream in(opts["file"].as<std::string>());
+  rdmalib::server::ServerStatus status = rdmalib::server::ServerStatus::deserialize(in);
+  in.close();
+
   // Start RDMA connection
   rdmalib::Buffer<char> mr(4096), mr2(4096);
-  rdmalib::RDMAActive active(opts["address"].as<std::string>(), opts["port"].as<int>());
+  rdmalib::RDMAActive active(status._address, status._port);
   active.allocate();
   mr.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
   mr2.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
@@ -54,17 +54,17 @@ int main(int argc, char ** argv)
   printf("\n");
 
   memset(mr.data(), 8, 4096);
-  active.post_write(mr, opts["addr"].as<uintptr_t>(), opts["rkey"].as<int>());
+  active.post_write(mr, status._buffers[0].addr, status._buffers[0].rkey);
   active.poll_wc(rdmalib::QueueType::SEND);
 
   memset(mr.data(), 0, 4096);
-  active.post_atomics(mr, opts["addr"].as<uintptr_t>(), opts["rkey"].as<int>(), 100);
+  active.post_atomics(mr, status._buffers[0].addr, status._buffers[0].rkey, 100);
   active.poll_wc(rdmalib::QueueType::SEND);
 
   std::this_thread::sleep_for(std::chrono::seconds(2));
 
   memset(mr.data(), 9, 4096);
-  active.post_write(mr, opts["addr"].as<uintptr_t>(), opts["rkey"].as<int>(), 0x1234);
+  active.post_write(mr, status._buffers[0].addr, status._buffers[0].rkey, 0x1234);
   active.poll_wc(rdmalib::QueueType::SEND);
   return 0;
 }

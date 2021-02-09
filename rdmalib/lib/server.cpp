@@ -1,7 +1,5 @@
 
 #include <cereal/archives/json.hpp>
-#include <cereal/types/vector.hpp> 
-#include <cereal/types/string.hpp>
 
 #include <rdmalib/server.hpp>
 
@@ -21,13 +19,14 @@ namespace rdmalib { namespace server {
   {
     ServerStatus status;
     cereal::JSONInputArchive archive_in(in);
-    archive_in(status._address, status._port, status._buffers);
+    archive_in(status);
+    return status;
   }
 
   void ServerStatus::serialize(std::ostream & out) const
   {
     cereal::JSONOutputArchive archive_out(out);
-    archive_out(CEREAL_NVP(_address), CEREAL_NVP(_port), CEREAL_NVP(_buffers));
+    archive_out(*this);
   }
 
 }}

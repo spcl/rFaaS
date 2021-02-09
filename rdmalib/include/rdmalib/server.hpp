@@ -3,8 +3,11 @@
 #include <cstdint>
 #include <string>
 #include <fstream>
+#include <iostream>
 
-#include <cereal/cereal.hpp>
+//#include <cereal/cereal.hpp>
+#include <cereal/types/vector.hpp> 
+#include <cereal/types/string.hpp>
 
 #include <rdmalib/buffer.hpp>
 
@@ -32,6 +35,18 @@ namespace rdmalib { namespace server {
     void add_buffer(const rdmalib::Buffer<T> & mr)
     {
       _buffers.push_back({mr.ptr(), mr.rkey(), mr.size()});  
+    }
+
+    // deserialize
+    template <class Archive>
+    void save(Archive & ar) const
+    {
+      ar(CEREAL_NVP(_address), CEREAL_NVP(_port), CEREAL_NVP(_buffers));
+    }
+    template <class Archive>
+    void load(Archive & ar )
+    {
+      ar(CEREAL_NVP(_address), CEREAL_NVP(_port), CEREAL_NVP(_buffers));
     }
 
     static ServerStatus deserialize(std::istream & in);
