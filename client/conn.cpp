@@ -10,12 +10,16 @@ namespace client {
   ServerConnection::ServerConnection(const rdmalib::server::ServerStatus & status):
     _status(status),
     _active(_status._address, _status._port)
-  {}
+  {
+    _active.allocate();
+    // TODO: QUEUE_MSG_SIZE
+    _submit_buffer = std::move(rdmalib::Buffer<char>(100));
+    _submit_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE);
+  }
 
 
   bool ServerConnection::connect()
   {
-    _active.allocate();
     return _active.connect();
   }
 
@@ -43,7 +47,7 @@ namespace client {
 
   int ServerConnection::submit(int numcores, std::string fname)
   {
-    assert(numcores < _send.size() && numcores < _rcv.size());
+    assert(numcores <= _send.size() && numcores <= _rcv.size());
 
     int id = 0;
 
@@ -56,10 +60,18 @@ namespace client {
     for(int i = 0; i < numcores; ++i) {
       auto & status = _status._buffers[i];
       _active.post_write(_send[i], status.addr, status.rkey);
+      _active.poll_wc(rdmalib::QueueType::SEND);
     }
 
     // 4. Send execution notification
-    //
+    //Submission* ptr = ((Submission*)_submit_buffer.data());
+    //ptr[0].core_begin = 0;
+    //ptr[0].core_end = 2;
+    //memcpy(ptr[0].ID, "test", strlen("test") + 1);
+    //_active.post_send(_submit_buffer);
+    //_active.poll_wc(rdmalib::QueueType::SEND);
+    //spdlog::debug("Function execution ID {} scheduled!", id);
+
     return id;
   }
 

@@ -59,8 +59,8 @@ namespace rdmalib {
 
     _cfg.conn_param.responder_resources = 5;
     _cfg.conn_param.initiator_depth =  5;
-    _cfg.conn_param.retry_count = 3;  
-    _cfg.conn_param.rnr_retry_count = 3; 
+    _cfg.conn_param.retry_count = 3;
+    _cfg.conn_param.rnr_retry_count = 3;
   }
 
   RDMAActive::~RDMAActive()
@@ -100,6 +100,25 @@ namespace rdmalib {
     return this->_pd;
   }
 
+  int32_t RDMAActive::post_send(ScatterGatherElement && elems, int32_t id)
+  {
+    struct ibv_send_wr wr, *bad;
+    wr.wr_id = id == -1 ? _req_count++ : id;
+    wr.next = nullptr;
+    wr.sg_list = elems.array();
+    wr.num_sge = elems.size();
+    wr.opcode = IBV_WR_SEND;
+    wr.send_flags = IBV_SEND_SIGNALED;
+
+    int ret = ibv_post_send(_conn.qp, &wr, &bad);
+    if(ret) {
+      spdlog::error("Post send unsuccesful, reason {} {}", errno, strerror(errno));
+      return -1;
+    }
+    spdlog::debug("Post send succesfull");
+    return _req_count - 1;
+  }
+
   int32_t RDMAActive::post_recv(ScatterGatherElement && elem, int32_t id)
   {
     // FIXME: extend with multiple sges
@@ -131,7 +150,7 @@ namespace rdmalib {
       spdlog::error("Post write unsuccesful, reason {} {}", errno, strerror(errno));
       return -1;
     }
-    spdlog::debug("Post write succesfull");
+    spdlog::debug("Post write succesfull, remote addr {}, remote rkey {}", wr.wr.rdma.remote_addr, wr.wr.rdma.rkey);
     return _req_count - 1;
 
   }
@@ -238,7 +257,7 @@ namespace rdmalib {
     return this->_pd;
   }
 
-  std::optional<Connection> RDMAPassive::poll_events()
+  std::optional<Connection> RDMAPassive::poll_events(std::function<void(Connection&)> before_accept)
   {
     rdma_cm_event* event;
     if(rdma_get_cm_event(this->_ec, &event)) {
@@ -256,20 +275,21 @@ namespace rdmalib {
     // destroys event
     rdma_ack_cm_event(event);
     impl::expect_zero(rdma_create_qp(connection.id, _pd, &_cfg.attr));
+    connection.qp = connection.id->qp;
+    if(before_accept)
+      before_accept(connection);
     if(rdma_accept(connection.id, &_cfg.conn_param)) {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
       return {};
     }
     spdlog::debug("Accepted connection"); 
-    connection.qp = connection.id->qp;
 
     _connections.push_back(connection);
     return std::optional<Connection>{connection};
   }
 
   int32_t RDMAPassive::post_send(const Connection & conn, ScatterGatherElement && elems)
-  {
-    struct ibv_send_wr wr, *bad;
+  { struct ibv_send_wr wr, *bad;
     wr.wr_id = _req_count++;
     wr.next = nullptr;
     wr.sg_list = elems.array();

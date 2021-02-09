@@ -33,7 +33,8 @@ namespace server {
   struct Server {
     static const int QUEUE_SIZE = 5;
     // 80 chars + 4 ints
-    static const int QUEUE_MSG_SIZE = 88;
+    //static const int QUEUE_MSG_SIZE = 100;
+    static const int QUEUE_MSG_SIZE = 4096;
     rdmalib::RDMAPassive _state;
     rdmalib::server::ServerStatus _status;
     std::array<rdmalib::Buffer<char>, QUEUE_SIZE> _queue;

@@ -28,7 +28,6 @@ namespace server {
     for(int i = 0; i < numcores; ++i) {
       _send.emplace_back(size);
       _send.back().register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
-      _status.add_buffer(_send.back());
     }
   }
 
@@ -37,6 +36,7 @@ namespace server {
     for(int i = 0; i < numcores; ++i) {
       _rcv.emplace_back(size);
       _rcv.back().register_memory(_state.pd(), IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE);
+      _status.add_buffer(_rcv.back());
     }
   }
 
@@ -59,10 +59,12 @@ namespace server {
   std::optional<rdmalib::Connection> Server::poll_communication()
   {
     // TODO: timeout + number of retries option
-    auto conn = _state.poll_events();
-    if(conn)
-      for(int i = 0; i < QUEUE_SIZE; ++i)
-        reload_queue(*conn, i);
+    auto conn = _state.poll_events(
+      [this](rdmalib::Connection & conn) {
+        for(int i = 0; i < QUEUE_SIZE; ++i)
+          reload_queue(conn, i);
+      }
+    );
     return conn;
   }
 

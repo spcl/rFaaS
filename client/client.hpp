@@ -8,10 +8,15 @@
 
 namespace client {
 
+  struct Submission {
+    int32_t core_begin, core_end;
+    char ID[92];
+  };
 
   struct ServerConnection {
 
     std::vector<rdmalib::Buffer<char>> _send, _rcv;
+    rdmalib::Buffer<char> _submit_buffer;
     rdmalib::server::ServerStatus _status;
     rdmalib::RDMAActive _active;
 

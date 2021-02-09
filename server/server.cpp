@@ -54,22 +54,33 @@ int main(int argc, char ** argv)
   // TODO: Display client's address
   spdlog::info("Connected a client!");
 
+  //rdmalib::Buffer<char> mr(4096), mr2(4096);
+  //mr.register_memory(server._state.pd(), IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
+  //mr2.register_memory(server._state.pd(), IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
+  //std::this_thread::sleep_for(std::chrono::seconds(1));
+  //memset(mr.data(), 6, 4096);
+  //memset(mr2.data(), 0, 4096);
+  //server._state.post_send(*conn, mr);
+  //server._state.post_recv(*conn, mr2);
+  //server._state.poll_wc(*conn, rdmalib::QueueType::RECV);
+  //printf("%d \n", mr2.data()[0]);
+  //printf("%d ", server._queue[0].data()[0]);
   while(1) {
-    //auto wc = state.poll_wc(*conn);
-    //struct ibv_wc wc;
-    //int ret = ibv_poll_cq(conn->qp->recv_cq, 1, &wc);
-    //if(ret != 0) {
-    //  spdlog::info("WC status {} {}", ibv_wc_status_str(wc.status), ntohl(wc.imm_data));
+    //auto wc = server._state.poll_wc(*conn, rdmalib::QueueType::RECV);
+    struct ibv_wc wc;
+    int ret = ibv_poll_cq(conn->qp->recv_cq, 1, &wc);
+    if(ret != 0) {
+      spdlog::info("WC status {} {}", ibv_wc_status_str(wc.status), ntohl(wc.imm_data));
     //  buffer = ntohl(wc.imm_data);
     //  exec.enable(0, server.db.functions["test"], &buffer);
     //  exec.enable(1, server.db.functions["test"], &buffer);
     //  exec.wakeup();
-    //} else
-    //  spdlog::info("No events");
-    //for(int i = 0; i < 100; ++i)
-    //  printf("%d ", mr.data()[i]);
-    //printf("\n");
-    //std::this_thread::sleep_for(std::chrono::seconds(1));
+    } else
+      spdlog::info("No events");
+    for(int i = 0; i < 100; ++i)
+      printf("%d ", server._rcv[0].data()[0]);
+    printf("\n");
+    std::this_thread::sleep_for(std::chrono::seconds(1));
   }
  
   //memset(mr.data(), 6, 4096);

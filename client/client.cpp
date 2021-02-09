@@ -1,4 +1,5 @@
 
+#include <chrono>
 #include <thread>
 
 #include <cxxopts.hpp>
@@ -28,21 +29,39 @@ int main(int argc, char ** argv)
 
   std::ifstream in(opts["file"].as<std::string>());
   client::ServerConnection client(rdmalib::server::ServerStatus::deserialize(in));
+  in.close();
+  client.allocate_send_buffers(2, 4096);
+  client.allocate_receive_buffers(2, 4096);
   if(!client.connect())
     return -1;
-  in.close();
   spdlog::info("Connected to the server!");
+  std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+  // prepare args
+  client.send_buffer(0).data()[0] = 1;
+  client.send_buffer(1).data()[0] = 1;
+
+  //client._submit_buffer.data()[0] = 100;
+  //client._active.post_send(client._submit_buffer);
+  //client._active.poll_wc(rdmalib::QueueType::SEND);
+  client.submit(2, "test");
+  //client._active.poll_wc(rdmalib::QueueType::SEND);
 
   // Start RDMA connection
   //rdmalib::Buffer<char> mr(4096), mr2(4096);
-  //rdmalib::RDMAActive active(status._address, status._port);
-  //mr.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
-  //mr2.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
+  ////rdmalib::RDMAActive active(status._address, status._port);
+  //mr.register_memory(client._active.pd(), IBV_ACCESS_LOCAL_WRITE);
+  ////mr2.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
 
-  //active.post_recv(mr);
-  //active.post_recv(mr2);
-  //active.poll_wc(rdmalib::QueueType::RECV);
+  //client._active.post_recv(mr);
+  ////active.post_recv(mr2);
+  //client._active.poll_wc(rdmalib::QueueType::RECV);
   //spdlog::info("Received");
+  //mr.data()[0] = 100;
+  //client._submit_buffer.data()[0] = 100;
+  //client._active.post_send(client._submit_buffer);
+  //client._active.poll_wc(rdmalib::QueueType::SEND);
+  //spdlog::info("Sent");
   //for(int i = 0; i < 10; ++i)
   //  printf("%d ", mr.data()[i]);
   //printf("\n");
@@ -60,8 +79,6 @@ int main(int argc, char ** argv)
   //memset(mr.data(), 0, 4096);
   //active.post_atomics(mr, status._buffers[0].addr, status._buffers[0].rkey, 100);
   //active.poll_wc(rdmalib::QueueType::SEND);
-
-  //std::this_thread::sleep_for(std::chrono::seconds(2));
 
   //memset(mr.data(), 9, 4096);
   //active.post_write(mr, status._buffers[0].addr, status._buffers[0].rkey, 0x1234);

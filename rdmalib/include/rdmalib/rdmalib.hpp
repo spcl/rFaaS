@@ -7,6 +7,7 @@
 #include <array>
 #include <vector>
 #include <optional>
+#include <functional>
 
 #include <rdma/rdma_cma.h>
 
@@ -85,6 +86,7 @@ namespace rdmalib {
     ibv_qp* qp() const;
     ibv_pd* pd() const;
 
+    int32_t post_send(ScatterGatherElement && elem, int32_t id = -1);
     int32_t post_recv(ScatterGatherElement && elem, int32_t id = -1);
     int32_t _post_write(ScatterGatherElement && elems, ibv_send_wr wr);
     int32_t post_write(ScatterGatherElement && elems, uintptr_t addr, int rkey);
@@ -107,7 +109,7 @@ namespace rdmalib {
     ~RDMAPassive();
     void allocate();
     ibv_pd* pd() const;
-    std::optional<Connection> poll_events();
+    std::optional<Connection> poll_events(std::function<void(Connection&)> before_accept = nullptr);
 
     // initializer list is not move aware but that shouldn't be a problem
     int32_t post_send(const Connection & conn, ScatterGatherElement && elem);
