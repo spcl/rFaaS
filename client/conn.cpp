@@ -2,6 +2,7 @@
 #include <infiniband/verbs.h>
 
 #include <rdmalib/buffer.hpp>
+#include <rdmalib/functions.hpp>
 #include <rdmalib/util.hpp>
 #include "client.hpp"
 
@@ -54,7 +55,7 @@ namespace client {
     // 1. Allocate cores TODO
     // currently allocates 0...n-1 cores
     
-    // 2. Write recv buffer data TODO
+    // 2. Write recv buffer data to arguments TODO
 
     // 3. Write arguments
     for(int i = 0; i < numcores; ++i) {
@@ -64,13 +65,13 @@ namespace client {
     }
 
     // 4. Send execution notification
-    //Submission* ptr = ((Submission*)_submit_buffer.data());
-    //ptr[0].core_begin = 0;
-    //ptr[0].core_end = 2;
-    //memcpy(ptr[0].ID, "test", strlen("test") + 1);
-    //_active.post_send(_submit_buffer);
-    //_active.poll_wc(rdmalib::QueueType::SEND);
-    //spdlog::debug("Function execution ID {} scheduled!", id);
+    rdmalib::functions::Submission* ptr = ((rdmalib::functions::Submission*)_submit_buffer.data());
+    ptr[0].core_begin = 0;
+    ptr[0].core_end = 2;
+    memcpy(ptr[0].ID, "test", strlen("test") + 1);
+    _active.post_send(_submit_buffer);
+    _active.poll_wc(rdmalib::QueueType::SEND);
+    spdlog::debug("Function execution ID {} scheduled!", id);
 
     return id;
   }

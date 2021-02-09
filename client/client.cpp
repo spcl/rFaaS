@@ -29,7 +29,7 @@ int main(int argc, char ** argv)
 
   // prepare args
   client.send_buffer(0).data()[0] = 1;
-  client.send_buffer(1).data()[0] = 1;
+  client.send_buffer(1).data()[0] = 2;
 
   //client._submit_buffer.data()[0] = 100;
   //client._active.post_send(client._submit_buffer);

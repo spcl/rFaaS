@@ -12,11 +12,6 @@ namespace client {
 
   cxxopts::ParseResult options(int argc, char ** argv);
 
-  struct Submission {
-    int32_t core_begin, core_end;
-    char ID[92];
-  };
-
   struct ServerConnection {
 
     std::vector<rdmalib::Buffer<char>> _send, _rcv;

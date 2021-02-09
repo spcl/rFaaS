@@ -61,17 +61,29 @@ int main(int argc, char ** argv)
     struct ibv_wc wc;
     int ret = ibv_poll_cq(conn->qp->recv_cq, 1, &wc);
     if(ret != 0) {
-      spdlog::info("WC status {} {}", ibv_wc_status_str(wc.status), ntohl(wc.imm_data));
+      if(wc.status) {
+        spdlog::warn("Failed work completion! Reason: {}", ibv_wc_status_str(wc.status));
+        continue;
+      }
+      // TODO: add sanity check
+      server.reload_queue(conn, wc.wr_id);
+      rdmalib::functions::Submission * ptr = reinterpret_cast<rdmalib::functions::Submission*>(
+          server._queue[wc.wr_id].data()
+      );
+      // TODO: send errror if cores don't match
+      spdlog::info("Accepted invocation of function of id {}", ptr->ID);
+      for(int i = ptr->core_begin; i != ptr->core_end; ++i)
+        server._exec.enable(i, server._db.functions[ptr->ID], server._rcv[i].data());
     //  buffer = ntohl(wc.imm_data);
     //  exec.enable(0, server.db.functions["test"], &buffer);
     //  exec.enable(1, server.db.functions["test"], &buffer);
     //  exec.wakeup();
-    } else
-      spdlog::info("No events");
-    for(int i = 0; i < 100; ++i)
-      printf("%d ", server._rcv[0].data()[0]);
-    printf("\n");
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+      server._exec.wakeup();
+    }
+    //for(int i = 0; i < 100; ++i)
+      //printf("%d ", server._rcv[0].data()[0]);
+    //printf("\n");
+    //std::this_thread::sleep_for(std::chrono::seconds(1));
   }
  
   //memset(mr.data(), 6, 4096);
