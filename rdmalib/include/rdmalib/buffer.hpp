@@ -3,7 +3,7 @@
 #define __RDMALIB_BUFFER_HPP__
 
 #include <cstdint>
-
+#include <utility>
 
 struct ibv_pd;
 struct ibv_mr;
@@ -20,7 +20,10 @@ namespace rdmalib {
       ibv_mr* _mr;
       void* _ptr;
 
+      Buffer();
       Buffer(size_t size, size_t byte_size);
+      Buffer(Buffer &&);
+      Buffer & operator=(Buffer && obj);
       ~Buffer();
     public:
       uintptr_t ptr() const;
@@ -35,9 +38,22 @@ namespace rdmalib {
   template<typename T>
   struct Buffer : impl::Buffer{
 
+    Buffer():
+      impl::Buffer()
+    {}
+
     Buffer(size_t size):
       impl::Buffer(size, sizeof(T))
     {}
+
+    Buffer<T> & operator=(Buffer<T> && obj)
+    {
+      impl::Buffer::operator=(std::move(obj));
+      return *this;
+    }
+
+    Buffer(const Buffer<T> & obj) = delete;
+    Buffer(Buffer<T> && obj) = default;
 
     T* data() const
     {

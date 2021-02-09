@@ -8,15 +8,49 @@
 
 namespace rdmalib { namespace impl {
 
+  Buffer::Buffer():
+    _size(0),
+    _bytes(0),
+    _ptr(nullptr),
+    _mr(nullptr)
+  {}
+
+  Buffer::Buffer(Buffer && obj):
+    _size(obj._size),
+    _bytes(obj._bytes),
+    _ptr(obj._ptr),
+    _mr(obj._mr)
+  {
+    obj._size = obj._bytes = 0;
+    obj._ptr = obj._mr = nullptr;
+  }
+
+  Buffer & Buffer::operator=(Buffer && obj)
+  {
+    _size = obj._size;
+    _bytes = obj._bytes;
+    _ptr = obj._ptr;
+    _mr = obj._mr;
+
+    obj._size = obj._bytes = 0;
+    obj._ptr = obj._mr = nullptr;
+    return *this;
+  }
+
   Buffer::Buffer(size_t size, size_t byte_size):
     _size(size),
     _bytes(size * byte_size),
     _mr(nullptr)
   {
+    //size_t alloc = _bytes;
+    //if(alloc < 4096) {
+    //  alloc = 4096;
+    //  spdlog::warn("Page too small, allocating {} bytes", alloc);
+    //}
     // page-aligned address for maximum performance
     _ptr = mmap(nullptr, _bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
   }
-
+  
   Buffer::~Buffer()
   {
     if(_mr)

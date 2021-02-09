@@ -1,9 +1,70 @@
 
 #include <spdlog/spdlog.h>
 
+#include "rdmalib/rdmalib.hpp"
+#include "rdmalib/server.hpp"
 #include "server.hpp"
 
 namespace server {
+
+  Server::Server(std::string addr, int port, int numcores):
+    _state(addr, port),
+    _status(addr, port),
+    _exec(numcores)
+  {
+    listen();
+
+    // TODO: optimize, single buffer + offsets
+    // TODO: share between clients?
+    for(int i = 0; i < QUEUE_SIZE; ++i) {
+      _queue[i] = std::move(rdmalib::Buffer<char>(QUEUE_MSG_SIZE));
+      _queue[i].register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
+    }
+  
+  }
+
+  void Server::allocate_send_buffers(int numcores, int size)
+  {
+    for(int i = 0; i < numcores; ++i) {
+      _send.emplace_back(size);
+      _send.back().register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
+      _status.add_buffer(_send.back());
+    }
+  }
+
+  void Server::allocate_rcv_buffers(int numcores, int size)
+  {
+    for(int i = 0; i < numcores; ++i) {
+      _rcv.emplace_back(size);
+      _rcv.back().register_memory(_state.pd(), IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE);
+    }
+  }
+
+  const rdmalib::server::ServerStatus & Server::status() const
+  {
+    return _status;
+  }
+
+  void Server::listen()
+  {
+    _state.allocate();
+  }
+
+  void Server::reload_queue(rdmalib::Connection & conn, int32_t idx)
+  {
+    spdlog::debug("Post receive idx: {}", idx);
+    _state.post_recv(conn, _queue[idx], idx);
+  }
+
+  std::optional<rdmalib::Connection> Server::poll_communication()
+  {
+    // TODO: timeout + number of retries option
+    auto conn = _state.poll_events();
+    if(conn)
+      for(int i = 0; i < QUEUE_SIZE; ++i)
+        reload_queue(*conn, i);
+    return conn;
+  }
 
   Executors::Executors(int numcores):
     lk(m)

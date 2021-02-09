@@ -1,4 +1,7 @@
 
+#ifndef __RDMALIB_RDMALIB_HPP__
+#define __RDMALIB_RDMALIB_HPP__
+
 #include <cstdint>
 #include <string>
 #include <array>
@@ -82,7 +85,7 @@ namespace rdmalib {
     ibv_qp* qp() const;
     ibv_pd* pd() const;
 
-    int32_t post_recv(ScatterGatherElement && elem);
+    int32_t post_recv(ScatterGatherElement && elem, int32_t id = -1);
     int32_t _post_write(ScatterGatherElement && elems, ibv_send_wr wr);
     int32_t post_write(ScatterGatherElement && elems, uintptr_t addr, int rkey);
     int32_t post_write(ScatterGatherElement && elems, uintptr_t addr, int rkey, uint32_t immediate);
@@ -108,7 +111,7 @@ namespace rdmalib {
 
     // initializer list is not move aware but that shouldn't be a problem
     int32_t post_send(const Connection & conn, ScatterGatherElement && elem);
-    int32_t post_recv(const Connection & conn, ScatterGatherElement && elem);
+    int32_t post_recv(const Connection & conn, ScatterGatherElement && elem, int32_t id = -1);
     ibv_wc poll_wc(const Connection & conn, QueueType);
   };
 
@@ -123,3 +126,6 @@ namespace rdmalib {
   //  RDMAConnect connect() const;
   //};
 }
+
+#endif
+

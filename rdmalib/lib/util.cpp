@@ -5,9 +5,22 @@
 
 #include <spdlog/spdlog.h>
 
+#include <rdmalib/util.hpp>
+
 using std::size_t;
 
 namespace rdmalib {namespace impl {
+
+  void expect_true(bool flag)
+  {
+    expect_nonzero(flag);
+  }
+
+  void expect_false(bool flag)
+  {
+    expect_zero(flag);
+  }
+
   void traceback()
   {
     void* array[10];

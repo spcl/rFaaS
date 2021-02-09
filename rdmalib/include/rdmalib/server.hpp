@@ -1,4 +1,7 @@
 
+#ifndef __RDMALIB_SERVER_HPP__
+#define __RDMALIB_SERVER_HPP__
+
 #include <vector>
 #include <cstdint>
 #include <string>
@@ -54,3 +57,6 @@ namespace rdmalib { namespace server {
   };
 
 }}
+
+#endif
+

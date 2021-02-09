@@ -66,7 +66,7 @@ namespace rdmalib {
   RDMAActive::~RDMAActive()
   {
     rdma_destroy_qp(this->_conn.id);
-    ibv_dealloc_pd(this->_pd);
+    //ibv_dealloc_pd(this->_pd);
     rdma_destroy_ep(this->_conn.id);
     rdma_destroy_id(this->_conn.id);
   }
@@ -100,11 +100,11 @@ namespace rdmalib {
     return this->_pd;
   }
 
-  int32_t RDMAActive::post_recv(ScatterGatherElement && elem)
+  int32_t RDMAActive::post_recv(ScatterGatherElement && elem, int32_t id)
   {
     // FIXME: extend with multiple sges
     struct ibv_recv_wr wr, *bad;
-    wr.wr_id = _req_count++;
+    wr.wr_id = id == -1 ? _req_count++ : id;
     wr.next = nullptr;
     wr.sg_list = elem.array();
     wr.num_sge = elem.size();
@@ -286,10 +286,10 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  int32_t RDMAPassive::post_recv(const Connection & conn, ScatterGatherElement && elems)
+  int32_t RDMAPassive::post_recv(const Connection & conn, ScatterGatherElement && elems, int32_t id)
   {
     struct ibv_recv_wr wr, *bad;
-    wr.wr_id = _req_count++;
+    wr.wr_id = id == -1 ? _req_count++ : id;
     wr.next = nullptr;
     wr.sg_list = elems.array();
     wr.num_sge = elems.size();

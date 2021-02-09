@@ -1,9 +1,15 @@
 
+#ifndef __RDMALIB_UTIL_HPP__
+#define __RDMALIB_UTIL_HPP__
+
 #include <spdlog/spdlog.h>
 
 namespace rdmalib { namespace impl {
 
   void traceback();
+
+  void expect_true(bool flag);
+  void expect_false(bool flag);
 
   template<typename U>
   void expect_zero(U && u)
@@ -36,3 +42,6 @@ namespace rdmalib { namespace impl {
   }
 
 }}
+
+#endif
+
