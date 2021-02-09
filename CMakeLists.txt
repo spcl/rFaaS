@@ -68,7 +68,26 @@ if(NOT spdlog_FOUND)
   FetchContent_MakeAvailable(spdlog)
   add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
 endif()
-#include_directories($<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
+###
+# cereal
+###
+find_package(cereal QUIET)
+if(NOT cereal_FOUND)
+  message(STATUS "Downloading and building cereal dependency")
+  FetchContent_Declare(cereal
+    GIT_REPOSITORY git@github.com:USCiLab/cereal.git
+    CMAKE_ARGS -DSKIP_PERFORMANCE_COMPARISON=On -DSKIP_PORTABILITY_TEST=On -DJUST_INSTALL_CEREAL=On
+    # default branch is v1.x - for some reason, cmake switches to master
+    GIT_TAG v1.3.0
+  )
+  # for some reason the CMAKE_ARGS are ignored here
+  set(SKIP_PERFORMANCE_COMPARISON ON CACHE INTERNAL "")
+  set(SKIP_PORTABILITY_TEST ON CACHE INTERNAL "")
+  set(JUST_INSTALL_CEREAL ON CACHE INTERNAL "")
+  FetchContent_Populate(cereal)
+  FetchContent_MakeAvailable(cereal)
+  add_subdirectory(${cereal_SOURCE_DIR} ${cereal_BINARY_DIR})
+endif()
 
 ###
 # Main pass: build C++14, PIC and no RTTI
@@ -79,11 +98,13 @@ target_include_directories(rdmalib PUBLIC "rdmalib/include")
 target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:PkgConfig::rdmacm,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:PkgConfig::ibverbs,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(rdmalib PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rdmalib PRIVATE $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(rdmalib PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(rdmalib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
 target_link_libraries(rdmalib PUBLIC PkgConfig::rdmacm)
 target_link_libraries(rdmalib PUBLIC PkgConfig::ibverbs)
 target_link_libraries(rdmalib PRIVATE spdlog::spdlog)
+target_link_libraries(rdmalib PRIVATE cereal)
 
 ###
 # Client
@@ -101,7 +122,7 @@ set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 ###
 # Server
 ###
-add_executable(server server/server.cpp server/functions.cpp)
+add_executable(server server/server.cpp)
 add_dependencies(server cxxopts::cxxopts)
 add_dependencies(server spdlog::spdlog)
 add_dependencies(server rdmalib)
