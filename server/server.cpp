@@ -11,16 +11,7 @@
 
 int main(int argc, char ** argv)
 {
-
-  cxxopts::Options options("serverless-rdma-server", "Handle functions invocations.");
-  options.add_options()
-    ("a,address", "Use selected address", cxxopts::value<std::string>())
-    ("p,port", "Use selected port", cxxopts::value<int>()->default_value("0"))
-    ("n,numcores", "Number of cores", cxxopts::value<int>()->default_value("1"))
-    ("f,file", "Output server status.", cxxopts::value<std::string>())
-    ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
-  ;
-  auto opts = options.parse(argc, argv);
+  auto opts = server::opts(argc, argv);
   if(opts["verbose"].as<bool>())
     spdlog::set_level(spdlog::level::debug);
   else

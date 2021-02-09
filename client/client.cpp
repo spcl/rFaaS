@@ -2,7 +2,6 @@
 #include <chrono>
 #include <thread>
 
-#include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/rdmalib.hpp>
@@ -11,16 +10,7 @@
 
 int main(int argc, char ** argv)
 {
-
-  cxxopts::Options options("serverless-rdma-client", "Invoke functions");
-  options.add_options()
-    ("d,debug", "Enable debugging", cxxopts::value<bool>()->default_value("false"))
-    ("i,invocations", "Invocations", cxxopts::value<int>())
-    ("n,name", "Function name", cxxopts::value<std::string>())
-    ("f,file", "Server status", cxxopts::value<std::string>())
-    ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
-  ;
-  auto opts = options.parse(argc, argv);
+  auto opts = client::options(argc, argv);
   if(opts["verbose"].as<bool>())
     spdlog::set_level(spdlog::level::debug);
   else

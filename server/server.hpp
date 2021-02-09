@@ -1,15 +1,19 @@
 
-#include "rdmalib/rdmalib.hpp"
 #include <vector>
 #include <thread>
 #include <condition_variable>
 #include <tuple>
 
+#include <cxxopts.hpp>
+
 #include <rdmalib/functions.hpp>
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/server.hpp>
+#include <rdmalib/rdmalib.hpp>
 
 namespace server {
+
+  cxxopts::ParseResult opts(int argc, char ** argv);
 
   struct Executors {
 

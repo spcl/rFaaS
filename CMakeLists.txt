@@ -112,7 +112,7 @@ target_link_libraries(rdmalib PRIVATE cereal)
 ###
 # Client
 ###
-add_executable(client client/client.cpp client/conn.cpp)
+add_executable(client client/client.cpp client/conn.cpp client/opts.cpp)
 add_dependencies(client cxxopts::cxxopts)
 add_dependencies(client rdmalib)
 target_include_directories(client PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
@@ -124,7 +124,7 @@ set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 ###
 # Server
 ###
-add_executable(server server/server.cpp server/executor.cpp)
+add_executable(server server/server.cpp server/executor.cpp server/opts.cpp)
 add_dependencies(server cxxopts::cxxopts)
 add_dependencies(server spdlog::spdlog)
 add_dependencies(server rdmalib)
