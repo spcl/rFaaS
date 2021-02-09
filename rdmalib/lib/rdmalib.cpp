@@ -8,7 +8,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bundled/format.h>
 
-#include <rdmalib.hpp>
+#include <rdmalib/rdmalib.hpp>
 
 namespace {
   void traceback()

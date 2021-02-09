@@ -4,12 +4,9 @@
 
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
-#include <rdma/rdma_verbs.h>
-#include <infiniband/verbs.h>
 
-#include <rdmalib.hpp>
+#include <rdmalib/rdmalib.hpp>
 #include "server.hpp"
-
 
 int main(int argc, char ** argv)
 {
@@ -48,7 +45,7 @@ int main(int argc, char ** argv)
     spdlog::info("Message sent {} {}, retry", ibv_wc_status_str(wc.status), wc.wr_id);
   } while(wc.status != 0);
 
-  server::FunctionsDB db;
+  server::Server server;
   server::Executors exec(2);
   // immediate
   state.post_recv(*conn, {});
@@ -74,8 +71,8 @@ int main(int argc, char ** argv)
     if(ret != 0) {
       spdlog::info("WC status {} {}", ibv_wc_status_str(wc.status), ntohl(wc.imm_data));
       buffer = ntohl(wc.imm_data);
-      exec.enable(0, db.functions["test"], &buffer);
-      exec.enable(1, db.functions["test"], &buffer);
+      exec.enable(0, server.db.functions["test"], &buffer);
+      exec.enable(1, server.db.functions["test"], &buffer);
       exec.wakeup();
     } else
       spdlog::info("No events");

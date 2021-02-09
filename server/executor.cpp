@@ -3,18 +3,7 @@
 
 #include "server.hpp"
 
-namespace server{
-
-  void FunctionsDB::test_function(void* args)
-  {
-    int val = *static_cast<int*>(args);
-    spdlog::debug("Received {}, value {}", fmt::ptr(args), val);
-  }
-
-  FunctionsDB::FunctionsDB()
-  {
-    functions["test"] = test_function;
-  }
+namespace server {
 
   Executors::Executors(int numcores):
     lk(m)
@@ -26,7 +15,7 @@ namespace server{
 
   }
 
-  void Executors::enable(int thread_id, function_t func, void* args)
+  void Executors::enable(int thread_id, rdmalib::functions::FuncType func, void* args)
   {
     _status[thread_id] = std::make_tuple(func, args);
   }
@@ -43,7 +32,7 @@ namespace server{
 
   void Executors::thread_func(int id)
   {
-    function_t ptr = nullptr;
+    rdmalib::functions::FuncType ptr = nullptr;
     spdlog::debug("Thread {} created!", id);
     while(1) {
 
@@ -54,10 +43,11 @@ namespace server{
       void* args = std::get<1>(_status[id]);
 
       spdlog::debug("Thread {} begins work! Executing function", id);
-
       (*ptr)(args);
       spdlog::debug("Thread {} finished work!", id);
+
       this->disable(id);
+      ptr = nullptr;
     } 
 
   }

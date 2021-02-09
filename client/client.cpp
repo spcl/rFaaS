@@ -4,7 +4,7 @@
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
-#include <rdmalib.hpp>
+#include <rdmalib/rdmalib.hpp>
 
 #include <rdma/rdma_verbs.h>
 #include <infiniband/verbs.h>

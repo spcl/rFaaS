@@ -122,7 +122,7 @@ set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 ###
 # Server
 ###
-add_executable(server server/server.cpp)
+add_executable(server server/server.cpp server/executor.cpp)
 add_dependencies(server cxxopts::cxxopts)
 add_dependencies(server spdlog::spdlog)
 add_dependencies(server rdmalib)
