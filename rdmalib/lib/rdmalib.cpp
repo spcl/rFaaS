@@ -2,78 +2,12 @@
 #include <cassert>
 // inet_ntoa
 #include <arpa/inet.h>
-// traceback
-#include <execinfo.h>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bundled/format.h>
 
 #include <rdmalib/rdmalib.hpp>
-
-namespace {
-  void traceback()
-  {
-    void* array[10];
-    size_t size = backtrace(array, 10);
-    char ** trace = backtrace_symbols(array, size);
-    for(size_t i = 0; i < size; ++i)
-      spdlog::warn("Traceback {}: {}", i, trace[i]);
-    free(trace);
-  }
-}
-
-namespace rdmalib { namespace impl {
-
-  Buffer::Buffer(size_t size, size_t byte_size):
-    _size(size),
-    _bytes(size * byte_size),
-    _mr(nullptr)
-  {
-    // page-aligned address for maximum performance
-    _ptr = mmap(nullptr, _bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-  }
-
-  Buffer::~Buffer()
-  {
-    if(_mr)
-      ibv_dereg_mr(_mr);
-    munmap(_ptr, _bytes);
-  }
-
-  void Buffer::register_memory(ibv_pd* pd, int access)
-  {
-    _mr = ibv_reg_mr(pd, _ptr, _bytes, access);
-    expect_nonnull(_mr);
-    spdlog::debug(
-      "Allocated {} bytes, address {}, lkey {}, rkey {}",
-      _bytes, fmt::ptr(_mr->addr), _mr->lkey, _mr->rkey
-    );
-  }
-
-  size_t Buffer::size() const
-  {
-    return this->_size;
-  }
-
-  uint32_t Buffer::lkey() const
-  {
-    assert(this->_mr);
-    return this->_mr->lkey;
-  }
-
-  uint32_t Buffer::rkey() const
-  {
-    assert(this->_mr);
-    return this->_mr->rkey;
-  }
-
-  uintptr_t Buffer::ptr() const
-  {
-    assert(this->_mr);
-    return reinterpret_cast<uint64_t>(this->_ptr);
-  }
-
-}}
+#include <rdmalib/util.hpp>
 
 namespace rdmalib {
 
@@ -83,7 +17,7 @@ namespace rdmalib {
     hints.ai_port_space = RDMA_PS_TCP;
     if(passive)
       hints.ai_flags = RAI_PASSIVE;
-    expect_zero(rdma_getaddrinfo(ip.c_str(), std::to_string(port).c_str(), &hints, &addrinfo));
+    impl::expect_zero(rdma_getaddrinfo(ip.c_str(), std::to_string(port).c_str(), &hints, &addrinfo));
     this->_port = port;
   }
 
@@ -139,8 +73,8 @@ namespace rdmalib {
 
   void RDMAActive::allocate()
   {
-    expect_zero(rdma_create_ep(&_conn.id, _addr.addrinfo, nullptr, nullptr));
-    expect_zero(rdma_create_qp(_conn.id, _pd, &_cfg.attr));
+    impl::expect_zero(rdma_create_ep(&_conn.id, _addr.addrinfo, nullptr, nullptr));
+    impl::expect_zero(rdma_create_qp(_conn.id, _pd, &_cfg.attr));
     _pd = _conn.id->pd;
     _conn.qp = _conn.id->qp;
   }
@@ -289,14 +223,14 @@ namespace rdmalib {
   void RDMAPassive::allocate()
   {
     // Start listening
-    expect_zero(rdma_create_ep(&this->_listen_id, _addr.addrinfo, nullptr, nullptr));
+    impl::expect_zero(rdma_create_ep(&this->_listen_id, _addr.addrinfo, nullptr, nullptr));
     assert(!rdma_listen(this->_listen_id, 10));
     this->_addr._port = ntohs(rdma_get_src_port(this->_listen_id));
     this->_ec = this->_listen_id->channel;
     spdlog::info("Listening on port {}", this->_addr._port);
 
     // Alocate protection domain
-    expect_nonnull(_pd = ibv_alloc_pd(_listen_id->verbs));
+    impl::expect_nonnull(_pd = ibv_alloc_pd(_listen_id->verbs));
   }
 
   ibv_pd* RDMAPassive::pd() const
@@ -321,7 +255,7 @@ namespace rdmalib {
     connection.id = event->id;
     // destroys event
     rdma_ack_cm_event(event);
-    expect_zero(rdma_create_qp(connection.id, _pd, &_cfg.attr));
+    impl::expect_zero(rdma_create_qp(connection.id, _pd, &_cfg.attr));
     if(rdma_accept(connection.id, &_cfg.conn_param)) {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
       return {};

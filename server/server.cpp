@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/rdmalib.hpp>
+#include <rdmalib/server.hpp>
 #include "server.hpp"
 
 int main(int argc, char ** argv)
@@ -15,6 +16,7 @@ int main(int argc, char ** argv)
   options.add_options()
     ("a,address", "Use selected address", cxxopts::value<std::string>())
     ("p,port", "Use selected port", cxxopts::value<int>()->default_value("0"))
+    ("f,file", "Output server status.", cxxopts::value<std::string>())
     ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
   ;
   auto opts = options.parse(argc, argv);
@@ -29,6 +31,13 @@ int main(int argc, char ** argv)
   rdmalib::RDMAPassive state(opts["address"].as<std::string>(), opts["port"].as<int>());
   state.allocate();
   mr.register_memory(state.pd(), IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
+  rdmalib::server::ServerStatus status(opts["address"].as<std::string>(), opts["port"].as<int>());
+  status.add_buffer(mr);
+  {
+    std::ofstream out(opts["file"].as<std::string>());
+    status.serialize(out);
+  }
+
   auto conn = state.poll_events();
   if(!conn)
     return -1;
@@ -44,6 +53,7 @@ int main(int argc, char ** argv)
     wc = state.poll_wc(*conn, rdmalib::QueueType::SEND);
     spdlog::info("Message sent {} {}, retry", ibv_wc_status_str(wc.status), wc.wr_id);
   } while(wc.status != 0);
+
 
   server::Server server;
   server::Executors exec(2);
