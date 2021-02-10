@@ -25,17 +25,31 @@ int main(int argc, char ** argv)
   if(!client.connect())
     return -1;
   spdlog::info("Connected to the server!");
-  std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  //std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
   // prepare args
-  client.send_buffer(0).data()[0] = 1;
-  client.send_buffer(1).data()[0] = 2;
+  memset(client.send_buffer(0).data(), 0, 4096);
+  memset(client.send_buffer(1).data(), 0, 4096);
+  for(int i = 0; i < 100; ++i) {
+    ((int*)client.send_buffer(0).data())[i] = 1;
+    ((int*)client.send_buffer(1).data())[i] = 2;
+  }
 
   //client._submit_buffer.data()[0] = 100;
   //client._active.post_send(client._submit_buffer);
   //client._active.poll_wc(rdmalib::QueueType::SEND);
   client.submit(2, "test");
+  auto wc = client._active.poll_wc(rdmalib::QueueType::RECV);
+  spdlog::info("Finished execution with ID {}", ntohl(wc.imm_data)); 
   //client._active.poll_wc(rdmalib::QueueType::SEND);
+  //std::this_thread::sleep_for(std::chrono::seconds(1));
+  // results should be here
+  for(int i = 0; i < 100; ++i)
+    printf("%d ", ((int*)client.recv_buffer(0).data())[i]);
+  printf("\n");
+  for(int i = 0; i < 100; ++i)
+    printf("%d ", ((int*)client.recv_buffer(1).data())[i]);
+  printf("\n");
 
   // Start RDMA connection
   //rdmalib::Buffer<char> mr(4096), mr2(4096);

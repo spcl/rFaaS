@@ -27,7 +27,7 @@ namespace client {
   void ServerConnection::allocate_send_buffers(int count, uint32_t size)
   {
     for(int i = 0; i < count; ++i) {
-      _send.emplace_back(size);
+      _send.emplace_back(size, rdmalib::functions::Submission::DATA_HEADER_SIZE);
       _send.back().register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE);
     }
   }
@@ -46,6 +46,12 @@ namespace client {
     return _send[idx];
   }
 
+  rdmalib::Buffer<char> & ServerConnection::recv_buffer(int idx)
+  {
+    assert(idx < _rcv.size());
+    return _rcv[idx];
+  }
+
   int ServerConnection::submit(int numcores, std::string fname)
   {
     assert(numcores <= _send.size() && numcores <= _rcv.size());
@@ -55,16 +61,27 @@ namespace client {
     // 1. Allocate cores TODO
     // currently allocates 0...n-1 cores
     
-    // 2. Write recv buffer data to arguments TODO
+    // 2. Write recv buffer data to arguments
+    for(int i = 0; i < numcores; ++i) {
+      char* data = static_cast<char*>(_send[i].ptr());
+      // TODO: we assume here uintptr_t is 8 bytes
+      *reinterpret_cast<uint64_t*>(data) = _rcv[i].address();
+      *reinterpret_cast<uint32_t*>(data + 8) = _rcv[i].rkey();
+      *reinterpret_cast<uint32_t*>(data + 12) = id;
+    }
 
     // 3. Write arguments
     for(int i = 0; i < numcores; ++i) {
       auto & status = _status._buffers[i];
       _active.post_write(_send[i], status.addr, status.rkey);
+      // TODO: remove the serialization here
       _active.poll_wc(rdmalib::QueueType::SEND);
     }
 
-    // 4. Send execution notification
+    // 4. Write recv for notification
+    _active.post_recv({});
+
+    // 5. Send execution notification
     rdmalib::functions::Submission* ptr = ((rdmalib::functions::Submission*)_submit_buffer.data());
     ptr[0].core_begin = 0;
     ptr[0].core_end = 2;

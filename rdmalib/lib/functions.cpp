@@ -5,10 +5,12 @@
 
 namespace rdmalib { namespace functions {
 
-  void FunctionsDB::test_function(void* args)
+  void FunctionsDB::test_function(void* args, void* res)
   {
-    int val = *static_cast<int*>(args);
-    spdlog::debug("Received {}, value {}", fmt::ptr(args), val);
+    int* src = static_cast<int*>(args), *dest = static_cast<int*>(res);
+    spdlog::debug("Received {}, value {}", fmt::ptr(args), *src);
+    for(int i = 0; i < 100; ++i)
+      *dest++ = *src++;
   }
 
   FunctionsDB::FunctionsDB()

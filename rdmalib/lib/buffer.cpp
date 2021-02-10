@@ -10,6 +10,7 @@ namespace rdmalib { namespace impl {
 
   Buffer::Buffer():
     _size(0),
+    _header(0),
     _bytes(0),
     _ptr(nullptr),
     _mr(nullptr)
@@ -17,11 +18,12 @@ namespace rdmalib { namespace impl {
 
   Buffer::Buffer(Buffer && obj):
     _size(obj._size),
+    _header(obj._header),
     _bytes(obj._bytes),
     _ptr(obj._ptr),
     _mr(obj._mr)
   {
-    obj._size = obj._bytes = 0;
+    obj._size = obj._bytes = obj._header = 0;
     obj._ptr = obj._mr = nullptr;
   }
 
@@ -29,6 +31,7 @@ namespace rdmalib { namespace impl {
   {
     _size = obj._size;
     _bytes = obj._bytes;
+    _header = obj._header;
     _ptr = obj._ptr;
     _mr = obj._mr;
 
@@ -37,9 +40,10 @@ namespace rdmalib { namespace impl {
     return *this;
   }
 
-  Buffer::Buffer(size_t size, size_t byte_size):
+  Buffer::Buffer(size_t size, size_t byte_size, size_t header):
     _size(size),
-    _bytes(size * byte_size),
+    _header(header),
+    _bytes((size + header) * byte_size),
     _mr(nullptr)
   {
     //size_t alloc = _bytes;
@@ -68,9 +72,14 @@ namespace rdmalib { namespace impl {
     );
   }
 
-  size_t Buffer::size() const
+  size_t Buffer::data_size() const
   {
     return this->_size;
+  }
+
+  size_t Buffer::size() const
+  {
+    return this->_size + this->_header;
   }
 
   uint32_t Buffer::lkey() const
@@ -85,10 +94,15 @@ namespace rdmalib { namespace impl {
     return this->_mr->rkey;
   }
 
-  uintptr_t Buffer::ptr() const
+  uintptr_t Buffer::address() const
   {
     assert(this->_mr);
     return reinterpret_cast<uint64_t>(this->_ptr);
+  }
+
+  void* Buffer::ptr() const
+  {
+    return this->_ptr;
   }
 
 }}

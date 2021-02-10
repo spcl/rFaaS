@@ -66,14 +66,24 @@ int main(int argc, char ** argv)
         continue;
       }
       // TODO: add sanity check
-      server.reload_queue(conn, wc.wr_id);
+      server.reload_queue(*conn, wc.wr_id);
       rdmalib::functions::Submission * ptr = reinterpret_cast<rdmalib::functions::Submission*>(
           server._queue[wc.wr_id].data()
       );
+      int cur_invoc = server._exec.get_invocation_id();
+      std::get<0>(server._exec._invocations[cur_invoc]) = 0;
+      std::get<1>(server._exec._invocations[cur_invoc]).store(ptr->core_end - ptr->core_begin);
+      std::get<2>(server._exec._invocations[cur_invoc]) = &*conn;
       // TODO: send errror if cores don't match
-      spdlog::info("Accepted invocation of function of id {}", ptr->ID);
+      spdlog::info("Accepted invocation of function of id {}, internal invocation idx {}", ptr->ID, cur_invoc);
+
       for(int i = ptr->core_begin; i != ptr->core_end; ++i)
-        server._exec.enable(i, server._db.functions[ptr->ID], server._rcv[i].data());
+        server._exec.enable(i, std::make_tuple(
+          server._db.functions[ptr->ID],
+          &server._rcv[i],
+          &server._send[i],
+          cur_invoc
+        ));
     //  buffer = ntohl(wc.imm_data);
     //  exec.enable(0, server.db.functions["test"], &buffer);
     //  exec.enable(1, server.db.functions["test"], &buffer);

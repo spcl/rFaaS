@@ -13,7 +13,6 @@ namespace client {
   cxxopts::ParseResult options(int argc, char ** argv);
 
   struct ServerConnection {
-
     std::vector<rdmalib::Buffer<char>> _send, _rcv;
     rdmalib::Buffer<char> _submit_buffer;
     rdmalib::server::ServerStatus _status;
@@ -25,6 +24,7 @@ namespace client {
     void allocate_send_buffers(int count, uint32_t size);
     void allocate_receive_buffers(int count, uint32_t size);
     rdmalib::Buffer<char> & send_buffer(int idx);
+    rdmalib::Buffer<char> & recv_buffer(int idx);
 
     int submit(int numcores, std::string fname);
     void poll_completion(int);

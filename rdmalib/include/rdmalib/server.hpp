@@ -37,7 +37,7 @@ namespace rdmalib { namespace server {
     template<typename T>
     void add_buffer(const rdmalib::Buffer<T> & mr)
     {
-      _buffers.push_back({mr.ptr(), mr.rkey(), mr.size()});  
+      _buffers.push_back({mr.address(), mr.rkey(), mr.size()});  
     }
 
     // deserialize

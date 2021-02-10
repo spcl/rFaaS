@@ -14,21 +14,37 @@
 namespace server {
 
   cxxopts::ParseResult opts(int argc, char ** argv);
+  struct Server;
 
   struct Executors {
 
+    typedef std::tuple<
+      rdmalib::functions::FuncType,
+      rdmalib::Buffer<char>*,
+      rdmalib::Buffer<char>*,
+      uint32_t
+    > thread_status_t;
+    typedef std::tuple<
+      uint32_t,
+      std::atomic<int>,
+      rdmalib::Connection*
+    > invoc_status_t;
     std::mutex m;
     std::unique_lock<std::mutex> lk;
-    std::vector<std::tuple<rdmalib::functions::FuncType, void*>> _status; 
+    std::vector<thread_status_t> _status; 
+    invoc_status_t* _invocations;
+    int _last_invocation;
     std::vector<std::thread> _threads;
     std::condition_variable _cv;
+    Server & _server;
 
-    Executors(int numcores);
+    Executors(int numcores, Server &);
 
     // thread-safe for different ids
-    void enable(int thread_id, rdmalib::functions::FuncType func, void* args);
+    void enable(int thread_id, thread_status_t && status);
     void disable(int thread_id);
     void wakeup();
+    int get_invocation_id();
 
     void thread_func(int id);
   };

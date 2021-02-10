@@ -59,7 +59,7 @@ namespace rdmalib {
     void add(const Buffer<T> & buf)
     {
       //emplace_back for structs will be supported in C++20
-      _sges.push_back({buf.ptr(), buf.size(), buf.lkey()});
+      _sges.push_back({buf.address(), buf.size(), buf.lkey()});
     }
 
     ibv_sge * array();
@@ -112,6 +112,9 @@ namespace rdmalib {
     std::optional<Connection> poll_events(std::function<void(Connection&)> before_accept = nullptr);
 
     // initializer list is not move aware but that shouldn't be a problem
+    int32_t _post_write(const Connection & conn, ScatterGatherElement && elems, ibv_send_wr wr);
+    int32_t post_write(const Connection & conn, ScatterGatherElement && elems, uintptr_t addr, int rkey);
+    int32_t post_write(const Connection & conn, ScatterGatherElement && elems, uintptr_t addr, int rkey, uint32_t immediate);
     int32_t post_send(const Connection & conn, ScatterGatherElement && elem);
     int32_t post_recv(const Connection & conn, ScatterGatherElement && elem, int32_t id = -1);
     ibv_wc poll_wc(const Connection & conn, QueueType);

@@ -323,6 +323,46 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
+  int32_t RDMAPassive::_post_write(const Connection & conn, ScatterGatherElement && elems, ibv_send_wr wr)
+  {
+    ibv_send_wr* bad;
+    wr.wr_id = _req_count++;
+    wr.next = nullptr;
+    wr.sg_list = elems.array();
+    wr.num_sge = elems.size();
+    wr.send_flags = IBV_SEND_SIGNALED;
+
+    int ret = ibv_post_send(conn.qp, &wr, &bad);
+    if(ret) {
+      spdlog::error("Post write unsuccesful, reason {} {}", errno, strerror(errno));
+      return -1;
+    }
+    spdlog::debug("Post write succesfull, remote addr {}, remote rkey {}", wr.wr.rdma.remote_addr, wr.wr.rdma.rkey);
+    return _req_count - 1;
+
+  }
+
+  int32_t RDMAPassive::post_write(const Connection & conn, ScatterGatherElement && elems, uintptr_t addr, int rkey)
+  {
+    ibv_send_wr wr;
+    memset(&wr, 0, sizeof(wr));
+    wr.opcode = IBV_WR_RDMA_WRITE;
+    wr.wr.rdma.remote_addr = addr;
+    wr.wr.rdma.rkey = rkey;
+    return _post_write(conn, std::forward<ScatterGatherElement>(elems), wr);
+  }
+
+  int32_t RDMAPassive::post_write(const Connection & conn, ScatterGatherElement && elems, uintptr_t addr, int rkey, uint32_t immediate)
+  {
+    ibv_send_wr wr;
+    memset(&wr, 0, sizeof(wr));
+    wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
+    wr.imm_data = htonl(immediate);
+    wr.wr.rdma.remote_addr = addr;
+    wr.wr.rdma.rkey = rkey;
+    return _post_write(conn, std::forward<ScatterGatherElement>(elems), wr);
+  }
+
   ibv_wc RDMAPassive::poll_wc(const Connection & conn, QueueType type)
   {
     struct ibv_wc wc;

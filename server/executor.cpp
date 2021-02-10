@@ -10,7 +10,7 @@ namespace server {
   Server::Server(std::string addr, int port, int numcores):
     _state(addr, port),
     _status(addr, port),
-    _exec(numcores)
+    _exec(numcores, *this)
   {
     listen();
 
@@ -34,7 +34,7 @@ namespace server {
   void Server::allocate_rcv_buffers(int numcores, int size)
   {
     for(int i = 0; i < numcores; ++i) {
-      _rcv.emplace_back(size);
+      _rcv.emplace_back(size, rdmalib::functions::Submission::DATA_HEADER_SIZE);
       _rcv.back().register_memory(_state.pd(), IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE);
       _status.add_buffer(_rcv.back());
     }
@@ -68,24 +68,43 @@ namespace server {
     return conn;
   }
 
-  Executors::Executors(int numcores):
-    lk(m)
+  Executors::Executors(int numcores, Server & server):
+    lk(m),
+    _last_invocation(0),
+    _server(server)
   {
+    _invocations = new invoc_status_t[numcores];
     for(int i = 0; i < numcores; ++i) {
       _threads.emplace_back(&Executors::thread_func, this, i);
-      _status.emplace_back(nullptr, nullptr);
+      _status.emplace_back(nullptr, nullptr, nullptr, 0);
+
+      std::get<0>(_invocations[i]) = 0;
+      std::get<1>(_invocations[i]) = 0;
+      std::get<2>(_invocations[i]) = nullptr;
     }
 
   }
 
-  void Executors::enable(int thread_id, rdmalib::functions::FuncType func, void* args)
+  int Executors::get_invocation_id()
   {
-    _status[thread_id] = std::make_tuple(func, args);
+    // TODO: store numcores
+    if(_last_invocation == _status.size()) {
+      _last_invocation = 0;
+      // find next empty
+      while(std::get<0>(_invocations[_last_invocation++]));
+      _last_invocation--;
+    }
+    return _last_invocation;
+  }
+
+  void Executors::enable(int thread_id, thread_status_t && status)
+  {
+    _status[thread_id] = status;
   }
 
   void Executors::disable(int thread_id)
   {
-    _status[thread_id] = std::make_tuple(nullptr, nullptr);
+    _status[thread_id] = std::make_tuple(nullptr, nullptr, nullptr, 0);
   }
 
   void Executors::wakeup()
@@ -103,11 +122,38 @@ namespace server {
         _cv.wait(lk);
         ptr = std::get<0>(_status[id]);
       }
-      void* args = std::get<1>(_status[id]);
+      rdmalib::Buffer<char>* args = std::get<1>(_status[id]);
+      rdmalib::Buffer<char>* dest = std::get<2>(_status[id]);
+      uint32_t invoc_id = std::get<3>(_status[id]);
+      //rdmalib::Connection* conn = std::get<3>(_status[id]);
 
       spdlog::debug("Thread {} begins work! Executing function", id);
-      (*ptr)(args);
+      (*ptr)(args->data(), dest->ptr());
       spdlog::debug("Thread {} finished work!", id);
+
+      // decrease count
+      char* data = static_cast<char*>(args->ptr());
+      uint64_t r_addr = *reinterpret_cast<uint64_t*>(data);
+      uint32_t r_key = *reinterpret_cast<uint32_t*>(data + 8);
+      spdlog::debug("Thread {} finished work! Write to remote addr {} rkey {}", id, r_addr, r_key);
+      if(--std::get<1>(_invocations[invoc_id])) {
+        // write result
+        _server._state.post_write(
+          *std::get<2>(_invocations[invoc_id]),
+          *dest, r_addr, r_key
+        );
+      } else {
+        uint32_t func_id = *reinterpret_cast<uint32_t*>(data + 12);
+        // write result and signal
+        _server._state.post_write(
+          *std::get<2>(_invocations[invoc_id]),
+          *dest, r_addr, r_key, func_id
+        );
+        // TODO Clean invocation status
+      }
+      // clean status of thread
+      // TODO: atomic status
+      _status[id] = std::make_tuple(nullptr, nullptr, nullptr, 0);
 
       this->disable(id);
       ptr = nullptr;
