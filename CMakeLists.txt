@@ -52,7 +52,7 @@ if(NOT cxxopts_FOUND)
   FetchContent_MakeAvailable(cxxopts)
   add_subdirectory(${cxxopts_SOURCE_DIR} ${cxxopts_BINARY_DIR})
 endif()
-#include_directories($<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
+
 ###
 # spdlog
 ###
@@ -67,7 +67,10 @@ if(NOT spdlog_FOUND)
   FetchContent_Populate(spdlog)
   FetchContent_MakeAvailable(spdlog)
   add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
+else()
+  add_custom_target(spdlog)
 endif()
+
 ###
 # cereal
 ###
