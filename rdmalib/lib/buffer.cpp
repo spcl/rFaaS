@@ -82,6 +82,11 @@ namespace rdmalib { namespace impl {
     return this->_size + this->_header;
   }
 
+  size_t Buffer::bytes() const
+  {
+    return this->_bytes;
+  }
+
   uint32_t Buffer::lkey() const
   {
     assert(this->_mr);

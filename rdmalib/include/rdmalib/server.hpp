@@ -28,6 +28,7 @@ namespace rdmalib { namespace server {
       }
     };
     std::vector<Buffer> _buffers;
+    Buffer _threads_allocator;
     std::string _address;
     int _port;
 
@@ -40,16 +41,21 @@ namespace rdmalib { namespace server {
       _buffers.push_back({mr.address(), mr.rkey(), mr.size()});  
     }
 
+    void add_thread_allocator(const rdmalib::Buffer<int> & mr)
+    {
+      _threads_allocator = {mr.address(), mr.rkey(), mr.size()};
+    }
+
     // deserialize
     template <class Archive>
     void save(Archive & ar) const
     {
-      ar(CEREAL_NVP(_address), CEREAL_NVP(_port), CEREAL_NVP(_buffers));
+      ar(CEREAL_NVP(_address), CEREAL_NVP(_port), CEREAL_NVP(_threads_allocator), CEREAL_NVP(_buffers));
     }
     template <class Archive>
     void load(Archive & ar )
     {
-      ar(CEREAL_NVP(_address), CEREAL_NVP(_port), CEREAL_NVP(_buffers));
+      ar(CEREAL_NVP(_address), CEREAL_NVP(_port), CEREAL_NVP(_threads_allocator), CEREAL_NVP(_buffers));
     }
 
     static ServerStatus deserialize(std::istream & in);

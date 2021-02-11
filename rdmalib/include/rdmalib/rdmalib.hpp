@@ -59,7 +59,7 @@ namespace rdmalib {
     void add(const Buffer<T> & buf)
     {
       //emplace_back for structs will be supported in C++20
-      _sges.push_back({buf.address(), buf.size(), buf.lkey()});
+      _sges.push_back({buf.address(), buf.bytes(), buf.lkey()});
     }
 
     ibv_sge * array();
@@ -91,7 +91,7 @@ namespace rdmalib {
     int32_t _post_write(ScatterGatherElement && elems, ibv_send_wr wr);
     int32_t post_write(ScatterGatherElement && elems, uintptr_t addr, int rkey);
     int32_t post_write(ScatterGatherElement && elems, uintptr_t addr, int rkey, uint32_t immediate);
-    int32_t post_atomics(ScatterGatherElement && elems, uintptr_t addr, int rkey, uint64_t add);
+    int32_t post_atomics(ScatterGatherElement && elems, uintptr_t addr, int rkey, uint64_t add, uint64_t);
     // Blocking, no timeout
     ibv_wc poll_wc(QueueType);
   };

@@ -31,6 +31,7 @@ namespace rdmalib {
       void* ptr() const;
       size_t data_size() const;
       size_t size() const;
+      size_t bytes() const;
       void register_memory(ibv_pd *pd, int access);
       uint32_t lkey() const;
       uint32_t rkey() const;

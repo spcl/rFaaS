@@ -176,7 +176,7 @@ namespace rdmalib {
     return _post_write(std::forward<ScatterGatherElement>(elems), wr);
   }
 
-  int32_t RDMAActive::post_atomics(ScatterGatherElement && elems, uintptr_t addr, int rkey, uint64_t add)
+  int32_t RDMAActive::post_atomics(ScatterGatherElement && elems, uintptr_t addr, int rkey, uint64_t add, uint64_t swap)
   {
     ibv_send_wr wr, *bad;
     memset(&wr, 0, sizeof(wr));
@@ -184,11 +184,12 @@ namespace rdmalib {
     wr.next = nullptr;
     wr.sg_list = elems.array();
     wr.num_sge = elems.size();
-    wr.opcode = IBV_WR_ATOMIC_FETCH_AND_ADD;
+    wr.opcode = IBV_WR_ATOMIC_CMP_AND_SWP;
     wr.send_flags = IBV_SEND_SIGNALED;
     wr.wr.atomic.remote_addr = addr;
     wr.wr.atomic.rkey = rkey;
     wr.wr.atomic.compare_add = add;
+    wr.wr.atomic.swap = swap;
 
     int ret = ibv_post_send(_conn.qp, &wr, &bad);
     if(ret) {
