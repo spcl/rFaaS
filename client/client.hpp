@@ -15,6 +15,7 @@ namespace client {
   struct ServerConnection {
     std::vector<rdmalib::Buffer<char>> _send, _rcv;
     rdmalib::Buffer<char> _submit_buffer;
+    rdmalib::Buffer<uint64_t> _atomic_buffer;
     rdmalib::server::ServerStatus _status;
     rdmalib::RDMAActive _active;
 

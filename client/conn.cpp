@@ -16,6 +16,9 @@ namespace client {
     // TODO: QUEUE_MSG_SIZE
     _submit_buffer = std::move(rdmalib::Buffer<char>(100));
     _submit_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE);
+
+    _atomic_buffer = std::move(rdmalib::Buffer<uint64_t>(1));
+    _atomic_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE);
   }
 
 
@@ -58,8 +61,19 @@ namespace client {
 
     int id = 0;
 
-    // 1. Allocate cores TODO
+    // 1. Allocate cores TODO more than 2 cores
     // currently allocates 0...n-1 cores
+    _active.post_atomics(
+      _atomic_buffer,
+      _status._threads_allocator.addr,
+      _status._threads_allocator.rkey,
+      0,
+      3
+    );
+    _active.poll_wc(rdmalib::QueueType::SEND);
+    if(*_atomic_buffer.data() == 0) {
+      spdlog::debug("Allocation succesfull!");
+    }
     
     // 2. Write recv buffer data to arguments
     for(int i = 0; i < numcores; ++i) {
