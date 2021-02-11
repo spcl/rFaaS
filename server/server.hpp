@@ -59,6 +59,7 @@ namespace server {
     rdmalib::server::ServerStatus _status;
     std::array<rdmalib::Buffer<char>, QUEUE_SIZE> _queue;
     std::vector<rdmalib::Buffer<char>> _send, _rcv;
+    rdmalib::Buffer<int> _threads_allocation;
     rdmalib::functions::FunctionsDB _db;
     Executors _exec;
 

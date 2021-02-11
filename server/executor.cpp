@@ -10,6 +10,7 @@ namespace server {
   Server::Server(std::string addr, int port, int numcores):
     _state(addr, port),
     _status(addr, port),
+    _threads_allocation(numcores),
     _exec(numcores, *this)
   {
     listen();
@@ -20,7 +21,10 @@ namespace server {
       _queue[i] = std::move(rdmalib::Buffer<char>(QUEUE_MSG_SIZE));
       _queue[i].register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
     }
-  
+    // Initialize threads as currently unbusy
+    memset(_threads_allocation.data(), 0, _threads_allocation.data_size());
+    _threads_allocation.register_memory(_state.pd(), IBV_ACCESS_REMOTE_ATOMIC | IBV_ACCESS_REMOTE_WRITE |IBV_ACCESS_LOCAL_WRITE);
+    _status.add_thread_allocator(_threads_allocation);
   }
 
   void Server::allocate_send_buffers(int numcores, int size)
