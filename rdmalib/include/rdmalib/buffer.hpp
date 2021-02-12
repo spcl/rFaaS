@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <utility>
 
+#include <cereal/cereal.hpp>
+
 struct ibv_pd;
 struct ibv_mr;
 
@@ -38,6 +40,22 @@ namespace rdmalib {
     };
 
   }
+
+  struct RemoteBuffer {
+    uintptr_t addr;
+    uint32_t rkey;
+    size_t size;
+
+    RemoteBuffer();
+    // When accessing the remote buffer, we might not need to know the size.
+    RemoteBuffer(uintptr_t addr, uint32_t rkey, size_t size = 0);
+
+    template<class Archive>
+    void serialize(Archive & ar)
+    {
+      ar(CEREAL_NVP(addr), CEREAL_NVP(rkey), CEREAL_NVP(size));
+    }
+  };
 
   template<typename T>
   struct Buffer : impl::Buffer{

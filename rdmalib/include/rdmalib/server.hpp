@@ -17,18 +17,8 @@
 namespace rdmalib { namespace server {
 
   struct ServerStatus {
-    struct Buffer {
-      uintptr_t addr;
-      uint32_t rkey;
-      size_t size;
-      template<class Archive>
-      void serialize(Archive & ar)
-      {
-        ar(CEREAL_NVP(addr), CEREAL_NVP(rkey), CEREAL_NVP(size));
-      }
-    };
-    std::vector<Buffer> _buffers;
-    Buffer _threads_allocator;
+    std::vector<rdmalib::RemoteBuffer> _buffers;
+    rdmalib::RemoteBuffer _threads_allocator;
     std::string _address;
     int _port;
 
@@ -41,7 +31,7 @@ namespace rdmalib { namespace server {
       _buffers.push_back({mr.address(), mr.rkey(), mr.size()});  
     }
 
-    void add_thread_allocator(const rdmalib::Buffer<int> & mr)
+    void set_thread_allocator(const rdmalib::Buffer<int> & mr)
     {
       _threads_allocator = {mr.address(), mr.rkey(), mr.size()};
     }

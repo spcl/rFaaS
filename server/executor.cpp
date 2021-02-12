@@ -24,7 +24,7 @@ namespace server {
     // Initialize threads as currently unbusy
     memset(_threads_allocation.data(), 0, _threads_allocation.data_size());
     _threads_allocation.register_memory(_state.pd(), IBV_ACCESS_REMOTE_ATOMIC | IBV_ACCESS_REMOTE_WRITE |IBV_ACCESS_LOCAL_WRITE);
-    _status.add_thread_allocator(_threads_allocation);
+    _status.set_thread_allocator(_threads_allocation);
   }
 
   void Server::allocate_send_buffers(int numcores, int size)
@@ -57,10 +57,10 @@ namespace server {
   void Server::reload_queue(rdmalib::Connection & conn, int32_t idx)
   {
     spdlog::debug("Post receive idx: {}", idx);
-    _state.post_recv(conn, _queue[idx], idx);
+    conn.post_recv(_queue[idx], idx);
   }
 
-  std::optional<rdmalib::Connection> Server::poll_communication()
+  rdmalib::Connection* Server::poll_communication()
   {
     // TODO: timeout + number of retries option
     auto conn = _state.poll_events(
@@ -142,16 +142,17 @@ namespace server {
       spdlog::debug("Thread {} finished work! Write to remote addr {} rkey {}", id, r_addr, r_key);
       if(--std::get<1>(_invocations[invoc_id])) {
         // write result
-        _server._state.post_write(
-          *std::get<2>(_invocations[invoc_id]),
-          *dest, r_addr, r_key
+        std::get<2>(_invocations[invoc_id])->post_write(
+          *dest,
+          {r_addr, r_key}
         );
       } else {
         uint32_t func_id = *reinterpret_cast<uint32_t*>(data + 12);
         // write result and signal
-        _server._state.post_write(
-          *std::get<2>(_invocations[invoc_id]),
-          *dest, r_addr, r_key, func_id
+        std::get<2>(_invocations[invoc_id])->post_write(
+          *dest,
+          {r_addr, r_key},
+          func_id
         );
         // TODO Clean invocation status
       }

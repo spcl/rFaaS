@@ -111,3 +111,19 @@ namespace rdmalib { namespace impl {
   }
 
 }}
+
+namespace rdmalib {
+
+  RemoteBuffer::RemoteBuffer():
+    addr(0),
+    rkey(0),
+    size(0)
+  {}
+
+  RemoteBuffer::RemoteBuffer(uintptr_t addr, uint32_t rkey, size_t size):
+    addr(addr),
+    rkey(rkey),
+    size(size)
+  {}
+
+}

@@ -21,10 +21,14 @@ namespace client {
     _atomic_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE);
   }
 
-
   bool ServerConnection::connect()
   {
     return _active.connect();
+  }
+
+  rdmalib::Connection & ServerConnection::connection()
+  {
+    return _active.connection();
   }
 
   void ServerConnection::allocate_send_buffers(int count, uint32_t size)
@@ -63,14 +67,13 @@ namespace client {
 
     // 1. Allocate cores TODO more than 2 cores
     // currently allocates 0...n-1 cores
-    _active.post_atomics(
+    connection().post_cas(
       _atomic_buffer,
-      _status._threads_allocator.addr,
-      _status._threads_allocator.rkey,
+      _status._threads_allocator,
       0,
       3
     );
-    _active.poll_wc(rdmalib::QueueType::SEND);
+    connection().poll_wc(rdmalib::QueueType::SEND);
     if(*_atomic_buffer.data() == 0) {
       spdlog::debug("Allocation succesfull!");
     }
@@ -87,21 +90,21 @@ namespace client {
     // 3. Write arguments
     for(int i = 0; i < numcores; ++i) {
       auto & status = _status._buffers[i];
-      _active.post_write(_send[i], status.addr, status.rkey);
+      connection().post_write(_send[i], status);
       // TODO: remove the serialization here
-      _active.poll_wc(rdmalib::QueueType::SEND);
+      connection().poll_wc(rdmalib::QueueType::SEND);
     }
 
     // 4. Write recv for notification
-    _active.post_recv({});
+    connection().post_recv({});
 
     // 5. Send execution notification
     rdmalib::functions::Submission* ptr = ((rdmalib::functions::Submission*)_submit_buffer.data());
     ptr[0].core_begin = 0;
     ptr[0].core_end = 2;
     memcpy(ptr[0].ID, "test", strlen("test") + 1);
-    _active.post_send(_submit_buffer);
-    _active.poll_wc(rdmalib::QueueType::SEND);
+    connection().post_send(_submit_buffer);
+    connection().poll_wc(rdmalib::QueueType::SEND);
     spdlog::debug("Function execution ID {} scheduled!", id);
 
     return id;

@@ -26,22 +26,10 @@ namespace rdmalib {
     rdma_freeaddrinfo(addrinfo);
   }
 
-  ConnectionConfiguration::ConnectionConfiguration()
-  {
-    memset(&attr, 0, sizeof(attr));
-    memset(&conn_param, 0 , sizeof(conn_param));
-  }
-
-  Connection::Connection():
-    id(nullptr),
-    qp(nullptr)
-  {}
-
   RDMAActive::RDMAActive(const std::string & ip, int port):
     _addr(ip, port, false),
     _ec(nullptr),
-    _pd(nullptr),
-    _req_count(0)
+    _pd(nullptr)
   {
     // Size of Queue Pair
     // Maximum requests in send queue
@@ -65,23 +53,20 @@ namespace rdmalib {
 
   RDMAActive::~RDMAActive()
   {
-    rdma_destroy_qp(this->_conn.id);
     //ibv_dealloc_pd(this->_pd);
-    rdma_destroy_ep(this->_conn.id);
-    rdma_destroy_id(this->_conn.id);
   }
 
   void RDMAActive::allocate()
   {
-    impl::expect_zero(rdma_create_ep(&_conn.id, _addr.addrinfo, nullptr, nullptr));
-    impl::expect_zero(rdma_create_qp(_conn.id, _pd, &_cfg.attr));
-    _pd = _conn.id->pd;
-    _conn.qp = _conn.id->qp;
+    impl::expect_zero(rdma_create_ep(&_conn._id, _addr.addrinfo, nullptr, nullptr));
+    impl::expect_zero(rdma_create_qp(_conn._id, _pd, &_cfg.attr));
+    _pd = _conn._id->pd;
+    _conn._qp = _conn._id->qp;
   }
 
   bool RDMAActive::connect()
   {
-    if(rdma_connect(_conn.id, &_cfg.conn_param)) {
+    if(rdma_connect(_conn._id, &_cfg.conn_param)) {
       spdlog::error("Connection unsuccesful, reason {} {}", errno, strerror(errno));
       return false;
     } else {
@@ -90,130 +75,21 @@ namespace rdmalib {
     return true;
   }
 
-  ibv_qp* RDMAActive::qp() const
-  {
-    return this->_conn.qp;
-  }
-
   ibv_pd* RDMAActive::pd() const
   {
     return this->_pd;
   }
 
-  int32_t RDMAActive::post_send(ScatterGatherElement && elems, int32_t id)
+  Connection & RDMAActive::connection()
   {
-    struct ibv_send_wr wr, *bad;
-    wr.wr_id = id == -1 ? _req_count++ : id;
-    wr.next = nullptr;
-    wr.sg_list = elems.array();
-    wr.num_sge = elems.size();
-    wr.opcode = IBV_WR_SEND;
-    wr.send_flags = IBV_SEND_SIGNALED;
-
-    int ret = ibv_post_send(_conn.qp, &wr, &bad);
-    if(ret) {
-      spdlog::error("Post send unsuccesful, reason {} {}", errno, strerror(errno));
-      return -1;
-    }
-    spdlog::debug("Post send succesfull");
-    return _req_count - 1;
-  }
-
-  int32_t RDMAActive::post_recv(ScatterGatherElement && elem, int32_t id)
-  {
-    // FIXME: extend with multiple sges
-    struct ibv_recv_wr wr, *bad;
-    wr.wr_id = id == -1 ? _req_count++ : id;
-    wr.next = nullptr;
-    wr.sg_list = elem.array();
-    wr.num_sge = elem.size();
-
-    int ret = ibv_post_recv(_conn.qp, &wr, &bad);
-    if(ret) {
-      spdlog::error("Post receive unsuccesful, reason {} {}", errno, strerror(errno));
-      return -1;
-    }
-    return _req_count - 1;
-  }
-
-  int32_t RDMAActive::_post_write(ScatterGatherElement && elems, ibv_send_wr wr)
-  {
-    ibv_send_wr* bad;
-    wr.wr_id = _req_count++;
-    wr.next = nullptr;
-    wr.sg_list = elems.array();
-    wr.num_sge = elems.size();
-    wr.send_flags = IBV_SEND_SIGNALED;
-
-    int ret = ibv_post_send(_conn.qp, &wr, &bad);
-    if(ret) {
-      spdlog::error("Post write unsuccesful, reason {} {}", errno, strerror(errno));
-      return -1;
-    }
-    spdlog::debug("Post write succesfull, remote addr {}, remote rkey {}", wr.wr.rdma.remote_addr, wr.wr.rdma.rkey);
-    return _req_count - 1;
-
-  }
-
-  int32_t RDMAActive::post_write(ScatterGatherElement && elems, uintptr_t addr, int rkey)
-  {
-    ibv_send_wr wr;
-    memset(&wr, 0, sizeof(wr));
-    wr.opcode = IBV_WR_RDMA_WRITE;
-    wr.wr.rdma.remote_addr = addr;
-    wr.wr.rdma.rkey = rkey;
-    return _post_write(std::forward<ScatterGatherElement>(elems), wr);
-  }
-
-  int32_t RDMAActive::post_write(ScatterGatherElement && elems, uintptr_t addr, int rkey, uint32_t immediate)
-  {
-    ibv_send_wr wr;
-    memset(&wr, 0, sizeof(wr));
-    wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
-    wr.imm_data = htonl(immediate);
-    wr.wr.rdma.remote_addr = addr;
-    wr.wr.rdma.rkey = rkey;
-    return _post_write(std::forward<ScatterGatherElement>(elems), wr);
-  }
-
-  int32_t RDMAActive::post_atomics(ScatterGatherElement && elems, uintptr_t addr, int rkey, uint64_t add, uint64_t swap)
-  {
-    ibv_send_wr wr, *bad;
-    memset(&wr, 0, sizeof(wr));
-    wr.wr_id = _req_count++;
-    wr.next = nullptr;
-    wr.sg_list = elems.array();
-    wr.num_sge = elems.size();
-    wr.opcode = IBV_WR_ATOMIC_CMP_AND_SWP;
-    wr.send_flags = IBV_SEND_SIGNALED;
-    wr.wr.atomic.remote_addr = addr;
-    wr.wr.atomic.rkey = rkey;
-    wr.wr.atomic.compare_add = add;
-    wr.wr.atomic.swap = swap;
-
-    int ret = ibv_post_send(_conn.qp, &wr, &bad);
-    if(ret) {
-      spdlog::error("Post write unsuccesful, reason {} {}", errno, strerror(errno));
-      return -1;
-    }
-    spdlog::debug("Post write succesfull");
-    return _req_count - 1;
-  }
-
-  ibv_wc RDMAActive::poll_wc(QueueType type)
-  {
-    struct ibv_wc wc;
-    while(ibv_poll_cq(type == QueueType::RECV ? _conn.qp->recv_cq : _conn.qp->send_cq, 1, &wc) == 0);
-    spdlog::debug("Received WC {} Status {}", wc.wr_id, ibv_wc_status_str(wc.status));
-    return wc;
+    return this->_conn;
   }
 
   RDMAPassive::RDMAPassive(const std::string & ip, int port):
     _addr(ip, port, true),
     _ec(nullptr),
     _listen_id(nullptr),
-    _pd(nullptr),
-    _req_count(0)
+    _pd(nullptr)
   {
     // Size of Queue Pair
     _cfg.attr.cap.max_send_wr = 10;
@@ -231,10 +107,6 @@ namespace rdmalib {
 
   RDMAPassive::~RDMAPassive()
   {
-    for(auto & c : _connections) {
-      rdma_destroy_qp(c.id);
-      rdma_destroy_id(c.id);
-    }
     ibv_dealloc_pd(this->_pd);
     rdma_destroy_ep(this->_listen_id);
     rdma_destroy_id(this->_listen_id);
@@ -258,131 +130,34 @@ namespace rdmalib {
     return this->_pd;
   }
 
-  std::optional<Connection> RDMAPassive::poll_events(std::function<void(Connection&)> before_accept)
+  Connection* RDMAPassive::poll_events(std::function<void(Connection&)> before_accept)
   {
     rdma_cm_event* event;
     if(rdma_get_cm_event(this->_ec, &event)) {
       spdlog::error("Event poll unsuccesful, reason {} {}", errno, strerror(errno));
-      return {};
+      return nullptr;
     }
     if(event->event != RDMA_CM_EVENT_CONNECT_REQUEST){
       spdlog::error("Event {} is not RDMA_CM_EVENT_CONNECT_REQUEST", rdma_event_str(event->event));
-      return {};
+      return nullptr;
     }
 
     // Now receive id for the communication
     Connection connection;
-    connection.id = event->id;
+    connection._id = event->id;
     // destroys event
     rdma_ack_cm_event(event);
-    impl::expect_zero(rdma_create_qp(connection.id, _pd, &_cfg.attr));
-    connection.qp = connection.id->qp;
+    impl::expect_zero(rdma_create_qp(connection._id, _pd, &_cfg.attr));
+    connection._qp = connection._id->qp;
     if(before_accept)
       before_accept(connection);
-    if(rdma_accept(connection.id, &_cfg.conn_param)) {
+    if(rdma_accept(connection._id, &_cfg.conn_param)) {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
-      return {};
+      return nullptr;
     }
     spdlog::debug("Accepted connection"); 
 
-    _connections.push_back(connection);
-    return std::optional<Connection>{connection};
-  }
-
-  int32_t RDMAPassive::post_send(const Connection & conn, ScatterGatherElement && elems)
-  { struct ibv_send_wr wr, *bad;
-    wr.wr_id = _req_count++;
-    wr.next = nullptr;
-    wr.sg_list = elems.array();
-    wr.num_sge = elems.size();
-    wr.opcode = IBV_WR_SEND;
-    wr.send_flags = IBV_SEND_SIGNALED;
-
-    int ret = ibv_post_send(conn.qp, &wr, &bad);
-    if(ret) {
-      spdlog::error("Post send unsuccesful, reason {} {}", errno, strerror(errno));
-      return -1;
-    }
-    spdlog::debug("Post send succesfull");
-    return _req_count - 1;
-  }
-
-  int32_t RDMAPassive::post_recv(const Connection & conn, ScatterGatherElement && elems, int32_t id)
-  {
-    struct ibv_recv_wr wr, *bad;
-    wr.wr_id = id == -1 ? _req_count++ : id;
-    wr.next = nullptr;
-    wr.sg_list = elems.array();
-    wr.num_sge = elems.size();
-
-    int ret = ibv_post_recv(conn.qp, &wr, &bad);
-    if(ret) {
-      spdlog::error("Post receive unsuccesful, reason {} {}", errno, strerror(errno));
-      return -1;
-    }
-    spdlog::debug("Posted receive succesfull");
-    return _req_count - 1;
-  }
-
-  int32_t RDMAPassive::_post_write(const Connection & conn, ScatterGatherElement && elems, ibv_send_wr wr)
-  {
-    ibv_send_wr* bad;
-    wr.wr_id = _req_count++;
-    wr.next = nullptr;
-    wr.sg_list = elems.array();
-    wr.num_sge = elems.size();
-    wr.send_flags = IBV_SEND_SIGNALED;
-
-    int ret = ibv_post_send(conn.qp, &wr, &bad);
-    if(ret) {
-      spdlog::error("Post write unsuccesful, reason {} {}", errno, strerror(errno));
-      return -1;
-    }
-    spdlog::debug("Post write succesfull, remote addr {}, remote rkey {}", wr.wr.rdma.remote_addr, wr.wr.rdma.rkey);
-    return _req_count - 1;
-
-  }
-
-  int32_t RDMAPassive::post_write(const Connection & conn, ScatterGatherElement && elems, uintptr_t addr, int rkey)
-  {
-    ibv_send_wr wr;
-    memset(&wr, 0, sizeof(wr));
-    wr.opcode = IBV_WR_RDMA_WRITE;
-    wr.wr.rdma.remote_addr = addr;
-    wr.wr.rdma.rkey = rkey;
-    return _post_write(conn, std::forward<ScatterGatherElement>(elems), wr);
-  }
-
-  int32_t RDMAPassive::post_write(const Connection & conn, ScatterGatherElement && elems, uintptr_t addr, int rkey, uint32_t immediate)
-  {
-    ibv_send_wr wr;
-    memset(&wr, 0, sizeof(wr));
-    wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
-    wr.imm_data = htonl(immediate);
-    wr.wr.rdma.remote_addr = addr;
-    wr.wr.rdma.rkey = rkey;
-    return _post_write(conn, std::forward<ScatterGatherElement>(elems), wr);
-  }
-
-  ibv_wc RDMAPassive::poll_wc(const Connection & conn, QueueType type)
-  {
-    struct ibv_wc wc;
-    while(ibv_poll_cq(type == QueueType::RECV ? conn.qp->recv_cq : conn.qp->send_cq, 1, &wc) == 0);
-    spdlog::debug("Send WC {} Status {}", wc.wr_id, ibv_wc_status_str(wc.status));
-    return wc;
-  }
-
-  ScatterGatherElement::ScatterGatherElement()
-  {
-  }
-
-  ibv_sge * ScatterGatherElement::array()
-  {
-    return _sges.data();
-  }
-
-  size_t ScatterGatherElement::size()
-  {
-    return _sges.size();
+    _connections.push_back(std::move(connection));
+    return &_connections.back();
   }
 }

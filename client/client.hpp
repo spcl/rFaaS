@@ -21,6 +21,7 @@ namespace client {
 
     ServerConnection(const rdmalib::server::ServerStatus &);
 
+    rdmalib::Connection & connection();
     bool connect();
     void allocate_send_buffers(int count, uint32_t size);
     void allocate_receive_buffers(int count, uint32_t size);

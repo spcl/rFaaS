@@ -69,7 +69,7 @@ namespace server {
     void allocate_rcv_buffers(int numcores, int size);
     void reload_queue(rdmalib::Connection & conn, int32_t idx);
     void listen();
-    std::optional<rdmalib::Connection> poll_communication();
+    rdmalib::Connection* poll_communication();
     const rdmalib::server::ServerStatus & status() const;
   };
 

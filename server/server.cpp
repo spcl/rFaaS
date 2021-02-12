@@ -43,7 +43,7 @@ int main(int argc, char ** argv)
   while(1) {
     //auto wc = server._state.poll_wc(*conn, rdmalib::QueueType::RECV);
     struct ibv_wc wc;
-    int ret = ibv_poll_cq(conn->qp->recv_cq, 1, &wc);
+    int ret = ibv_poll_cq(conn->qp()->recv_cq, 1, &wc);
     if(ret != 0) {
       if(wc.status) {
         spdlog::warn("Failed work completion! Reason: {}", ibv_wc_status_str(wc.status));
@@ -71,14 +71,12 @@ int main(int argc, char ** argv)
           &server._send[i],
           cur_invoc
         ));
-    //  buffer = ntohl(wc.imm_data);
-    //  exec.enable(0, server.db.functions["test"], &buffer);
-    //  exec.enable(1, server.db.functions["test"], &buffer);
-    //  exec.wakeup();
       server._exec.wakeup();
+      break;
     }
   }
- 
+  spdlog::info("ending");
+  std::this_thread::sleep_for(std::chrono::seconds(1)); 
 
   return 0;
 }
