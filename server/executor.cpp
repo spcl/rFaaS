@@ -1,4 +1,6 @@
 
+#include <csignal>
+#include <signal.h>
 #include <spdlog/spdlog.h>
 
 #include "rdmalib/rdmalib.hpp"
@@ -6,6 +8,23 @@
 #include "server.hpp"
 
 namespace server {
+
+  bool SignalHandler::closing = false;
+
+  SignalHandler::SignalHandler()
+  {
+    struct sigaction sigIntHandler;
+    sigIntHandler.sa_handler = &SignalHandler::handler;
+    sigemptyset(&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
+    sigaction(SIGINT, &sigIntHandler, nullptr);
+
+  }
+
+  void SignalHandler::handler(int)
+  {
+    SignalHandler::closing = true;
+  }
 
   Server::Server(std::string addr, int port, int numcores):
     _state(addr, port),
@@ -73,8 +92,8 @@ namespace server {
   }
 
   Executors::Executors(int numcores, Server & server):
-    lk(m),
     _last_invocation(0),
+    _closing(false),
     _server(server)
   {
     _invocations = new invoc_status_t[numcores];
@@ -87,6 +106,17 @@ namespace server {
       std::get<2>(_invocations[i]) = nullptr;
     }
 
+  }
+
+  Executors::~Executors()
+  {
+    spdlog::info("Executor is closing threads...");
+    _closing = true;
+    // wake threads, letting them exit
+    wakeup();
+    // make sure we join before destructing
+    for(auto & thread : _threads)
+      thread.join();
   }
 
   int Executors::get_invocation_id()
@@ -118,14 +148,24 @@ namespace server {
 
   void Executors::thread_func(int id)
   {
+    std::unique_lock<std::mutex> lk(m);
     rdmalib::functions::FuncType ptr = nullptr;
     spdlog::debug("Thread {} created!", id);
-    while(1) {
+    while(!_closing) {
 
-      while(!ptr) {
-        _cv.wait(lk);
-        ptr = std::get<0>(_status[id]);
+      spdlog::debug("Thread {} goes to sleep! {}", id, _closing);
+      if(!lk.owns_lock())
+        lk.lock();
+      _cv.wait(lk, [this, id](){ return std::get<0>(_status[id]) || _closing; });
+      lk.unlock();
+      spdlog::debug("Thread {} wakes up! {}", id, _closing);
+
+      if(_closing) {
+        spdlog::debug("Thread {} exits!", id);
+        return;
       }
+
+      ptr = std::get<0>(_status[id]);
       rdmalib::Buffer<char>* args = std::get<1>(_status[id]);
       rdmalib::Buffer<char>* dest = std::get<2>(_status[id]);
       uint32_t invoc_id = std::get<3>(_status[id]);
@@ -162,7 +202,8 @@ namespace server {
 
       this->disable(id);
       ptr = nullptr;
+      spdlog::debug("Thread {} loops again!", id);
     } 
-
+    spdlog::debug("Thread {} exits!", id);
   }
 }

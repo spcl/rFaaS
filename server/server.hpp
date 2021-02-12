@@ -16,6 +16,14 @@ namespace server {
   cxxopts::ParseResult opts(int argc, char ** argv);
   struct Server;
 
+  struct SignalHandler {
+    static bool closing;
+
+    SignalHandler();
+
+    static void handler(int);
+  };
+
   struct Executors {
 
     typedef std::tuple<
@@ -30,15 +38,16 @@ namespace server {
       rdmalib::Connection*
     > invoc_status_t;
     std::mutex m;
-    std::unique_lock<std::mutex> lk;
     std::vector<thread_status_t> _status; 
     invoc_status_t* _invocations;
     int _last_invocation;
     std::vector<std::thread> _threads;
     std::condition_variable _cv;
+    bool _closing;
     Server & _server;
 
     Executors(int numcores, Server &);
+    ~Executors();
 
     // thread-safe for different ids
     void enable(int thread_id, thread_status_t && status);

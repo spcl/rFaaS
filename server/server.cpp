@@ -3,6 +3,7 @@
 #include <thread>
 #include <climits>
 
+#include <signal.h>
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
 
@@ -10,13 +11,16 @@
 #include <rdmalib/server.hpp>
 #include "server.hpp"
 
+
 int main(int argc, char ** argv)
 {
+  server::SignalHandler sighandler;
   auto opts = server::opts(argc, argv);
   if(opts["verbose"].as<bool>())
     spdlog::set_level(spdlog::level::debug);
   else
     spdlog::set_level(spdlog::level::info);
+
   spdlog::info("Executing serverless-rdma server!");
 
   // Start RDMA connection
@@ -40,7 +44,7 @@ int main(int argc, char ** argv)
   // TODO: Display client's address
   spdlog::info("Connected a client!");
 
-  while(1) {
+  while(!server::SignalHandler::closing) {
     //auto wc = server._state.poll_wc(*conn, rdmalib::QueueType::RECV);
     struct ibv_wc wc;
     int ret = ibv_poll_cq(conn->qp()->recv_cq, 1, &wc);
@@ -72,10 +76,9 @@ int main(int argc, char ** argv)
           cur_invoc
         ));
       server._exec.wakeup();
-      break;
     }
   }
-  spdlog::info("ending");
+  spdlog::info("Server is closing down");
   std::this_thread::sleep_for(std::chrono::seconds(1)); 
 
   return 0;
