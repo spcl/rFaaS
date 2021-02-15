@@ -24,36 +24,41 @@ namespace server {
     static void handler(int);
   };
 
+  struct ThreadStatus {
+    rdmalib::functions::FuncType func;
+    rdmalib::Buffer<char>* in, * out;
+    uint32_t invoc_id;
+  };
+
+  struct InvocationStatus {
+    rdmalib::Connection* connection;
+    std::atomic<int> active_threads;
+  };
+
   struct Executors {
 
-    typedef std::tuple<
-      rdmalib::functions::FuncType,
-      rdmalib::Buffer<char>*,
-      rdmalib::Buffer<char>*,
-      uint32_t
-    > thread_status_t;
-    typedef std::tuple<
-      uint32_t,
-      std::atomic<int>,
-      rdmalib::Connection*
-    > invoc_status_t;
+    // Workers
     std::mutex m;
-    std::vector<thread_status_t> _status; 
-    invoc_status_t* _invocations;
-    int _last_invocation;
     std::vector<std::thread> _threads;
     std::condition_variable _cv;
+    std::vector<ThreadStatus> _threads_status; 
     bool _closing;
+    int _numcores;
+
+    // Invocations
+    InvocationStatus* _invocations_status; 
+    uint32_t _last_invocation;
     Server & _server;
 
     Executors(int numcores, Server &);
     ~Executors();
 
     // thread-safe for different ids
-    void enable(int thread_id, thread_status_t && status);
+    void enable(int thread_id, ThreadStatus && status);
     void disable(int thread_id);
     void wakeup();
-    int get_invocation_id();
+    uint32_t get_invocation_id();
+    InvocationStatus & invocation_status(int idx);
 
     void thread_func(int id);
   };

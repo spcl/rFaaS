@@ -92,18 +92,18 @@ namespace server {
   }
 
   Executors::Executors(int numcores, Server & server):
-    _last_invocation(0),
     _closing(false),
+    _numcores(numcores),
+    _last_invocation(0),
     _server(server)
   {
-    _invocations = new invoc_status_t[numcores];
+    _invocations_status = new InvocationStatus[numcores];
     for(int i = 0; i < numcores; ++i) {
       _threads.emplace_back(&Executors::thread_func, this, i);
-      _status.emplace_back(nullptr, nullptr, nullptr, 0);
+      _threads_status.push_back({nullptr, nullptr, nullptr, 0});
 
-      std::get<0>(_invocations[i]) = 0;
-      std::get<1>(_invocations[i]) = 0;
-      std::get<2>(_invocations[i]) = nullptr;
+      _invocations_status[i].connection = nullptr;
+      _invocations_status[i].active_threads = 0;
     }
 
   }
@@ -114,36 +114,42 @@ namespace server {
     _closing = true;
     // wake threads, letting them exit
     wakeup();
+    // TODO: this could be unsafe - wait for all invocations to finish?
+    delete[] _invocations_status;
     // make sure we join before destructing
     for(auto & thread : _threads)
       thread.join();
   }
 
-  int Executors::get_invocation_id()
+  uint32_t Executors::get_invocation_id()
   {
-    // TODO: store numcores
-    if(_last_invocation == _status.size()) {
+    if(_last_invocation == _numcores) {
       _last_invocation = 0;
       // find next empty
-      while(std::get<0>(_invocations[_last_invocation++]));
+      while(_invocations_status[_last_invocation++].connection);
       _last_invocation--;
     }
     return _last_invocation;
   }
 
-  void Executors::enable(int thread_id, thread_status_t && status)
+  void Executors::enable(int thread_id, ThreadStatus && status)
   {
-    _status[thread_id] = status;
+    this->_threads_status[thread_id] = status;
   }
 
   void Executors::disable(int thread_id)
   {
-    _status[thread_id] = std::make_tuple(nullptr, nullptr, nullptr, 0);
+    this->_threads_status[thread_id] = {nullptr, nullptr, nullptr, 0};
   }
 
   void Executors::wakeup()
   {
     _cv.notify_all();
+  }
+
+  InvocationStatus & Executors::invocation_status(int idx)
+  {
+    return this->_invocations_status[idx];
   }
 
   void Executors::thread_func(int id)
@@ -156,7 +162,7 @@ namespace server {
       spdlog::debug("Thread {} goes to sleep! {}", id, _closing);
       if(!lk.owns_lock())
         lk.lock();
-      _cv.wait(lk, [this, id](){ return std::get<0>(_status[id]) || _closing; });
+      _cv.wait(lk, [this, id](){ return _threads_status[id].func || _closing; });
       lk.unlock();
       spdlog::debug("Thread {} wakes up! {}", id, _closing);
 
@@ -165,43 +171,43 @@ namespace server {
         return;
       }
 
-      ptr = std::get<0>(_status[id]);
-      rdmalib::Buffer<char>* args = std::get<1>(_status[id]);
-      rdmalib::Buffer<char>* dest = std::get<2>(_status[id]);
-      uint32_t invoc_id = std::get<3>(_status[id]);
+      ptr = _threads_status[id].func;
+      uint32_t invoc_id = _threads_status[id].invoc_id;
       //rdmalib::Connection* conn = std::get<3>(_status[id]);
 
       spdlog::debug("Thread {} begins work! Executing function", id);
-      (*ptr)(args->data(), dest->ptr());
+      // Data to ignore header passed in the buffer
+      (*ptr)(_threads_status[id].in->data(), _threads_status[id].out->ptr());
       spdlog::debug("Thread {} finished work!", id);
 
-      // decrease count
-      char* data = static_cast<char*>(args->ptr());
+      char* data = static_cast<char*>(_threads_status[id].in->ptr());
       uint64_t r_addr = *reinterpret_cast<uint64_t*>(data);
       uint32_t r_key = *reinterpret_cast<uint32_t*>(data + 8);
       spdlog::debug("Thread {} finished work! Write to remote addr {} rkey {}", id, r_addr, r_key);
-      if(--std::get<1>(_invocations[invoc_id])) {
+      // decrease number of active instances
+      if(--_invocations_status[invoc_id].active_threads) {
         // write result
-        std::get<2>(_invocations[invoc_id])->post_write(
-          *dest,
+        _invocations_status[invoc_id].connection->post_write(
+          *_threads_status[id].out,
           {r_addr, r_key}
         );
       } else {
         uint32_t func_id = *reinterpret_cast<uint32_t*>(data + 12);
         // write result and signal
-        std::get<2>(_invocations[invoc_id])->post_write(
-          *dest,
+        _invocations_status[invoc_id].connection->post_write(
+          *_threads_status[id].out,
           {r_addr, r_key},
           func_id
         );
         // TODO Clean invocation status
       }
+
       // clean status of thread
       // TODO: atomic status
-      _status[id] = std::make_tuple(nullptr, nullptr, nullptr, 0);
-
+      _threads_status[id] = {nullptr, nullptr, nullptr, 0};
       this->disable(id);
       ptr = nullptr;
+
       spdlog::debug("Thread {} loops again!", id);
     } 
     spdlog::debug("Thread {} exits!", id);
