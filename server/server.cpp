@@ -9,6 +9,7 @@
 
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/server.hpp>
+#include "rdmalib/connection.hpp"
 #include "server.hpp"
 
 
@@ -45,18 +46,17 @@ int main(int argc, char ** argv)
   spdlog::info("Connected a client!");
 
   while(!server::SignalHandler::closing) {
-    //auto wc = server._state.poll_wc(*conn, rdmalib::QueueType::RECV);
-    struct ibv_wc wc;
-    int ret = ibv_poll_cq(conn->qp()->recv_cq, 1, &wc);
-    if(ret != 0) {
-      if(wc.status) {
-        spdlog::warn("Failed work completion! Reason: {}", ibv_wc_status_str(wc.status));
+    // if we block, we never handle the interruption
+    std::optional<ibv_wc> wc = conn->poll_wc(rdmalib::QueueType::RECV, false);
+    if(wc) {
+      if(wc->status) {
+        spdlog::warn("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
         continue;
       }
       // TODO: add sanity check - cores numbers make sense
-      server.reload_queue(*conn, wc.wr_id);
+      server.reload_queue(*conn, wc->wr_id);
       rdmalib::functions::Submission * ptr = reinterpret_cast<rdmalib::functions::Submission*>(
-          server._queue[wc.wr_id].data()
+          server._queue[wc->wr_id].data()
       );
       for(int i = ptr->core_begin; i < ptr->core_end; ++i)
         if(!(*server._threads_allocation.data() & (1 << i)))

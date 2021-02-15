@@ -40,7 +40,7 @@ int main(int argc, char ** argv)
   //client._active.poll_wc(rdmalib::QueueType::SEND);
   client.submit(2, "test");
   auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
-  spdlog::info("Finished execution with ID {}", ntohl(wc.imm_data)); 
+  spdlog::info("Finished execution with ID {}", ntohl(wc->imm_data)); 
   //client._active.poll_wc(rdmalib::QueueType::SEND);
   //std::this_thread::sleep_for(std::chrono::seconds(1));
   // results should be here

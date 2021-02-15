@@ -1,7 +1,9 @@
 
+#include <chrono>
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/connection.hpp>
+#include <thread>
 
 namespace rdmalib {
 
@@ -163,12 +165,21 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  ibv_wc Connection::poll_wc(QueueType type)
+  std::optional<ibv_wc> Connection::poll_wc(QueueType type, bool blocking)
   {
-    struct ibv_wc wc;
-    while(ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, 1, &wc) == 0);
-    spdlog::debug("Received WC {} Status {}", wc.wr_id, ibv_wc_status_str(wc.status));
-    return wc;
+    constexpr int entries = 1;
+    ibv_wc wc;
+    int ret = 0;
+    if(blocking) {
+      do {
+        ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, entries, &wc);
+      } while(ret == 0);
+    }
+    else
+      ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, entries, &wc);
+    if(ret)
+      spdlog::debug("Received WC {} Status {}", wc.wr_id, ibv_wc_status_str(wc.status));
+    return ret == 0 ? std::optional<ibv_wc>{} : wc;
   }
 
 }
