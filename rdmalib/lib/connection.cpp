@@ -178,7 +178,7 @@ namespace rdmalib {
     else
       ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, entries, &wc);
     if(ret)
-      spdlog::debug("Received WC {} Status {}", wc.wr_id, ibv_wc_status_str(wc.status));
+      spdlog::debug("Queue {} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", wc.wr_id, ibv_wc_status_str(wc.status));
     return ret == 0 ? std::optional<ibv_wc>{} : wc;
   }
 

@@ -12,6 +12,11 @@ namespace client {
 
   cxxopts::ParseResult options(int argc, char ** argv);
 
+  struct InvocationResult {
+    int buf_idx;
+    int execution_id;
+  };
+
   struct ServerConnection {
     std::vector<rdmalib::Buffer<char>> _send, _rcv;
     rdmalib::Buffer<char> _submit_buffer;
@@ -29,6 +34,7 @@ namespace client {
     rdmalib::Buffer<char> & recv_buffer(int idx);
 
     int submit(int numcores, std::string fname);
+    int submit_fast(int numcores, std::string fname);
     void poll_completion(int);
   };
 

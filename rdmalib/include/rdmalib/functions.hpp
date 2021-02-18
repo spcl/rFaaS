@@ -14,7 +14,7 @@ namespace rdmalib { namespace functions {
 
   struct FunctionsDB {
 
-    std::unordered_map<std::string, FuncType> functions;
+    std::unordered_map<int32_t, FuncType> functions;
     static void test_function(void* args, void*);
 
     FunctionsDB();

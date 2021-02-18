@@ -38,7 +38,9 @@ int main(int argc, char ** argv)
   //client._submit_buffer.data()[0] = 100;
   //client._active.post_send(client._submit_buffer);
   //client._active.poll_wc(rdmalib::QueueType::SEND);
-  client.submit(2, "test");
+  client.submit_fast(1, "test");
+
+  // TODO: reenable
   auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
   spdlog::info("Finished execution with ID {}", ntohl(wc->imm_data)); 
   //client._active.poll_wc(rdmalib::QueueType::SEND);

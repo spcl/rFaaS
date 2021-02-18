@@ -49,60 +49,78 @@ int main(int argc, char ** argv)
     // if we block, we never handle the interruption
     std::optional<ibv_wc> wc = conn->poll_wc(rdmalib::QueueType::RECV, false);
     bool correct_allocation = true;
+    int cores_mask = 0x3F;
     if(wc) {
 
       if(wc->status) {
         spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
         continue;
       }
-      int req_id = wc->wr_id;
-
-      // Insert new rcv reequest
-      server.reload_queue(*conn, req_id);
-      rdmalib::functions::Submission * ptr = reinterpret_cast<rdmalib::functions::Submission*>(
-          server._queue[wc->wr_id].data()
-      );
-
-      // Verify that core allocation makes sense
-      if(ptr->core_begin >= ptr->core_end || ptr->core_begin < 0 || ptr->core_end > numcores) {
-        spdlog::error("Incorrect core allocation from {} to {}!", ptr->core_begin, ptr->core_end);
-        correct_allocation = false;
-      }
-      for(int i = ptr->core_begin; i < ptr->core_end; ++i)
-        if(!(*server._threads_allocation.data() & (1 << i))) {
-          spdlog::error(
-              "Requested allocating core {}, but current allocator is {}!",
-              i,
-              *server._threads_allocation.data()
-          );
-          correct_allocation = false;
+      int info = ntohl(wc->imm_data);
+      int func_id = info >> 6;
+      int core = info & cores_mask;
+      //int req_id = wc->wr_id;
+      spdlog::debug("Execute func {} at core {} ptr {}", func_id, core, server._db.functions[func_id]);
+      uint32_t cur_invoc = server._exec.get_invocation_id();
+      server::InvocationStatus & invoc = server._exec.invocation_status(cur_invoc);
+      invoc.connection = &*conn;
+      server._exec.enable(core,
+        {
+          server._db.functions[func_id],
+          &server._rcv[core],
+          &server._send[core],
+          cur_invoc
         }
+      );
+      server._exec.wakeup();
+
+      // Reenable: code for cheap invocation
+      // Insert new rcv reequest
+      //server.reload_queue(*conn, req_id);
+      //rdmalib::functions::Submission * ptr = reinterpret_cast<rdmalib::functions::Submission*>(
+      //    server._queue[wc->wr_id].data()
+      //);
+
+      //// Verify that core allocation makes sense
+      //if(ptr->core_begin >= ptr->core_end || ptr->core_begin < 0 || ptr->core_end > numcores) {
+      //  spdlog::error("Incorrect core allocation from {} to {}!", ptr->core_begin, ptr->core_end);
+      //  correct_allocation = false;
+      //}
+      //for(int i = ptr->core_begin; i < ptr->core_end; ++i)
+      //  if(!(*server._threads_allocation.data() & (1 << i))) {
+      //    spdlog::error(
+      //        "Requested allocating core {}, but current allocator is {}!",
+      //        i,
+      //        *server._threads_allocation.data()
+      //    );
+      //    correct_allocation = false;
+      //  }
 
 
-      if(correct_allocation) {
-        uint32_t cur_invoc = server._exec.get_invocation_id();
-        server::InvocationStatus & invoc = server._exec.invocation_status(cur_invoc);
-        invoc.active_threads.store(ptr->core_end - ptr->core_begin);
-        invoc.connection = &*conn;
-        spdlog::info(
-            "Accepted invocation of function of id {}, internal invocation idx {}",
-            ptr->ID,
-            cur_invoc
-        );
+      //if(correct_allocation) {
+      //  uint32_t cur_invoc = server._exec.get_invocation_id();
+      //  server::InvocationStatus & invoc = server._exec.invocation_status(cur_invoc);
+      //  invoc.active_threads.store(ptr->core_end - ptr->core_begin);
+      //  invoc.connection = &*conn;
+      //  spdlog::info(
+      //      "Accepted invocation of function of id {}, internal invocation idx {}",
+      //      ptr->ID,
+      //      cur_invoc
+      //  );
 
-        for(int i = ptr->core_begin; i != ptr->core_end; ++i)
-          server._exec.enable(i,
-            {
-              server._db.functions[ptr->ID],
-              &server._rcv[i],
-              &server._send[i],
-              cur_invoc
-            }
-          );
-        server._exec.wakeup();
-      } else {
-        // TODO: send a reply that something went wrong
-      }
+      //  for(int i = ptr->core_begin; i != ptr->core_end; ++i)
+      //    server._exec.enable(i,
+      //      {
+      //        server._db.functions[ptr->ID],
+      //        &server._rcv[i],
+      //        &server._send[i],
+      //        cur_invoc
+      //      }
+      //    );
+      //  server._exec.wakeup();
+      //} else {
+      //  // TODO: send a reply that something went wrong
+      //}
     }
   }
   spdlog::info("Server is closing down");

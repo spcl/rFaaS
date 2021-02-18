@@ -65,7 +65,8 @@ namespace client {
 
     int id = 0;
 
-    // 1. Allocate cores TODO more than 2 cores
+    // 1. Allocate cores
+    // TODO more than 2 cores
     // currently allocates 0...n-1 cores
     connection().post_cas(
       _atomic_buffer,
@@ -91,8 +92,6 @@ namespace client {
     for(int i = 0; i < numcores; ++i) {
       auto & status = _status._buffers[i];
       connection().post_write(_send[i], status);
-      // TODO: remove the serialization here
-      connection().poll_wc(rdmalib::QueueType::SEND);
     }
 
     // 4. Write recv for notification
@@ -104,6 +103,37 @@ namespace client {
     ptr[0].core_end = 2;
     memcpy(ptr[0].ID, "test", strlen("test") + 1);
     connection().post_send(_submit_buffer);
+    connection().poll_wc(rdmalib::QueueType::SEND);
+    spdlog::debug("Function execution ID {} scheduled!", id);
+
+    return id;
+  }
+
+  int ServerConnection::submit_fast(int numcores, std::string fname)
+  {
+    // TODO: check if buffers are available
+
+    int id = 0;
+    int func_id = 1234;
+
+    for(int i = 0; i < numcores; ++i) {
+      char* data = static_cast<char*>(_send[i].ptr());
+      // TODO: we assume here uintptr_t is 8 bytes
+      *reinterpret_cast<uint64_t*>(data) = _rcv[i].address();
+      *reinterpret_cast<uint32_t*>(data + 8) = _rcv[i].rkey();
+      *reinterpret_cast<uint32_t*>(data + 12) = id;
+    }
+
+    // 4. Write recv for notification
+    connection().post_recv({});
+
+    // 3. Write arguments
+    for(int i = 0; i < numcores; ++i) {
+      auto & status = _status._buffers[i];
+      connection().post_write(_send[i], status, (func_id << 6) | i);
+    }
+
+
     connection().poll_wc(rdmalib::QueueType::SEND);
     spdlog::debug("Function execution ID {} scheduled!", id);
 

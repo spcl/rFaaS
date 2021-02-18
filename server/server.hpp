@@ -61,6 +61,7 @@ namespace server {
     InvocationStatus & invocation_status(int idx);
 
     void thread_func(int id);
+    void fast_thread_func(int id);
   };
 
 
