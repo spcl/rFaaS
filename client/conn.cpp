@@ -75,7 +75,7 @@ namespace client {
     );
     connection().poll_wc(rdmalib::QueueType::SEND);
     if(*_atomic_buffer.data() == 0) {
-      spdlog::debug("Allocation succesfull!");
+      SPDLOG_DEBUG("Allocation succesfull!");
     }
     
     // 2. Write recv buffer data to arguments
@@ -105,7 +105,7 @@ namespace client {
     memcpy(ptr[0].ID, "test", strlen("test") + 1);
     connection().post_send(_submit_buffer);
     connection().poll_wc(rdmalib::QueueType::SEND);
-    spdlog::debug("Function execution ID {} scheduled!", id);
+    SPDLOG_DEBUG("Function execution ID {} scheduled!", id);
 
     return id;
   }

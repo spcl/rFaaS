@@ -12,9 +12,9 @@ int main(int argc, char ** argv)
 {
   auto opts = client::options(argc, argv);
   if(opts["verbose"].as<bool>())
-    spdlog::set_level(spdlog::level::debug);
-  else
     spdlog::set_level(spdlog::level::info);
+  else
+    spdlog::set_level(spdlog::level::warn);
   spdlog::info("Executing serverless-rdma client!");
 
   std::ifstream in(opts["file"].as<std::string>());

@@ -66,7 +66,7 @@ namespace rdmalib { namespace impl {
   {
     _mr = ibv_reg_mr(pd, _ptr, _bytes, access);
     impl::expect_nonnull(_mr);
-    spdlog::debug(
+    SPDLOG_DEBUG(
       "Allocated {} bytes, address {}, lkey {}, rkey {}",
       _bytes, fmt::ptr(_mr->addr), _mr->lkey, _mr->rkey
     );

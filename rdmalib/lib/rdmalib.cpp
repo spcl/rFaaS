@@ -70,7 +70,7 @@ namespace rdmalib {
       spdlog::error("Connection unsuccesful, reason {} {}", errno, strerror(errno));
       return false;
     } else {
-      spdlog::debug("Connection succesful to {}:{}", _addr._port, _addr._port);
+      SPDLOG_DEBUG("Connection succesful to {}:{}", _addr._port, _addr._port);
     }
     return true;
   }
@@ -155,7 +155,7 @@ namespace rdmalib {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
       return nullptr;
     }
-    spdlog::debug("Accepted connection"); 
+    SPDLOG_DEBUG("Accepted connection"); 
 
     _connections.push_back(std::move(connection));
     return &_connections.back();
