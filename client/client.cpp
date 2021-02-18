@@ -38,11 +38,14 @@ int main(int argc, char ** argv)
   //client._submit_buffer.data()[0] = 100;
   //client._active.post_send(client._submit_buffer);
   //client._active.poll_wc(rdmalib::QueueType::SEND);
-  client.submit_fast(1, "test");
-
-  // TODO: reenable
-  auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
-  spdlog::info("Finished execution with ID {}", ntohl(wc->imm_data)); 
+  //
+  int repetitions = opts["repetitions"].as<int>();
+  for(int i = 0; i < repetitions; ++i) {
+    client.submit_fast(1, "test");
+    auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
+    spdlog::info("Finished execution with ID {}", ntohl(wc->imm_data)); 
+    //spdlog::flush_on(spdlog::level::info);
+  }
   //client._active.poll_wc(rdmalib::QueueType::SEND);
   //std::this_thread::sleep_for(std::chrono::seconds(1));
   // results should be here

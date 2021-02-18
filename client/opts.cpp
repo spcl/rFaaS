@@ -11,6 +11,7 @@ namespace client {
     options.add_options()
       ("d,debug", "Enable debugging", cxxopts::value<bool>()->default_value("false"))
       ("i,invocations", "Invocations", cxxopts::value<int>())
+      ("r,repetitions", "Repetitions", cxxopts::value<int>())
       ("n,name", "Function name", cxxopts::value<std::string>())
       ("f,file", "Server status", cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))

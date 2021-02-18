@@ -45,11 +45,11 @@ int main(int argc, char ** argv)
   // TODO: Display client's address
   spdlog::info("Connected a client!");
 
+  constexpr int cores_mask = 0x3F;
   while(!server::SignalHandler::closing) {
     // if we block, we never handle the interruption
     std::optional<ibv_wc> wc = conn->poll_wc(rdmalib::QueueType::RECV, false);
     bool correct_allocation = true;
-    int cores_mask = 0x3F;
     if(wc) {
 
       if(wc->status) {
@@ -59,7 +59,6 @@ int main(int argc, char ** argv)
       int info = ntohl(wc->imm_data);
       int func_id = info >> 6;
       int core = info & cores_mask;
-      //int req_id = wc->wr_id;
       spdlog::debug("Execute func {} at core {} ptr {}", func_id, core, server._db.functions[func_id]);
       uint32_t cur_invoc = server._exec.get_invocation_id();
       server::InvocationStatus & invoc = server._exec.invocation_status(cur_invoc);
@@ -73,6 +72,8 @@ int main(int argc, char ** argv)
         }
       );
       server._exec.wakeup();
+      int req_id = wc->wr_id;
+      server.reload_queue(*conn, req_id);
 
       // Reenable: code for cheap invocation
       // Insert new rcv reequest
