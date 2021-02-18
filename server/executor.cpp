@@ -156,47 +156,48 @@ namespace server {
   {
     std::unique_lock<std::mutex> lk(m);
     rdmalib::functions::FuncType ptr = nullptr;
-    spdlog::debug("Thread {} created!", id);
+    SPDLOG_DEBUG("Thread {} created!", id);
     while(!_closing) {
 
-      spdlog::debug("Thread {} goes to sleep! {}", id, _closing);
+      SPDLOG_DEBUG("Thread {} goes to sleep! Closing {} ID {}", id, _closing, _threads_status[id].func);
       if(!lk.owns_lock())
         lk.lock();
       _cv.wait(lk, [this, id](){ return _threads_status[id].func || _closing; });
       lk.unlock();
-      spdlog::debug("Thread {} wakes up! {}", id, _closing);
+      SPDLOG_DEBUG("Thread {} wakes up! {}", id, _closing);
 
       if(_closing) {
-        spdlog::debug("Thread {} exits!", id);
+        SPDLOG_DEBUG("Thread {} exits!", id);
         return;
       }
 
       ptr = _threads_status[id].func;
       uint32_t invoc_id = _threads_status[id].invoc_id;
+      char* data = static_cast<char*>(_threads_status[id].in->ptr());
+      uint32_t thread_id = *reinterpret_cast<uint32_t*>(data + 12);
 
-      spdlog::debug("Thread {} begins work! Executing function", id);
+      SPDLOG_DEBUG("Thread {} begins work! Executing function {}", id, thread_id);
       // Data to ignore header passed in the buffer
       (*ptr)(_threads_status[id].in->data(), _threads_status[id].out->ptr());
-      spdlog::debug("Thread {} finished work!", id);
+      SPDLOG_DEBUG("Thread {} finished work!", id);
 
+      auto * conn = _threads_status[id].out;
+      this->disable(id);
       //rdmalib::Connection* conn = std::get<3>(_status[id]);
-      char* data = static_cast<char*>(_threads_status[id].in->ptr());
       uint64_t r_addr = *reinterpret_cast<uint64_t*>(data);
       uint32_t r_key = *reinterpret_cast<uint32_t*>(data + 8);
-      uint32_t thread_id = *reinterpret_cast<uint32_t*>(data + 12);
       _invocations_status[invoc_id].connection->post_write(
-        *_threads_status[id].out,
+        *conn,
         {r_addr, r_key},
         thread_id
       );
 
-      _threads_status[id] = {nullptr, nullptr, nullptr, 0};
-      this->disable(id);
+      //_threads_status[id] = {nullptr, nullptr, nullptr, 0};
       ptr = nullptr;
 
-      spdlog::debug("Thread {} loops again!", id);
+      SPDLOG_DEBUG("Thread {} loops again!", id);
     } 
-    spdlog::debug("Thread {} exits!", id);
+    SPDLOG_DEBUG("Thread {} exits!", id);
   }
 
   void Executors::thread_func(int id)

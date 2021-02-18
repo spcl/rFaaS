@@ -1,6 +1,7 @@
 
 #include <chrono>
 #include <thread>
+#include <sys/time.h>
 
 #include <spdlog/spdlog.h>
 
@@ -12,9 +13,10 @@ int main(int argc, char ** argv)
 {
   auto opts = client::options(argc, argv);
   if(opts["verbose"].as<bool>())
-    spdlog::set_level(spdlog::level::info);
+    spdlog::set_level(spdlog::level::debug);
   else
-    spdlog::set_level(spdlog::level::warn);
+    spdlog::set_level(spdlog::level::info);
+  spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
   spdlog::info("Executing serverless-rdma client!");
 
   std::ifstream in(opts["file"].as<std::string>());
@@ -39,13 +41,23 @@ int main(int argc, char ** argv)
   //client._active.post_send(client._submit_buffer);
   //client._active.poll_wc(rdmalib::QueueType::SEND);
   //
+  int sum = 0;
+  timeval start, end;
   int repetitions = opts["repetitions"].as<int>();
+  client.submit_fast(1, "test");
+  auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
   for(int i = 0; i < repetitions; ++i) {
+
+    gettimeofday(&start, nullptr); 
     client.submit_fast(1, "test");
     auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
-    spdlog::info("Finished execution with ID {}", ntohl(wc->imm_data)); 
+    gettimeofday(&end, nullptr);
+    SPDLOG_DEBUG("Finished execution with ID {}", ntohl(wc->imm_data)); 
     //spdlog::flush_on(spdlog::level::info);
+    int usec = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+    sum += usec;
   }
+  spdlog::info("Executed {} repetitions in {} usec, avg {} usec/iter", repetitions, sum, ((float)sum)/repetitions);
   //client._active.poll_wc(rdmalib::QueueType::SEND);
   //std::this_thread::sleep_for(std::chrono::seconds(1));
   // results should be here

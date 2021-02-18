@@ -113,7 +113,7 @@ namespace client {
   {
     // TODO: check if buffers are available
 
-    int id = 0;
+    static int id = 0;
     int func_id = 1234;
 
     for(int i = 0; i < numcores; ++i) {
@@ -137,7 +137,7 @@ namespace client {
     connection().poll_wc(rdmalib::QueueType::SEND);
     spdlog::debug("Function execution ID {} scheduled!", id);
 
-    return id;
+    return id++;
   }
 
   void ServerConnection::poll_completion(int)

@@ -18,10 +18,10 @@ int main(int argc, char ** argv)
   server::SignalHandler sighandler;
   auto opts = server::opts(argc, argv);
   if(opts["verbose"].as<bool>())
-    spdlog::set_level(spdlog::level::info);
+    spdlog::set_level(spdlog::level::debug);
   else
-    spdlog::set_level(spdlog::level::warn);
-
+    spdlog::set_level(spdlog::level::info);
+  spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
   spdlog::info("Executing serverless-rdma server!");
 
   // Start RDMA connection
@@ -59,7 +59,7 @@ int main(int argc, char ** argv)
       int info = ntohl(wc->imm_data);
       int func_id = info >> 6;
       int core = info & cores_mask;
-      spdlog::debug("Execute func {} at core {} ptr {}", func_id, core, server._db.functions[func_id]);
+      SPDLOG_DEBUG("Execute func {} at core {} ptr {}", func_id, core, server._db.functions[func_id]);
       uint32_t cur_invoc = server._exec.get_invocation_id();
       server::InvocationStatus & invoc = server._exec.invocation_status(cur_invoc);
       invoc.connection = &*conn;
