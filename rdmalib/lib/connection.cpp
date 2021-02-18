@@ -79,7 +79,7 @@ namespace rdmalib {
       spdlog::error("Post send unsuccesful, reason {} {}", errno, strerror(errno));
       return -1;
     }
-    spdlog::debug("Post send succesfull");
+    SPDLOG_DEBUG("Post send succesfull");
     return _req_count - 1;
   }
 
@@ -97,7 +97,7 @@ namespace rdmalib {
       spdlog::error("Post receive unsuccesful, reason {} {}", errno, strerror(errno));
       return -1;
     }
-    spdlog::debug("Post recv succesfull");
+    SPDLOG_DEBUG("Post recv succesfull");
     return _req_count - 1;
   }
 
@@ -115,7 +115,7 @@ namespace rdmalib {
       spdlog::error("Post write unsuccesful, reason {} {}", errno, strerror(errno));
       return -1;
     }
-    spdlog::debug("Post write succesfull, remote addr {}, remote rkey {}", wr.wr.rdma.remote_addr, wr.wr.rdma.rkey);
+    SPDLOG_DEBUG("Post write succesfull, remote addr {}, remote rkey {}", wr.wr.rdma.remote_addr, wr.wr.rdma.rkey);
     return _req_count - 1;
 
   }
@@ -161,7 +161,7 @@ namespace rdmalib {
       spdlog::error("Post write unsuccesful, reason {} {}", errno, strerror(errno));
       return -1;
     }
-    spdlog::debug("Post write succesfull");
+    SPDLOG_DEBUG("Post write succesfull");
     return _req_count - 1;
   }
 
@@ -178,7 +178,7 @@ namespace rdmalib {
     else
       ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, entries, &wc);
     if(ret)
-      spdlog::debug("Queue {} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", wc.wr_id, ibv_wc_status_str(wc.status));
+      SPDLOG_DEBUG("Queue {} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", wc.wr_id, ibv_wc_status_str(wc.status));
     return ret == 0 ? std::optional<ibv_wc>{} : wc;
   }
 

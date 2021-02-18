@@ -75,7 +75,7 @@ namespace server {
 
   void Server::reload_queue(rdmalib::Connection & conn, int32_t idx)
   {
-    spdlog::debug("Post receive idx: {}", idx);
+    SPDLOG_DEBUG("Post receive idx: {}", idx);
     conn.post_recv(_queue[idx], idx);
   }
 
@@ -203,18 +203,18 @@ namespace server {
   {
     std::unique_lock<std::mutex> lk(m);
     rdmalib::functions::FuncType ptr = nullptr;
-    spdlog::debug("Thread {} created!", id);
+    SPDLOG_DEBUG("Thread {} created!", id);
     while(!_closing) {
 
-      spdlog::debug("Thread {} goes to sleep! {}", id, _closing);
+      SPDLOG_DEBUG("Thread {} goes to sleep! {}", id, _closing);
       if(!lk.owns_lock())
         lk.lock();
       _cv.wait(lk, [this, id](){ return _threads_status[id].func || _closing; });
       lk.unlock();
-      spdlog::debug("Thread {} wakes up! {}", id, _closing);
+      SPDLOG_DEBUG("Thread {} wakes up! {}", id, _closing);
 
       if(_closing) {
-        spdlog::debug("Thread {} exits!", id);
+        SPDLOG_DEBUG("Thread {} exits!", id);
         return;
       }
 
@@ -222,15 +222,15 @@ namespace server {
       uint32_t invoc_id = _threads_status[id].invoc_id;
       //rdmalib::Connection* conn = std::get<3>(_status[id]);
 
-      spdlog::debug("Thread {} begins work! Executing function", id);
+      SPDLOG_DEBUG("Thread {} begins work! Executing function", id);
       // Data to ignore header passed in the buffer
       (*ptr)(_threads_status[id].in->data(), _threads_status[id].out->ptr());
-      spdlog::debug("Thread {} finished work!", id);
+      SPDLOG_DEBUG("Thread {} finished work!", id);
 
       char* data = static_cast<char*>(_threads_status[id].in->ptr());
       uint64_t r_addr = *reinterpret_cast<uint64_t*>(data);
       uint32_t r_key = *reinterpret_cast<uint32_t*>(data + 8);
-      spdlog::debug("Thread {} finished work! Write to remote addr {} rkey {}", id, r_addr, r_key);
+      SPDLOG_DEBUG("Thread {} finished work! Write to remote addr {} rkey {}", id, r_addr, r_key);
       // decrease number of active instances
       if(--_invocations_status[invoc_id].active_threads) {
         // write result
@@ -255,8 +255,8 @@ namespace server {
       this->disable(id);
       ptr = nullptr;
 
-      spdlog::debug("Thread {} loops again!", id);
+      SPDLOG_DEBUG("Thread {} loops again!", id);
     } 
-    spdlog::debug("Thread {} exits!", id);
+    SPDLOG_DEBUG("Thread {} exits!", id);
   }
 }

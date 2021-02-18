@@ -18,9 +18,9 @@ int main(int argc, char ** argv)
   server::SignalHandler sighandler;
   auto opts = server::opts(argc, argv);
   if(opts["verbose"].as<bool>())
-    spdlog::set_level(spdlog::level::debug);
-  else
     spdlog::set_level(spdlog::level::info);
+  else
+    spdlog::set_level(spdlog::level::warn);
 
   spdlog::info("Executing serverless-rdma server!");
 
