@@ -26,7 +26,7 @@ namespace rdmalib {
     rdma_freeaddrinfo(addrinfo);
   }
 
-  RDMAActive::RDMAActive(const std::string & ip, int port):
+  RDMAActive::RDMAActive(const std::string & ip, int port, int recv_buf):
     _addr(ip, port, false),
     _ec(nullptr),
     _pd(nullptr)
@@ -35,7 +35,7 @@ namespace rdmalib {
     // Maximum requests in send queue
     _cfg.attr.cap.max_send_wr = 10;
     // Maximum requests in receive queue
-    _cfg.attr.cap.max_recv_wr = 10;
+    _cfg.attr.cap.max_recv_wr = recv_buf;
     // Maximal number of scatter-gather requests in a work request in send queue
     _cfg.attr.cap.max_send_sge = 1;
     // Maximal number of scatter-gather requests in a work request in receive queue
@@ -85,7 +85,7 @@ namespace rdmalib {
     return this->_conn;
   }
 
-  RDMAPassive::RDMAPassive(const std::string & ip, int port):
+  RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf):
     _addr(ip, port, true),
     _ec(nullptr),
     _listen_id(nullptr),
@@ -93,7 +93,7 @@ namespace rdmalib {
   {
     // Size of Queue Pair
     _cfg.attr.cap.max_send_wr = 10;
-    _cfg.attr.cap.max_recv_wr = 10;
+    _cfg.attr.cap.max_recv_wr = recv_buf;
     _cfg.attr.cap.max_send_sge = 1;
     _cfg.attr.cap.max_recv_sge = 1;
     _cfg.attr.cap.max_inline_data = 56;
