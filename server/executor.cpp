@@ -27,7 +27,7 @@ namespace server {
   }
 
   Server::Server(std::string addr, int port, int numcores, int rcv_buf):
-    _state(addr, port),
+    _state(addr, port, rcv_buf),
     _status(addr, port),
     _threads_allocation(numcores),
     _exec(numcores, *this),

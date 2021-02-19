@@ -22,7 +22,7 @@ int main(int argc, char ** argv)
   spdlog::info("Executing serverless-rdma client!");
 
   std::ifstream in(opts["file"].as<std::string>());
-  client::ServerConnection client(rdmalib::server::ServerStatus::deserialize(in));
+  client::ServerConnection client(rdmalib::server::ServerStatus::deserialize(in), buf_size);
   in.close();
   client.allocate_send_buffers(2, buf_size);
   client.allocate_receive_buffers(2, buf_size);
@@ -48,12 +48,12 @@ int main(int argc, char ** argv)
   gettimeofday(&start, nullptr);
   for(int i = 0; i < repetitions; ++i) {
 
-    client.submit_fast(1, "test");
-    auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
-    requests--;
     if(requests < 1) {
       client.connection().post_recv({}, -1, buf_size); requests = buf_size;
     }
+    client.submit_fast(1, "test");
+    auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
+    requests--;
     SPDLOG_DEBUG("Finished execution with ID {}", ntohl(wc->imm_data)); 
   }
   gettimeofday(&end, nullptr);

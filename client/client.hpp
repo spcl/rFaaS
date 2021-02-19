@@ -24,7 +24,7 @@ namespace client {
     rdmalib::server::ServerStatus _status;
     rdmalib::RDMAActive _active;
 
-    ServerConnection(const rdmalib::server::ServerStatus &);
+    ServerConnection(const rdmalib::server::ServerStatus &, int rcv_buf);
 
     rdmalib::Connection & connection();
     bool connect();

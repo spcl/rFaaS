@@ -8,12 +8,13 @@
 
 namespace client {
 
-  ServerConnection::ServerConnection(const rdmalib::server::ServerStatus & status):
+  ServerConnection::ServerConnection(const rdmalib::server::ServerStatus & status, int rcv_buf):
     _status(status),
-    _active(_status._address, _status._port)
+    _active(_status._address, _status._port, rcv_buf)
   {
     _active.allocate();
     // TODO: QUEUE_MSG_SIZE
+    // FIXME: "cheap" invocation"
     _submit_buffer = std::move(rdmalib::Buffer<char>(100));
     _submit_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE);
 
