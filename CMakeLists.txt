@@ -27,6 +27,12 @@ if( NOT LIBRDMACM_PATH STREQUAL "")
 endif()
 
 ###
+# threads
+###
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads)
+
+###
 # librdmacm
 ###
 find_package(PkgConfig REQUIRED)
@@ -138,4 +144,5 @@ target_include_directories(server PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_IN
 target_include_directories(server PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
 target_link_libraries(server PRIVATE spdlog::spdlog)
 target_link_libraries(server PRIVATE rdmalib)
+target_link_libraries(server PRIVATE Threads::Threads)
 set_target_properties(server PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
