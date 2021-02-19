@@ -2,6 +2,7 @@
 #include <chrono>
 #include <thread>
 #include <climits>
+#include <sys/time.h>
 
 #include <signal.h>
 #include <cxxopts.hpp>
@@ -21,6 +22,7 @@ int main(int argc, char ** argv)
     spdlog::set_level(spdlog::level::debug);
   else
     spdlog::set_level(spdlog::level::info);
+  spdlog::set_level(spdlog::level::debug);
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
   spdlog::info("Executing serverless-rdma server!");
 
@@ -29,10 +31,12 @@ int main(int argc, char ** argv)
   server::Server server(
       opts["address"].as<std::string>(),
       opts["port"].as<int>(),
-      numcores
+      numcores,
+      opts["requests"].as<int>()
   );
-  server.allocate_send_buffers(numcores, 4096);
-  server.allocate_rcv_buffers(numcores, 4096);
+  int buf_size = opts["size"].as<int>();
+  server.allocate_send_buffers(numcores, buf_size);
+  server.allocate_rcv_buffers(numcores, buf_size);
   {
     std::ofstream out(opts["file"].as<std::string>());
     server.status().serialize(out);
@@ -45,13 +49,18 @@ int main(int argc, char ** argv)
   // TODO: Display client's address
   spdlog::info("Connected a client!");
 
+  int sum = 0;
+  int repetitions = 0;
+  timeval start, end;
   constexpr int cores_mask = 0x3F;
+  int requests = opts["requests"].as<int>();
   while(!server::SignalHandler::closing) {
     // if we block, we never handle the interruption
     std::optional<ibv_wc> wc = conn->poll_wc(rdmalib::QueueType::RECV, false);
     bool correct_allocation = true;
     if(wc) {
 
+      gettimeofday(&start, nullptr);
       if(wc->status) {
         spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
         continue;
@@ -59,8 +68,9 @@ int main(int argc, char ** argv)
       int info = ntohl(wc->imm_data);
       int func_id = info >> 6;
       int core = info & cores_mask;
-      SPDLOG_DEBUG("Execute func {} at core {} ptr {}", func_id, core, server._db.functions[func_id]);
-      uint32_t cur_invoc = server._exec.get_invocation_id();
+      SPDLOG_DEBUG("Execute func {} at core {}", func_id, core);
+      //uint32_t cur_invoc = server._exec.get_invocation_id();
+      uint32_t cur_invoc = 0;
       server::InvocationStatus & invoc = server._exec.invocation_status(cur_invoc);
       invoc.connection = &*conn;
       server._exec.enable(core,
@@ -71,9 +81,20 @@ int main(int argc, char ** argv)
           cur_invoc
         }
       );
-      server._exec.wakeup();
-      int req_id = wc->wr_id;
-      server.reload_queue(*conn, req_id);
+      //server._exec.wakeup();
+      server._exec.work(core);
+      // clean queue
+      conn->poll_wc(rdmalib::QueueType::SEND, false);
+      gettimeofday(&end, nullptr);
+      int usec = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+      repetitions += 1;
+      requests--;
+      if(requests < 1) {
+        conn->post_recv({}, -1, server._rcv_buf_size);
+        requests = server._rcv_buf_size;
+      }
+      sum += usec;
+
 
       // Reenable: code for cheap invocation
       // Insert new rcv reequest
@@ -124,7 +145,7 @@ int main(int argc, char ** argv)
       //}
     }
   }
-  spdlog::info("Server is closing down");
+  spdlog::info("Server is closing down, avg response time {} usec", ((float)sum)/repetitions);
   std::this_thread::sleep_for(std::chrono::seconds(1)); 
 
   return 0;

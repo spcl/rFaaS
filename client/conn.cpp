@@ -124,18 +124,15 @@ namespace client {
       *reinterpret_cast<uint32_t*>(data + 12) = id;
     }
 
-    // 4. Write recv for notification
-    connection().post_recv({});
-
     // 3. Write arguments
     for(int i = 0; i < numcores; ++i) {
       auto & status = _status._buffers[i];
       connection().post_write(_send[i], status, (func_id << 6) | i);
     }
 
-
-    connection().poll_wc(rdmalib::QueueType::SEND);
-    spdlog::debug("Function execution ID {} scheduled!", id);
+    // make sure the queue doesn't overflow
+    connection().poll_wc(rdmalib::QueueType::SEND, false);
+    SPDLOG_DEBUG("Function execution ID {} scheduled!", id);
 
     return id++;
   }

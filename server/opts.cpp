@@ -10,6 +10,8 @@ namespace server {
       ("a,address", "Use selected address", cxxopts::value<std::string>())
       ("p,port", "Use selected port", cxxopts::value<int>()->default_value("0"))
       ("n,numcores", "Number of cores", cxxopts::value<int>()->default_value("1"))
+      ("x,requests", "Size of recv buffer", cxxopts::value<int>()->default_value("1"))
+      ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
       ("f,file", "Output server status.", cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
     ;

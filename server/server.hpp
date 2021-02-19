@@ -60,25 +60,28 @@ namespace server {
     uint32_t get_invocation_id();
     InvocationStatus & invocation_status(int idx);
 
+    void work(int);
     void thread_func(int id);
     void fast_thread_func(int id);
   };
 
 
   struct Server {
-    static const int QUEUE_SIZE = 5;
+    // FIXME: "cheap" invocation
+    //static const int QUEUE_SIZE = 500;
     // 80 chars + 4 ints
     //static const int QUEUE_MSG_SIZE = 100;
-    static const int QUEUE_MSG_SIZE = 4096;
+    //static const int QUEUE_MSG_SIZE = 4096;
+    //std::array<rdmalib::Buffer<char>, QUEUE_SIZE> _queue;
     rdmalib::RDMAPassive _state;
     rdmalib::server::ServerStatus _status;
-    std::array<rdmalib::Buffer<char>, QUEUE_SIZE> _queue;
     std::vector<rdmalib::Buffer<char>> _send, _rcv;
     rdmalib::Buffer<int> _threads_allocation;
     rdmalib::functions::FunctionsDB _db;
     Executors _exec;
+    int _rcv_buf_size;
 
-    Server(std::string addr, int port, int numcores);
+    Server(std::string addr, int port, int numcores, int rcv_buf);
 
     void allocate_send_buffers(int numcores, int size);
     void allocate_rcv_buffers(int numcores, int size);
