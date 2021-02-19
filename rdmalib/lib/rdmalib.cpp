@@ -116,7 +116,7 @@ namespace rdmalib {
   {
     // Start listening
     impl::expect_zero(rdma_create_ep(&this->_listen_id, _addr.addrinfo, nullptr, nullptr));
-    assert(!rdma_listen(this->_listen_id, 10));
+    impl::expect_zero(rdma_listen(this->_listen_id, 0));
     this->_addr._port = ntohs(rdma_get_src_port(this->_listen_id));
     this->_ec = this->_listen_id->channel;
     spdlog::info("Listening on port {}", this->_addr._port);
