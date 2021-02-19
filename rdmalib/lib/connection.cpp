@@ -83,7 +83,7 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  int32_t Connection::post_recv(ScatterGatherElement && elem, int32_t id)
+  int32_t Connection::post_recv(ScatterGatherElement && elem, int32_t id, int count)
   {
     // FIXME: extend with multiple sges
     struct ibv_recv_wr wr, *bad;
@@ -92,13 +92,18 @@ namespace rdmalib {
     wr.sg_list = elem.array();
     wr.num_sge = elem.size();
 
-    int ret = ibv_post_recv(_qp, &wr, &bad);
+    int ret;
+    for(int i = 0; i < count; ++i) {
+      ret = ibv_post_recv(_qp, &wr, &bad);
+      if(ret)
+        break;
+    }
     if(ret) {
-      spdlog::error("Post receive unsuccesful, reason {} {}", errno, strerror(errno));
+      spdlog::error("Post receive unsuccesful, reason {} {}", ret, strerror(ret));
       return -1;
     }
     SPDLOG_DEBUG("Post recv succesfull");
-    return _req_count - 1;
+    return wr.wr_id;
   }
 
   int32_t Connection::_post_write(ScatterGatherElement && elems, ibv_send_wr wr)
@@ -112,7 +117,7 @@ namespace rdmalib {
 
     int ret = ibv_post_send(_qp, &wr, &bad);
     if(ret) {
-      spdlog::error("Post write unsuccesful, reason {} {}", errno, strerror(errno));
+      spdlog::error("Post write unsuccesful, reason {} {}", ret, strerror(ret));
       return -1;
     }
     SPDLOG_DEBUG("Post write succesfull, remote addr {}, remote rkey {}", wr.wr.rdma.remote_addr, wr.wr.rdma.rkey);
