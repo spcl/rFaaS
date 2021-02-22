@@ -17,23 +17,23 @@ namespace rdmalib {
     // move non-template methods from header
     struct Buffer {
     protected:
-      size_t _size;
-      size_t _header;
-      size_t _bytes;
+      uint32_t _size;
+      uint32_t _header;
+      uint32_t _bytes;
       ibv_mr* _mr;
       void* _ptr;
 
       Buffer();
-      Buffer(size_t size, size_t byte_size, size_t header);
+      Buffer(uint32_t size, uint32_t byte_size, uint32_t header);
       Buffer(Buffer &&);
       Buffer & operator=(Buffer && obj);
       ~Buffer();
     public:
       uintptr_t address() const;
       void* ptr() const;
-      size_t data_size() const;
-      size_t size() const;
-      size_t bytes() const;
+      uint32_t data_size() const;
+      uint32_t size() const;
+      uint32_t bytes() const;
       void register_memory(ibv_pd *pd, int access);
       uint32_t lkey() const;
       uint32_t rkey() const;
@@ -44,11 +44,11 @@ namespace rdmalib {
   struct RemoteBuffer {
     uintptr_t addr;
     uint32_t rkey;
-    size_t size;
+    uint32_t size;
 
     RemoteBuffer();
     // When accessing the remote buffer, we might not need to know the size.
-    RemoteBuffer(uintptr_t addr, uint32_t rkey, size_t size = 0);
+    RemoteBuffer(uintptr_t addr, uint32_t rkey, uint32_t size = 0);
 
     template<class Archive>
     void serialize(Archive & ar)

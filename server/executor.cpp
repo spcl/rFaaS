@@ -186,7 +186,6 @@ namespace server {
   void Executors::fast_thread_func(int id)
   {
     std::unique_lock<std::mutex> lk(m);
-    rdmalib::functions::FuncType ptr = nullptr;
     SPDLOG_DEBUG("Thread {} created!", id);
     while(!_closing) {
 

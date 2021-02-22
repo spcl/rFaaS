@@ -43,7 +43,7 @@ namespace server {
     std::condition_variable _cv;
     std::vector<ThreadStatus> _threads_status; 
     bool _closing;
-    int _numcores;
+    uint32_t _numcores;
 
     // Invocations
     InvocationStatus* _invocations_status; 

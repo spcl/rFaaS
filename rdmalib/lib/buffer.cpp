@@ -12,16 +12,16 @@ namespace rdmalib { namespace impl {
     _size(0),
     _header(0),
     _bytes(0),
-    _ptr(nullptr),
-    _mr(nullptr)
+    _mr(nullptr),
+    _ptr(nullptr)
   {}
 
   Buffer::Buffer(Buffer && obj):
     _size(obj._size),
     _header(obj._header),
     _bytes(obj._bytes),
-    _ptr(obj._ptr),
-    _mr(obj._mr)
+    _mr(obj._mr),
+    _ptr(obj._ptr)
   {
     obj._size = obj._bytes = obj._header = 0;
     obj._ptr = obj._mr = nullptr;
@@ -40,7 +40,7 @@ namespace rdmalib { namespace impl {
     return *this;
   }
 
-  Buffer::Buffer(size_t size, size_t byte_size, size_t header):
+  Buffer::Buffer(uint32_t size, uint32_t byte_size, uint32_t header):
     _size(size),
     _header(header),
     _bytes((size + header) * byte_size),
@@ -72,17 +72,17 @@ namespace rdmalib { namespace impl {
     );
   }
 
-  size_t Buffer::data_size() const
+  uint32_t Buffer::data_size() const
   {
     return this->_size;
   }
 
-  size_t Buffer::size() const
+  uint32_t Buffer::size() const
   {
     return this->_size + this->_header;
   }
 
-  size_t Buffer::bytes() const
+  uint32_t Buffer::bytes() const
   {
     return this->_bytes;
   }
@@ -120,7 +120,7 @@ namespace rdmalib {
     size(0)
   {}
 
-  RemoteBuffer::RemoteBuffer(uintptr_t addr, uint32_t rkey, size_t size):
+  RemoteBuffer::RemoteBuffer(uintptr_t addr, uint32_t rkey, uint32_t size):
     addr(addr),
     rkey(rkey),
     size(size)
