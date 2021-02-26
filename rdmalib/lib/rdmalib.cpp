@@ -1,4 +1,5 @@
 
+#include "rdmalib/connection.hpp"
 #include <cassert>
 // inet_ntoa
 #include <arpa/inet.h>
@@ -85,7 +86,7 @@ namespace rdmalib {
     return this->_conn;
   }
 
-  RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf):
+  RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize):
     _addr(ip, port, true),
     _ec(nullptr),
     _listen_id(nullptr),
@@ -102,7 +103,10 @@ namespace rdmalib {
     _cfg.conn_param.responder_resources = 5;
     _cfg.conn_param.initiator_depth = 5;
     _cfg.conn_param.retry_count = 3; 
-    _cfg.conn_param.rnr_retry_count = 3;  
+    _cfg.conn_param.rnr_retry_count = 3;
+
+    if(initialize)
+      this->allocate();
   }
 
   RDMAPassive::~RDMAPassive()
@@ -149,15 +153,17 @@ namespace rdmalib {
     rdma_ack_cm_event(event);
     impl::expect_zero(rdma_create_qp(connection._id, _pd, &_cfg.attr));
     connection._qp = connection._id->qp;
+    _connections.push_back(std::move(connection));
+
+    rdmalib::Connection & conn = _connections.back();
     if(before_accept)
-      before_accept(connection);
-    if(rdma_accept(connection._id, &_cfg.conn_param)) {
+      before_accept(conn);
+    if(rdma_accept(conn._id, &_cfg.conn_param)) {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
       return nullptr;
     }
     SPDLOG_DEBUG("Accepted connection"); 
 
-    _connections.push_back(std::move(connection));
-    return &_connections.back();
+    return &conn;
   }
 }

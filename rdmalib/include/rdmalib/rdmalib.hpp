@@ -48,7 +48,7 @@ namespace rdmalib {
     ibv_pd* _pd;
     std::vector<Connection> _connections;
 
-    RDMAPassive(const std::string & ip, int port, int recv_buf = 1);
+    RDMAPassive(const std::string & ip, int port, int recv_buf = 1, bool initialize = true);
     ~RDMAPassive();
     void allocate();
     ibv_pd* pd() const;

@@ -15,7 +15,7 @@ namespace rdmalib { namespace impl {
   void expect_zero(U && u)
   {
     if(u) {
-      spdlog::error("Expected zero, found: {}", u);
+      spdlog::error("Expected zero, found: {}, errno {}, message {}", u, errno, strerror(errno));
       traceback();
     }
     assert(!u);
