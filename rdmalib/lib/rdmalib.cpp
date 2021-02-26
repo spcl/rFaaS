@@ -3,6 +3,7 @@
 #include <cassert>
 // inet_ntoa
 #include <arpa/inet.h>
+#include <netdb.h>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bundled/format.h>
@@ -71,7 +72,7 @@ namespace rdmalib {
       spdlog::error("Connection unsuccesful, reason {} {}", errno, strerror(errno));
       return false;
     } else {
-      SPDLOG_DEBUG("Connection succesful to {}:{}", _addr._port, _addr._port);
+      spdlog::info("Connection succesful to {}:{}, on device {}", _addr._port, _addr._port, ibv_get_device_name(this->_conn._id->verbs->device));
     }
     return true;
   }
@@ -123,10 +124,11 @@ namespace rdmalib {
     impl::expect_zero(rdma_listen(this->_listen_id, 0));
     this->_addr._port = ntohs(rdma_get_src_port(this->_listen_id));
     this->_ec = this->_listen_id->channel;
-    spdlog::info("Listening on port {}", this->_addr._port);
+    spdlog::info("Listening on device {}, port {}", ibv_get_device_name(this->_listen_id->verbs->device), this->_addr._port);
 
     // Alocate protection domain
-    impl::expect_nonnull(_pd = ibv_alloc_pd(_listen_id->verbs));
+    _pd = _listen_id->pd;
+    //impl::expect_nonnull(_pd = ibv_alloc_pd(_listen_id->verbs));
   }
 
   ibv_pd* RDMAPassive::pd() const
