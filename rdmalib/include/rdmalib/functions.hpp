@@ -1,4 +1,7 @@
 
+#ifndef __RDMALIB_FUNCTIONS_HPP__
+#define __RDMALIB_FUNCTIONS_HPP__
+
 #include <unordered_map>
 #include <string>
 
@@ -21,3 +24,6 @@ namespace rdmalib { namespace functions {
   };
 
 }}
+
+#endif
+
