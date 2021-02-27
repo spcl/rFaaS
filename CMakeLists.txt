@@ -4,6 +4,14 @@ project(serverless-rdma)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+#find_program(CLANG_TIDY_COMMAND NAMES clang-tidy clang-tidy-13 clang-tidy-12 clang-tidy-11 clang-tidy-10)
+#if(NOT CLANG_TIDY_COMMAND)
+#  message(WARNING "clang-tidy is not found!")
+#  set(CMAKE_CXX_CLANG_TIDY "" CACHE STRING "" FORCE)
+#else()
+#  set(CLANG_TIDY_CHECKS "*")
+#  set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND};-checks=${CLANG_TIDY_CHECKS};-header-filter=.")
+#endif()
 
 # dirty hack to remove NDEBUG
 string(REPLACE "-DNDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
@@ -136,7 +144,7 @@ set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 ###
 # Server
 ###
-add_executable(server server/server.cpp server/executor.cpp server/opts.cpp)
+add_executable(server server/server.cpp server/executor.cpp server/opts.cpp server/fast_executor.cpp)
 add_dependencies(server cxxopts::cxxopts)
 add_dependencies(server spdlog::spdlog)
 add_dependencies(server rdmalib)

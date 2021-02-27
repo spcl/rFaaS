@@ -86,10 +86,11 @@ namespace server {
 
   std::tuple<int, int> Server::poll_server()
   {
-    int sum = 0;
+    _fast_exec.allocate_threads(false);
+
     int repetitions = 0;
     constexpr int cores_mask = 0x3F;
-    timeval start, end;
+    timeval start;
     while(!server::SignalHandler::closing) {
 
       // if we block, we never handle the interruption
@@ -103,6 +104,8 @@ namespace server {
         int info = ntohl(wc->imm_data);
         int func_id = info >> 6;
         int core = info & cores_mask;
+        // Startpoint of iteration for a given thread
+        _fast_exec._start_timestamps[core] = start;
         SPDLOG_DEBUG("Execute func {} at core {}", func_id, core);
         //uint32_t cur_invoc = server._exec.get_invocation_id();
         uint32_t cur_invoc = 0;
@@ -121,14 +124,27 @@ namespace server {
 
         // clean send queue
         this->_conn->poll_wc(rdmalib::QueueType::SEND, false);
-        gettimeofday(&end, nullptr);
-        int usec = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
-        repetitions += 1;
         _wc_buffer.refill();
-        sum += usec;
+        ++repetitions;
       }
     }
-    return std::make_tuple(sum, repetitions);
+    _fast_exec.close();
+
+    return std::make_tuple(_fast_exec._time_sum.load(), repetitions);
+  }
+
+  std::tuple<int, int> Server::poll_threads()
+  {
+    _fast_exec._conn = _conn;
+    _fast_exec._wc_buffer = &_wc_buffer;
+    _fast_exec.allocate_threads(true);
+
+    // FIXME: more threads
+    _fast_exec._threads[0].join();
+
+    spdlog::info("{} {}", _fast_exec._time_sum.load(), _fast_exec._repetitions.load());
+
+    return std::make_tuple(_fast_exec._time_sum.load(), _fast_exec._repetitions.load());
   }
 
   // FIXME: shared receive queue

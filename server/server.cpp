@@ -50,10 +50,7 @@ int main(int argc, char ** argv)
   if(opts.polling_manager == server::Options::PollingMgr::SERVER)
     std::tie(sum, repetitions) = server.poll_server();
   else
-    throw std::runtime_error("Not implemented!");
-
-  //server.allocate_send_buffers(numcores, buf_size);
-  //server.allocate_rcv_buffers(numcores, buf_size);
+    std::tie(sum, repetitions) = server.poll_threads();
 
   spdlog::info("Server is closing down, avg response time {} usec", ((float)sum)/repetitions);
   std::this_thread::sleep_for(std::chrono::seconds(1)); 

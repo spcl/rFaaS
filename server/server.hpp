@@ -11,6 +11,7 @@
 #include <rdmalib/connection.hpp>
 
 #include "fast_executor.hpp"
+#include "wc_buffer.hpp"
 
 namespace server {
 
@@ -89,39 +90,6 @@ namespace server {
 
   struct Server {
 
-    struct WCBuffer {
-      int _rcv_buf_size;
-      int _requests;
-      rdmalib::Connection * _conn;
-
-      WCBuffer(int rcv_buf_size):
-        _rcv_buf_size(rcv_buf_size),
-        _requests(0),
-        _conn(nullptr)
-      {}
-
-      inline void connect(rdmalib::Connection * conn)
-      {
-        this->_conn = conn;
-        refill();
-      }
-
-      inline std::optional<ibv_wc> poll()
-      {
-        std::optional<ibv_wc> wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, false);
-        _requests -= wc.has_value();
-        return wc;
-      }
-
-      inline void refill()
-      {
-        if(_requests < 5) {
-          this->_conn->post_recv({}, -1, _rcv_buf_size - _requests);
-          _requests = _rcv_buf_size;
-        }
-      }
-    };
-
     // FIXME: "cheap" invocation
     //static const int QUEUE_SIZE = 500;
     // 80 chars + 4 ints
@@ -166,7 +134,7 @@ namespace server {
     const rdmalib::server::ServerStatus & status() const;
 
     std::tuple<int, int> poll_server();
-    void poll_threads();
+    std::tuple<int, int> poll_threads();
 
     // FIXME: shared receive queue
     //void poll_srq();

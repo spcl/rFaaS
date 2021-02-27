@@ -4,15 +4,18 @@
 
 #include <vector>
 #include <thread>
+#include <atomic>
 #include <condition_variable>
 
 #include <rdmalib/buffer.hpp>
 
+#include "rdmalib/connection.hpp"
 #include "structures.hpp"
 
 namespace server {
 
   struct Server;
+  struct WCBuffer;
 
   struct FastExecutors {
 
@@ -22,19 +25,30 @@ namespace server {
     std::vector<std::thread> _threads;
     std::vector<ThreadStatus> _threads_status; 
     std::vector<rdmalib::Buffer<char>> _send, _rcv;
+    std::vector<timeval> _start_timestamps;
     bool _closing;
-    uint32_t _numcores;
+    int _numcores;
     Server & _server;
+    rdmalib::Connection* _conn;
+    WCBuffer* _wc_buffer;
+
+    // Statistics
+    std::atomic<int> _time_sum;
+    std::atomic<int> _repetitions;
 
     FastExecutors(int num, int msg_size, Server &);
     ~FastExecutors();
 
+    void allocate_threads(bool poll);
     void enable(int thread_id, ThreadStatus && status);
     void disable(int thread_id);
     void wakeup();
+    void close();
     void work(int);
     // Thread implementation that uses condition variable to synchronize with server.
     void cv_thread_func(int id);
+    // Polling implemantation directly inside a thread
+    void thread_poll_func(int);
   };
 
 }

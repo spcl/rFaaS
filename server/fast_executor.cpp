@@ -1,10 +1,14 @@
 
 #include <ostream>
+#include <sys/time.h>
+#include <sys/time.h>
+
 #include <spdlog/spdlog.h>
+#include <spdlog/common.h>
 
 #include "server.hpp"
 #include "fast_executor.hpp"
-#include "spdlog/common.h"
+#include "wc_buffer.hpp"
 
 namespace server {
 
@@ -12,13 +16,11 @@ namespace server {
     _closing(false),
     _numcores(numcores),
     //_last_invocation(0),
-    _server(server)
+    _server(server),
+    _conn(nullptr),
+    _time_sum(0),
+    _repetitions(0)
   {
-    for(int i = 0; i < numcores; ++i) {
-      _threads_status.push_back({nullptr, 0, nullptr});
-      _threads.emplace_back(&FastExecutors::cv_thread_func, this, i);
-    }
-
     for(int i = 0; i < numcores; ++i) {
       _send.emplace_back(msg_size);
       _server.register_buffer(_send.back(), false);
@@ -37,14 +39,34 @@ namespace server {
   FastExecutors::~FastExecutors()
   {
     spdlog::info("FastExecutor is closing threads...");
-    _closing = true;
-    // wake threads, letting them exit
-    wakeup();
-    // TODO: this could be unsafe - wait for all invocations to finish?
-    //delete[] _invocations_status;
+    close();
+  }
+
+  void FastExecutors::close()
+  {
+    if(_closing)
+      return;
+    {
+      std::lock_guard<std::mutex> g(m);
+      _closing = true;
+      // wake threads, letting them exit
+      wakeup();
+    }
     // make sure we join before destructing
     for(auto & thread : _threads)
       thread.join();
+  }
+
+  void FastExecutors::allocate_threads(bool poll)
+  {
+    for(int i = 0; i < _numcores; ++i) {
+      _threads_status.push_back({nullptr, 0, nullptr});
+      _threads.emplace_back(
+        poll ? &FastExecutors::thread_poll_func : &FastExecutors::cv_thread_func,
+        this, i
+      );
+      _start_timestamps.emplace_back();
+    }
   }
 
   void FastExecutors::enable(int thread_id, ThreadStatus && status)
@@ -93,8 +115,58 @@ namespace server {
     //);
   }
 
+  void FastExecutors::thread_poll_func(int)
+  {
+    timeval start, end;
+    int sum = 0;
+    int repetitions = 0;
+    constexpr int cores_mask = 0x3F;
+    //timeval start, end;
+    while(!server::SignalHandler::closing) {
+
+      // if we block, we never handle the interruption
+      auto wc = _wc_buffer->poll();
+      if(wc) {
+        gettimeofday(&start, nullptr);
+        if(wc->status) {
+          spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
+          continue;
+        }
+        int info = ntohl(wc->imm_data);
+        int func_id = info >> 6;
+        int core = info & cores_mask;
+        SPDLOG_DEBUG("Execute func {} at core {}", func_id, core);
+        //uint32_t cur_invoc = server._exec.get_invocation_id();
+        uint32_t cur_invoc = 0;
+
+        SPDLOG_DEBUG("Wake-up fast thread {}", core);
+        this->_threads_status[core] = std::move(
+          ThreadStatus{
+            _server._db.functions[func_id],
+            cur_invoc,
+            _conn
+          }
+        );
+        work(core);
+
+        // clean send queue
+        _conn->poll_wc(rdmalib::QueueType::SEND, false);
+        gettimeofday(&end, nullptr);
+        int usec = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+        repetitions += 1;
+        sum += usec;
+        _wc_buffer->refill();
+      }
+    }
+    _time_sum.fetch_add(sum);
+    _repetitions.fetch_add(repetitions);
+  }
+
   void FastExecutors::cv_thread_func(int id)
   {
+    int sum = 0;
+    int repetitions = 0;
+    timeval end;
     std::unique_lock<std::mutex> lk(m);
     SPDLOG_DEBUG("Thread {} created!", id);
     while(!_closing) {
@@ -110,13 +182,18 @@ namespace server {
 
       if(_closing) {
         SPDLOG_DEBUG("Thread {} exits!", id);
-        return;
+        break;
       }
 
       work(id);
+      gettimeofday(&end, nullptr);
+      int usec = (end.tv_sec - _start_timestamps[id].tv_sec) * 1000000 + (end.tv_usec - _start_timestamps[id].tv_usec);
+      repetitions += 1;
+      sum += usec;
       SPDLOG_DEBUG("Thread {} loops again!", id);
     } 
     SPDLOG_DEBUG("Thread {} exits!", id);
+    _time_sum.fetch_add(sum);
   }
 }
 
