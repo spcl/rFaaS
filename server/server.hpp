@@ -42,6 +42,7 @@ namespace server {
     int cheap_executors, fast_executors;
     int recv_buffer_size;
     int msg_size;
+    int repetitions;
     std::string server_file;
     bool verbose;
     PollingMgr polling_manager;
@@ -133,8 +134,8 @@ namespace server {
     rdmalib::Connection* poll_communication();
     const rdmalib::server::ServerStatus & status() const;
 
-    std::tuple<int, int> poll_server();
-    std::tuple<int, int> poll_threads();
+    std::tuple<int, int> poll_server(int);
+    std::tuple<int, int> poll_threads(int);
 
     // FIXME: shared receive queue
     //void poll_srq();

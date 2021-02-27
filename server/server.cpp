@@ -48,9 +48,9 @@ int main(int argc, char ** argv)
 
   int sum = 0, repetitions = 0;
   if(opts.polling_manager == server::Options::PollingMgr::SERVER)
-    std::tie(sum, repetitions) = server.poll_server();
+    std::tie(sum, repetitions) = server.poll_server(opts.repetitions);
   else
-    std::tie(sum, repetitions) = server.poll_threads();
+    std::tie(sum, repetitions) = server.poll_threads(opts.repetitions);
 
   spdlog::info("Server is closing down, avg response time {} usec", ((float)sum)/repetitions);
   std::this_thread::sleep_for(std::chrono::seconds(1)); 

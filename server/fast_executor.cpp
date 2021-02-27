@@ -15,6 +15,7 @@ namespace server {
   FastExecutors::FastExecutors(int numcores, int msg_size, Server & server):
     _closing(false),
     _numcores(numcores),
+    _max_repetitions(0),
     //_last_invocation(0),
     _server(server),
     _conn(nullptr),
@@ -122,7 +123,7 @@ namespace server {
     int repetitions = 0;
     constexpr int cores_mask = 0x3F;
     //timeval start, end;
-    while(!server::SignalHandler::closing) {
+    while(!server::SignalHandler::closing && repetitions < _max_repetitions) {
 
       // if we block, we never handle the interruption
       auto wc = _wc_buffer->poll();
@@ -165,11 +166,10 @@ namespace server {
   void FastExecutors::cv_thread_func(int id)
   {
     int sum = 0;
-    int repetitions = 0;
     timeval end;
     std::unique_lock<std::mutex> lk(m);
     SPDLOG_DEBUG("Thread {} created!", id);
-    while(!_closing) {
+    while(true) {
 
       SPDLOG_DEBUG("Thread {} goes to sleep! Closing {} ptr {}", id, _closing, _threads_status[id].func != nullptr);
       if(!lk.owns_lock())
@@ -180,7 +180,8 @@ namespace server {
       lk.unlock();
       SPDLOG_DEBUG("Thread {} wakes up! {}", id, _closing);
 
-      if(_closing) {
+      // We don't exit unless there's no more work to do.
+      if(_closing && !_threads_status[id].func) {
         SPDLOG_DEBUG("Thread {} exits!", id);
         break;
       }
@@ -188,7 +189,6 @@ namespace server {
       work(id);
       gettimeofday(&end, nullptr);
       int usec = (end.tv_sec - _start_timestamps[id].tv_sec) * 1000000 + (end.tv_usec - _start_timestamps[id].tv_usec);
-      repetitions += 1;
       sum += usec;
       SPDLOG_DEBUG("Thread {} loops again!", id);
     } 

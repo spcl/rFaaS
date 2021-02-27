@@ -47,11 +47,10 @@ int main(int argc, char ** argv)
   requests--;
   gettimeofday(&start, nullptr);
   for(int i = 0; i < repetitions; ++i) {
-
     if(requests < 1) {
       client.connection().post_recv({}, -1, buf_size); requests = buf_size;
     }
-    client.submit_fast(1, "test");
+    int id = client.submit_fast(1, "test");
     auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
     requests--;
     SPDLOG_DEBUG("Finished execution with ID {}", ntohl(wc->imm_data)); 

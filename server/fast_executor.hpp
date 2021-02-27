@@ -28,6 +28,7 @@ namespace server {
     std::vector<timeval> _start_timestamps;
     bool _closing;
     int _numcores;
+    int _max_repetitions;
     Server & _server;
     rdmalib::Connection* _conn;
     WCBuffer* _wc_buffer;

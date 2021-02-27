@@ -17,6 +17,7 @@ namespace server {
       ("polling-type", "Polling type: wc (work completions), dram", cxxopts::value<std::string>()->default_value("wc"))
       ("x,requests", "Size of recv buffer", cxxopts::value<int>()->default_value("32"))
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
+      ("r,repetitions", "Repetitions to execute", cxxopts::value<int>()->default_value("1"))
       ("f,file", "Output server status.", cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
     ;
@@ -30,6 +31,7 @@ namespace server {
     result.recv_buffer_size = parsed_options["requests"].as<int>();
     result.msg_size = parsed_options["size"].as<int>();
     result.server_file = parsed_options["file"].as<std::string>();
+    result.repetitions = parsed_options["repetitions"].as<int>();
     result.verbose = parsed_options["verbose"].as<bool>();
 
     std::string polling_mgr = parsed_options["polling-mgr"].as<std::string>();

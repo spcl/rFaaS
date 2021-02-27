@@ -84,14 +84,14 @@ namespace server {
     return this->_conn;
   }
 
-  std::tuple<int, int> Server::poll_server()
+  std::tuple<int, int> Server::poll_server(int max_repetitions)
   {
     _fast_exec.allocate_threads(false);
 
     int repetitions = 0;
     constexpr int cores_mask = 0x3F;
     timeval start;
-    while(!server::SignalHandler::closing) {
+    while(!server::SignalHandler::closing && repetitions <= max_repetitions) {
 
       // if we block, we never handle the interruption
       auto wc = _wc_buffer.poll();
@@ -111,8 +111,6 @@ namespace server {
         uint32_t cur_invoc = 0;
 
         // FIXME: producer-consumer interface
-        //server::InvocationStatus & invoc = _exec.invocation_status(cur_invoc);
-        //invoc.connection = &*conn;
         SPDLOG_DEBUG("Wake-up fast thread {}", core);
         _fast_exec.enable(core,
           {
@@ -133,10 +131,13 @@ namespace server {
     return std::make_tuple(_fast_exec._time_sum.load(), repetitions);
   }
 
-  std::tuple<int, int> Server::poll_threads()
+  std::tuple<int, int> Server::poll_threads(int max_repetitions)
   {
     _fast_exec._conn = _conn;
     _fast_exec._wc_buffer = &_wc_buffer;
+    // FIXME: parallel accumulation of reps across threads?
+    // +1 to handle the warm-up call
+    _fast_exec._max_repetitions = max_repetitions + 1;
     _fast_exec.allocate_threads(true);
 
     // FIXME: more threads
