@@ -55,7 +55,9 @@ namespace server {
     }
     // make sure we join before destructing
     for(auto & thread : _threads)
-      thread.join();
+      // Might have been closed earlier
+      if(thread.joinable())
+        thread.join();
   }
 
   void FastExecutors::allocate_threads(bool poll)
