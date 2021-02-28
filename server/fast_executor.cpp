@@ -123,9 +123,10 @@ namespace server {
     timeval start, end;
     int sum = 0;
     int repetitions = 0;
+    int total_iters = _max_repetitions + _warmup_iters;
     constexpr int cores_mask = 0x3F;
     //timeval start, end;
-    while(!server::SignalHandler::closing && repetitions < _max_repetitions) {
+    while(!server::SignalHandler::closing && repetitions < total_iters) {
 
       // if we block, we never handle the interruption
       auto wc = _wc_buffer->poll();

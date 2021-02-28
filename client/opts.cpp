@@ -17,6 +17,7 @@ namespace client {
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
       ("f,file", "Server status", cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
+      ("warmup-iters", "Number of warm-up iterations", cxxopts::value<int>()->default_value("1"))
     ;
     return options.parse(argc, argv);
   }  

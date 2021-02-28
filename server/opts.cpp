@@ -15,6 +15,7 @@ namespace server {
       ("fast", "Number of fast executors", cxxopts::value<int>()->default_value("1"))
       ("polling-mgr", "Polling manager: server, thread", cxxopts::value<std::string>()->default_value("server"))
       ("polling-type", "Polling type: wc (work completions), dram", cxxopts::value<std::string>()->default_value("wc"))
+      ("warmup-iters", "Number of warm-up iterations", cxxopts::value<int>()->default_value("1"))
       ("x,requests", "Size of recv buffer", cxxopts::value<int>()->default_value("32"))
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
       ("r,repetitions", "Repetitions to execute", cxxopts::value<int>()->default_value("1"))
@@ -32,6 +33,7 @@ namespace server {
     result.msg_size = parsed_options["size"].as<int>();
     result.server_file = parsed_options["file"].as<std::string>();
     result.repetitions = parsed_options["repetitions"].as<int>();
+    result.warmup_iters = parsed_options["warmup-iters"].as<int>();
     result.verbose = parsed_options["verbose"].as<bool>();
 
     std::string polling_mgr = parsed_options["polling-mgr"].as<std::string>();

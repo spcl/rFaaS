@@ -14,6 +14,7 @@ int main(int argc, char ** argv)
   auto opts = client::options(argc, argv);
   int buf_size = opts["size"].as<int>();
   int repetitions = opts["repetitions"].as<int>();
+  int warmup_iters = opts["warmup-iters"].as<int>();
   if(opts["verbose"].as<bool>())
     spdlog::set_level(spdlog::level::debug);
   else
@@ -38,16 +39,29 @@ int main(int argc, char ** argv)
     ((int*)client.send_buffer(1).data())[i] = 2;
   }
 
+  // Warmup iterations
+  int buffer_refill = std::min(buf_size, 5);
+  timeval start, end;
   int requests = buf_size;
   int sum = 0;
   client.connection().post_recv({}, -1, buf_size);
-  timeval start, end;
-  client.submit_fast(1, "test");
-  auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
-  requests--;
+  spdlog::info("Warmups begin");
+  SPDLOG_DEBUG("Warmups begin");
+  for(int i = 0; i < warmup_iters; ++i) {
+    if(requests < buffer_refill) {
+      client.connection().post_recv({}, -1, buf_size); requests = buf_size;
+    }
+    client.submit_fast(1, "test");
+    auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
+    requests--;
+  }
+  spdlog::info("Warmups completed");
+  SPDLOG_DEBUG("Warmups completed");
+
+  // Start actual measurements
   gettimeofday(&start, nullptr);
   for(int i = 0; i < repetitions; ++i) {
-    if(requests < 1) {
+    if(requests < buffer_refill) {
       client.connection().post_recv({}, -1, buf_size); requests = buf_size;
     }
     int id = client.submit_fast(1, "test");

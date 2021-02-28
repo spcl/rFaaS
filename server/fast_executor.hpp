@@ -29,6 +29,7 @@ namespace server {
     bool _closing;
     int _numcores;
     int _max_repetitions;
+    int _warmup_iters;
     Server & _server;
     rdmalib::Connection* _conn;
     WCBuffer* _wc_buffer;

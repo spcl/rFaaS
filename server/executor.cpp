@@ -84,14 +84,15 @@ namespace server {
     return this->_conn;
   }
 
-  std::tuple<int, int> Server::poll_server(int max_repetitions)
+  std::tuple<int, int> Server::poll_server(int max_repetitions, int warmup_iters)
   {
     _fast_exec.allocate_threads(false);
 
     int repetitions = 0;
+    int total_iters = max_repetitions + warmup_iters;
     constexpr int cores_mask = 0x3F;
     timeval start;
-    while(!server::SignalHandler::closing && repetitions <= max_repetitions) {
+    while(!server::SignalHandler::closing && repetitions < total_iters) {
 
       // if we block, we never handle the interruption
       auto wc = _wc_buffer.poll();
@@ -131,13 +132,14 @@ namespace server {
     return std::make_tuple(_fast_exec._time_sum.load(), repetitions);
   }
 
-  std::tuple<int, int> Server::poll_threads(int max_repetitions)
+  std::tuple<int, int> Server::poll_threads(int max_repetitions, int warmup_iters)
   {
     _fast_exec._conn = _conn;
     _fast_exec._wc_buffer = &_wc_buffer;
     // FIXME: parallel accumulation of reps across threads?
     // +1 to handle the warm-up call
-    _fast_exec._max_repetitions = max_repetitions + 1;
+    _fast_exec._max_repetitions = max_repetitions;
+    _fast_exec._warmup_iters = warmup_iters;
     _fast_exec.allocate_threads(true);
 
     // FIXME: more threads
