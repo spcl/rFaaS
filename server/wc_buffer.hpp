@@ -25,10 +25,10 @@ namespace server {
       refill();
     }
 
-    inline std::optional<ibv_wc> poll()
+    inline ibv_wc* poll()
     {
-      std::optional<ibv_wc> wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, false);
-      _requests -= wc.has_value();
+      ibv_wc* wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, false);
+      _requests -= wc != nullptr;
       return wc;
     }
 

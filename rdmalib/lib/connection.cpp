@@ -114,6 +114,7 @@ namespace rdmalib {
     wr.sg_list = elems.array();
     wr.num_sge = elems.size();
     wr.send_flags = IBV_SEND_SIGNALED;
+    //wr.send_flags = IBV_SEND_SIGNALED | IBV_SEND_INLINE;
 
     int ret = ibv_post_send(_qp, &wr, &bad);
     if(ret) {
@@ -170,21 +171,20 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  std::optional<ibv_wc> Connection::poll_wc(QueueType type, bool blocking)
+  ibv_wc* Connection::poll_wc(QueueType type, bool blocking)
   {
     constexpr int entries = 1;
-    ibv_wc wc;
     int ret = 0;
     if(blocking) {
       do {
-        ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, entries, &wc);
+        ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, entries, &_wc);
       } while(ret == 0);
     }
     else
-      ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, entries, &wc);
+      ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, entries, &_wc);
     if(ret)
       SPDLOG_DEBUG("Queue {} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", wc.wr_id, ibv_wc_status_str(wc.status));
-    return ret == 0 ? std::optional<ibv_wc>{} : wc;
+    return ret == 0 ? nullptr : &_wc;
   }
 
 }

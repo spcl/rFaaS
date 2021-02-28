@@ -56,6 +56,7 @@ namespace rdmalib {
     rdma_cm_id* _id;
     ibv_qp* _qp; 
     int32_t _req_count;
+    ibv_wc _wc;
 
     Connection();
     ~Connection();
@@ -66,7 +67,7 @@ namespace rdmalib {
     void close();
     ibv_qp* qp() const;
     // Blocking, no timeout
-    std::optional<ibv_wc> poll_wc(QueueType, bool blocking = true);
+    ibv_wc* poll_wc(QueueType, bool blocking = true);
     int32_t post_send(ScatterGatherElement && elem, int32_t id = -1);
     int32_t post_recv(ScatterGatherElement && elem, int32_t id = -1, int32_t count = 1);
     int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf);
