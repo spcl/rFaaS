@@ -6,9 +6,10 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/common.h>
 
+#include <rdmalib/recv_buffer.hpp>
+
 #include "server.hpp"
 #include "fast_executor.hpp"
-#include "wc_buffer.hpp"
 
 namespace server {
 

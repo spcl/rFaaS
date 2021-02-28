@@ -12,10 +12,13 @@
 #include "rdmalib/connection.hpp"
 #include "structures.hpp"
 
+namespace rdmalib {
+  struct RecvBuffer;
+}
+
 namespace server {
 
   struct Server;
-  struct WCBuffer;
 
   struct FastExecutors {
 
@@ -32,7 +35,7 @@ namespace server {
     int _warmup_iters;
     Server & _server;
     rdmalib::Connection* _conn;
-    WCBuffer* _wc_buffer;
+    rdmalib::RecvBuffer* _wc_buffer;
 
     // Statistics
     std::atomic<int> _time_sum;

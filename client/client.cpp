@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/rdmalib.hpp>
+#include <rdmalib/recv_buffer.hpp>
 #include "client.hpp"
 
 
@@ -13,6 +14,7 @@ int main(int argc, char ** argv)
 {
   auto opts = client::options(argc, argv);
   int buf_size = opts["size"].as<int>();
+  int recv_buf_size = opts["requests"].as<int>();
   int repetitions = opts["repetitions"].as<int>();
   int warmup_iters = opts["warmup-iters"].as<int>();
   if(opts["verbose"].as<bool>())
@@ -23,7 +25,7 @@ int main(int argc, char ** argv)
   spdlog::info("Executing serverless-rdma client!");
 
   std::ifstream in(opts["file"].as<std::string>());
-  client::ServerConnection client(rdmalib::server::ServerStatus::deserialize(in), buf_size);
+  client::ServerConnection client(rdmalib::server::ServerStatus::deserialize(in), recv_buf_size);
   in.close();
   client.allocate_send_buffers(2, buf_size);
   client.allocate_receive_buffers(2, buf_size);
@@ -40,33 +42,24 @@ int main(int argc, char ** argv)
   }
 
   // Warmup iterations
-  int buffer_refill = std::min(buf_size, 5);
+  rdmalib::RecvBuffer rcv_buffer{recv_buf_size};
+  rcv_buffer.connect(&client.connection());
   timeval start, end;
-  int requests = buf_size;
   int sum = 0;
-  client.connection().post_recv({}, -1, buf_size);
   spdlog::info("Warmups begin");
-  SPDLOG_DEBUG("Warmups begin");
   for(int i = 0; i < warmup_iters; ++i) {
-    if(requests < buffer_refill) {
-      client.connection().post_recv({}, -1, buf_size - requests); requests = buf_size;
-    }
+    rcv_buffer.refill();
     client.submit_fast(1, "test");
-    auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
-    requests--;
+    auto wc = rcv_buffer.poll(true);
   }
   spdlog::info("Warmups completed");
-  SPDLOG_DEBUG("Warmups completed");
 
   // Start actual measurements
   gettimeofday(&start, nullptr);
   for(int i = 0; i < repetitions; ++i) {
-    if(requests < buffer_refill) {
-      client.connection().post_recv({}, -1, buf_size - requests); requests = buf_size;
-    }
+    rcv_buffer.refill();
     int id = client.submit_fast(1, "test");
-    auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
-    requests--;
+    auto wc = rcv_buffer.poll(true);
     SPDLOG_DEBUG("Finished execution with ID {}", ntohl(wc->imm_data)); 
   }
   gettimeofday(&end, nullptr);

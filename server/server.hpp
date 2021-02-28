@@ -9,9 +9,9 @@
 #include <rdmalib/server.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/connection.hpp>
+#include <rdmalib/recv_buffer.hpp>
 
 #include "fast_executor.hpp"
-#include "wc_buffer.hpp"
 
 namespace server {
 
@@ -104,7 +104,7 @@ namespace server {
     //Executors _exec;
     FastExecutors _fast_exec;
     rdmalib::Connection* _conn;
-    WCBuffer _wc_buffer;
+    rdmalib::RecvBuffer _wc_buffer;
 
     Server(
         std::string addr,

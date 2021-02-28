@@ -1,20 +1,22 @@
 
-#ifndef __SERVER_WC_BUFFER_HPP__
-#define __SERVER_WC_BUFFER_HPP__
+#ifndef __RDMALIB_RECV_BUFFER_HPP__
+#define __RDMALIB_RECV_BUFFER_HPP__
 
 #include <optional>
 
 #include <rdmalib/connection.hpp>
 
-namespace server {
+namespace rdmalib {
 
-  struct WCBuffer {
+  struct RecvBuffer {
     int _rcv_buf_size;
+    int _refill_threshold;
     int _requests;
     rdmalib::Connection * _conn;
 
-    WCBuffer(int rcv_buf_size):
+    RecvBuffer(int rcv_buf_size):
       _rcv_buf_size(rcv_buf_size),
+      _refill_threshold(std::min(_rcv_buf_size, 5)),
       _requests(0),
       _conn(nullptr)
     {}
@@ -25,16 +27,16 @@ namespace server {
       refill();
     }
 
-    inline ibv_wc* poll()
+    inline ibv_wc* poll(bool blocking = false)
     {
-      ibv_wc* wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, false);
+      ibv_wc* wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);
       _requests -= wc != nullptr;
       return wc;
     }
 
     inline void refill()
     {
-      if(_requests < 5) {
+      if(_requests < _refill_threshold) {
         this->_conn->post_recv({}, -1, _rcv_buf_size - _requests);
         _requests = _rcv_buf_size;
       }
