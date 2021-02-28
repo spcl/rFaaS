@@ -49,7 +49,7 @@ int main(int argc, char ** argv)
   SPDLOG_DEBUG("Warmups begin");
   for(int i = 0; i < warmup_iters; ++i) {
     if(requests < buffer_refill) {
-      client.connection().post_recv({}, -1, buf_size); requests = buf_size;
+      client.connection().post_recv({}, -1, buf_size - requests); requests = buf_size;
     }
     client.submit_fast(1, "test");
     auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
@@ -62,7 +62,7 @@ int main(int argc, char ** argv)
   gettimeofday(&start, nullptr);
   for(int i = 0; i < repetitions; ++i) {
     if(requests < buffer_refill) {
-      client.connection().post_recv({}, -1, buf_size); requests = buf_size;
+      client.connection().post_recv({}, -1, buf_size - requests); requests = buf_size;
     }
     int id = client.submit_fast(1, "test");
     auto wc = client.connection().poll_wc(rdmalib::QueueType::RECV);
