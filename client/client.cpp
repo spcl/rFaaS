@@ -1,13 +1,13 @@
 
 #include <chrono>
 #include <thread>
-#include <sys/time.h>
 
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/recv_buffer.hpp>
 #include "client.hpp"
+#include "benchmarker.hpp"
 
 
 int main(int argc, char ** argv)
@@ -42,10 +42,9 @@ int main(int argc, char ** argv)
   }
 
   // Warmup iterations
+  client::Benchmarker benchmarker{repetitions};
   rdmalib::RecvBuffer rcv_buffer{recv_buf_size};
   rcv_buffer.connect(&client.connection());
-  timeval start, end;
-  int sum = 0;
   spdlog::info("Warmups begin");
   for(int i = 0; i < warmup_iters; ++i) {
     rcv_buffer.refill();
@@ -55,17 +54,17 @@ int main(int argc, char ** argv)
   spdlog::info("Warmups completed");
 
   // Start actual measurements
-  gettimeofday(&start, nullptr);
   for(int i = 0; i < repetitions; ++i) {
+    benchmarker.start();
     rcv_buffer.refill();
     int id = client.submit_fast(1, "test");
     auto wc = rcv_buffer.poll(true);
+    benchmarker.end();
     SPDLOG_DEBUG("Finished execution with ID {}", ntohl(wc->imm_data)); 
   }
-  gettimeofday(&end, nullptr);
-  int usec = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
-  sum += usec;
-  spdlog::info("Executed {} repetitions in {} usec, avg {} usec/iter", repetitions, sum, ((float)sum)/repetitions);
+  auto [median, avg] = benchmarker.summary();
+  spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", repetitions, avg, median);
+  benchmarker.export_csv(opts["out-file"].as<std::string>());
 
   for(int i = 0; i < 100; ++i)
     printf("%d ", ((int*)client.recv_buffer(0).data())[i]);
