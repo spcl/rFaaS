@@ -30,11 +30,11 @@ namespace server {
   }
 
   Server::Server(std::string addr, int port, int cheap_executors, int fast_executors,
-      int msg_size, int rcv_buf, std::string server_file):
+      int msg_size, int rcv_buf, bool pin_threads, std::string server_file):
     _state(addr, port, rcv_buf, true),
     _status(addr, port),
     //_threads_allocation(numcores),
-    _fast_exec(fast_executors, msg_size, *this),
+    _fast_exec(fast_executors, msg_size, pin_threads, *this),
     _conn(nullptr),
     _wc_buffer(rcv_buf)
   {

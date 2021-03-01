@@ -16,6 +16,7 @@ namespace server {
       ("polling-mgr", "Polling manager: server, thread", cxxopts::value<std::string>()->default_value("server"))
       ("polling-type", "Polling type: wc (work completions), dram", cxxopts::value<std::string>()->default_value("wc"))
       ("warmup-iters", "Number of warm-up iterations", cxxopts::value<int>()->default_value("1"))
+      ("pin-threads", "Pin worker threads to CPU cores", cxxopts::value<bool>()->default_value("false"))
       ("x,requests", "Size of recv buffer", cxxopts::value<int>()->default_value("32"))
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
       ("r,repetitions", "Repetitions to execute", cxxopts::value<int>()->default_value("1"))
@@ -35,6 +36,7 @@ namespace server {
     result.repetitions = parsed_options["repetitions"].as<int>();
     result.warmup_iters = parsed_options["warmup-iters"].as<int>();
     result.verbose = parsed_options["verbose"].as<bool>();
+    result.pin_threads = parsed_options["pin-threads"].as<bool>();
 
     std::string polling_mgr = parsed_options["polling-mgr"].as<std::string>();
     if(polling_mgr == "server") {

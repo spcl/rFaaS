@@ -44,6 +44,7 @@ namespace server {
     int msg_size;
     int repetitions;
     int warmup_iters;
+    bool pin_threads;
     std::string server_file;
     bool verbose;
     PollingMgr polling_manager;
@@ -113,6 +114,7 @@ namespace server {
         int fast_executors,
         int msg_size,
         int rcv_buf,
+        bool pin_threads,
         std::string server_file
     );
 

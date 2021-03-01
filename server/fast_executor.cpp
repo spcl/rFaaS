@@ -7,19 +7,21 @@
 #include <spdlog/common.h>
 
 #include <rdmalib/recv_buffer.hpp>
+#include <rdmalib/util.hpp>
 
 #include "server.hpp"
 #include "fast_executor.hpp"
 
 namespace server {
 
-  FastExecutors::FastExecutors(int numcores, int msg_size, Server & server):
+  FastExecutors::FastExecutors(int numcores, int msg_size, bool pin_threads, Server & server):
     _closing(false),
     _numcores(numcores),
     _max_repetitions(0),
     //_last_invocation(0),
     _server(server),
     _conn(nullptr),
+    _pin_threads(pin_threads),
     _time_sum(0),
     _repetitions(0)
   {
@@ -69,6 +71,13 @@ namespace server {
         poll ? &FastExecutors::thread_poll_func : &FastExecutors::cv_thread_func,
         this, i
       );
+      // FIXME: make sure that native handle is actually from pthreads
+      if(_pin_threads) {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(i, &cpuset);
+        rdmalib::impl::expect_zero(pthread_setaffinity_np(_threads[i].native_handle(), sizeof(cpu_set_t), &cpuset));
+      }
       _start_timestamps.emplace_back();
     }
   }

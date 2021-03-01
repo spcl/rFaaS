@@ -33,6 +33,7 @@ namespace server {
     int _numcores;
     int _max_repetitions;
     int _warmup_iters;
+    bool _pin_threads;
     Server & _server;
     rdmalib::Connection* _conn;
     rdmalib::RecvBuffer* _wc_buffer;
@@ -41,7 +42,8 @@ namespace server {
     std::atomic<int> _time_sum;
     std::atomic<int> _repetitions;
 
-    FastExecutors(int num, int msg_size, Server &);
+
+    FastExecutors(int num, int msg_size, bool pin_threads, Server &);
     ~FastExecutors();
 
     void allocate_threads(bool poll);
