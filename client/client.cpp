@@ -6,8 +6,8 @@
 
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/recv_buffer.hpp>
+#include <rdmalib/benchmarker.hpp>
 #include "client.hpp"
-#include "benchmarker.hpp"
 
 
 int main(int argc, char ** argv)
@@ -42,7 +42,7 @@ int main(int argc, char ** argv)
   }
 
   // Warmup iterations
-  client::Benchmarker benchmarker{repetitions};
+  rdmalib::Benchmarker benchmarker{repetitions};
   rdmalib::RecvBuffer rcv_buffer{recv_buf_size};
   rcv_buffer.connect(&client.connection());
   spdlog::info("Warmups begin");

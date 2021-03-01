@@ -1,16 +1,17 @@
 
-#ifndef __CLIENT_MEASUREMENTS_HPP__
-#define __CLIENT_MEASUREMENTS_HPP__
+#ifndef __RDMALIB_BENCHMARKER_HPP__
+#define __RDMALIB_BENCHMARKER_HPP__
 
 #include <numeric>
 #include <vector>
 #include <string>
 #include <tuple>
 #include <chrono>
+#include <fstream>
 
-#include <sys/time.h>
+//#include <sys/time.h>
 
-namespace client {
+namespace rdmalib {
 
   struct Benchmarker {
     std::vector<uint64_t> _measurements;
