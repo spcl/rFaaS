@@ -30,13 +30,13 @@ namespace server {
   }
 
   Server::Server(std::string addr, int port, int cheap_executors, int fast_executors,
-      int msg_size, int rcv_buf, bool pin_threads, std::string server_file):
-    _state(addr, port, rcv_buf, true),
+      int msg_size, int rcv_buf, bool pin_threads, int max_inline_data, std::string server_file):
+    _state(addr, port, rcv_buf, true, max_inline_data),
     _status(addr, port),
-    //_threads_allocation(numcores),
     _fast_exec(fast_executors, msg_size, pin_threads, *this),
     _conn(nullptr),
-    _wc_buffer(rcv_buf)
+    _wc_buffer(rcv_buf),
+    _inline_data(msg_size < max_inline_data)
   {
     //listen();
 
@@ -81,6 +81,7 @@ namespace server {
         this->_wc_buffer.connect(&conn);
       }
     );
+    this->_conn->inlining(_inline_data);
     return this->_conn;
   }
 

@@ -31,7 +31,9 @@ namespace rdmalib {
     _id(nullptr),
     _qp(nullptr),
     _req_count(0)
-  {}
+  {
+    _send_flags = IBV_SEND_SIGNALED;
+  }
 
   Connection::~Connection()
   {
@@ -46,6 +48,15 @@ namespace rdmalib {
     obj._id = nullptr;
     obj._qp = nullptr;
     obj._req_count = 0;
+  }
+
+  void Connection::inlining(bool enable)
+  {
+    if(enable)
+      _send_flags = IBV_SEND_SIGNALED | IBV_SEND_INLINE;
+    else
+      _send_flags = IBV_SEND_SIGNALED;
+    printf("%d %d %d\n", _send_flags, IBV_SEND_SIGNALED, IBV_SEND_SIGNALED | IBV_SEND_INLINE);
   }
 
   void Connection::close()
@@ -72,7 +83,7 @@ namespace rdmalib {
     wr.sg_list = elems.array();
     wr.num_sge = elems.size();
     wr.opcode = IBV_WR_SEND;
-    wr.send_flags = IBV_SEND_SIGNALED;
+    wr.send_flags = _send_flags;
 
     int ret = ibv_post_send(_qp, &wr, &bad);
     if(ret) {
@@ -113,8 +124,7 @@ namespace rdmalib {
     wr.next = nullptr;
     wr.sg_list = elems.array();
     wr.num_sge = elems.size();
-    wr.send_flags = IBV_SEND_SIGNALED;
-    //wr.send_flags = IBV_SEND_SIGNALED | IBV_SEND_INLINE;
+    wr.send_flags = _send_flags;
 
     int ret = ibv_post_send(_qp, &wr, &bad);
     if(ret) {

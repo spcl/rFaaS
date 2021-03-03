@@ -90,7 +90,9 @@ namespace rdmalib { namespace impl {
   uint32_t Buffer::lkey() const
   {
     assert(this->_mr);
+    // Apparently it's not needed and better to skip that check.
     return this->_mr->lkey;
+    //return 0;
   }
 
   uint32_t Buffer::rkey() const

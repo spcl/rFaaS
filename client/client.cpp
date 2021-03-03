@@ -17,6 +17,7 @@ int main(int argc, char ** argv)
   int recv_buf_size = opts["requests"].as<int>();
   int repetitions = opts["repetitions"].as<int>();
   int warmup_iters = opts["warmup-iters"].as<int>();
+  int max_inline_data = opts["max-inline-data"].as<int>();
   if(opts["verbose"].as<bool>())
     spdlog::set_level(spdlog::level::debug);
   else
@@ -25,7 +26,7 @@ int main(int argc, char ** argv)
   spdlog::info("Executing serverless-rdma client!");
 
   std::ifstream in(opts["file"].as<std::string>());
-  client::ServerConnection client(rdmalib::server::ServerStatus::deserialize(in), recv_buf_size);
+  client::ServerConnection client(rdmalib::server::ServerStatus::deserialize(in), recv_buf_size, max_inline_data);
   in.close();
   client.allocate_send_buffers(2, buf_size);
   client.allocate_receive_buffers(2, buf_size);

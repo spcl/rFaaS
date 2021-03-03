@@ -23,8 +23,10 @@ namespace client {
     rdmalib::Buffer<uint64_t> _atomic_buffer;
     rdmalib::server::ServerStatus _status;
     rdmalib::RDMAActive _active;
+    int _max_inline_data;
+    int _msg_size;
 
-    ServerConnection(const rdmalib::server::ServerStatus &, int rcv_buf);
+    ServerConnection(const rdmalib::server::ServerStatus &, int rcv_buf, int max_inline_data);
 
     rdmalib::Connection & connection();
     bool connect();

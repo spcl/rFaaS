@@ -28,7 +28,7 @@ namespace rdmalib {
     rdma_freeaddrinfo(addrinfo);
   }
 
-  RDMAActive::RDMAActive(const std::string & ip, int port, int recv_buf):
+  RDMAActive::RDMAActive(const std::string & ip, int port, int recv_buf, int max_inline_data):
     _addr(ip, port, false),
     _ec(nullptr),
     _pd(nullptr)
@@ -43,7 +43,7 @@ namespace rdmalib {
     // Maximal number of scatter-gather requests in a work request in receive queue
     _cfg.attr.cap.max_recv_sge = 1;
     // Max inlined message size
-    _cfg.attr.cap.max_inline_data = 128;
+    _cfg.attr.cap.max_inline_data = max_inline_data;
     // Reliable connection
     _cfg.attr.qp_type = IBV_QPT_RC;
 
@@ -87,7 +87,7 @@ namespace rdmalib {
     return this->_conn;
   }
 
-  RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize):
+  RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize, int max_inline_data):
     _addr(ip, port, true),
     _ec(nullptr),
     _listen_id(nullptr),
@@ -98,7 +98,7 @@ namespace rdmalib {
     _cfg.attr.cap.max_recv_wr = recv_buf;
     _cfg.attr.cap.max_send_sge = 1;
     _cfg.attr.cap.max_recv_sge = 1;
-    _cfg.attr.cap.max_inline_data = 128;
+    _cfg.attr.cap.max_inline_data = max_inline_data;
     _cfg.attr.qp_type = IBV_QPT_RC;
 
     _cfg.conn_param.responder_resources = 5;

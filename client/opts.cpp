@@ -19,6 +19,7 @@ namespace client {
       ("o,out-file", "Output with statistics", cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
       ("warmup-iters", "Number of warm-up iterations", cxxopts::value<int>()->default_value("1"))
+      ("max-inline-data", "Maximum size of inlined message", cxxopts::value<int>()->default_value("0"))
     ;
     return options.parse(argc, argv);
   }  

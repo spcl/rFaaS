@@ -36,6 +36,7 @@ int main(int argc, char ** argv)
       opts.msg_size,
       opts.recv_buffer_size,
       opts.pin_threads,
+      opts.max_inline_data,
       opts.server_file
   );
 

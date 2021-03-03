@@ -32,7 +32,7 @@ namespace rdmalib {
     rdma_event_channel * _ec;
     ibv_pd* _pd;
 
-    RDMAActive(const std::string & ip, int port, int recv_buf = 1);
+    RDMAActive(const std::string & ip, int port, int recv_buf = 1, int max_inline_data = 0);
     ~RDMAActive();
     void allocate();
     bool connect();
@@ -48,7 +48,7 @@ namespace rdmalib {
     ibv_pd* _pd;
     std::vector<Connection> _connections;
 
-    RDMAPassive(const std::string & ip, int port, int recv_buf = 1, bool initialize = true);
+    RDMAPassive(const std::string & ip, int port, int recv_buf = 1, bool initialize = true, int max_inline_data = 0);
     ~RDMAPassive();
     void allocate();
     ibv_pd* pd() const;

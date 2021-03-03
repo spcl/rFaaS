@@ -45,6 +45,7 @@ namespace server {
     int repetitions;
     int warmup_iters;
     bool pin_threads;
+    int max_inline_data;
     std::string server_file;
     bool verbose;
     PollingMgr polling_manager;
@@ -106,6 +107,7 @@ namespace server {
     FastExecutors _fast_exec;
     rdmalib::Connection* _conn;
     rdmalib::RecvBuffer _wc_buffer;
+    bool _inline_data;
 
     Server(
         std::string addr,
@@ -115,6 +117,7 @@ namespace server {
         int msg_size,
         int rcv_buf,
         bool pin_threads,
+        int max_inline_data,
         std::string server_file
     );
 

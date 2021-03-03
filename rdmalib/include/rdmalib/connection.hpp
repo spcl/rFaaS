@@ -57,6 +57,7 @@ namespace rdmalib {
     ibv_qp* _qp; 
     int32_t _req_count;
     ibv_wc _wc;
+    int _send_flags;
 
     Connection();
     ~Connection();
@@ -64,6 +65,7 @@ namespace rdmalib {
     Connection& operator=(const Connection&) = delete;
     Connection(Connection&&);
 
+    void inlining(bool enable);
     void close();
     ibv_qp* qp() const;
     // Blocking, no timeout
