@@ -193,7 +193,7 @@ namespace rdmalib {
     else
       ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, entries, &_wc);
     if(ret)
-      SPDLOG_DEBUG("Queue {} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", wc.wr_id, ibv_wc_status_str(wc.status));
+      SPDLOG_DEBUG("Queue {} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", _wc.wr_id, ibv_wc_status_str(_wc.status));
     return ret == 0 ? nullptr : &_wc;
   }
 
