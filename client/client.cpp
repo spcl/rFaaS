@@ -28,10 +28,10 @@ int main(int argc, char ** argv)
   std::ifstream in(opts["file"].as<std::string>());
   client::ServerConnection client(rdmalib::server::ServerStatus::deserialize(in), recv_buf_size, max_inline_data);
   in.close();
-  client.allocate_send_buffers(2, buf_size);
-  client.allocate_receive_buffers(2, buf_size);
   if(!client.connect())
     return -1;
+  client.allocate_send_buffers(2, buf_size);
+  client.allocate_receive_buffers(2, buf_size);
   spdlog::info("Connected to the server!");
 
   // prepare args
