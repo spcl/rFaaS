@@ -64,6 +64,48 @@ namespace rdmalib {
     impl::expect_zero(rdma_create_qp(_conn._id, _pd, &_cfg.attr));
     _pd = _conn._id->pd;
     _conn._qp = _conn._id->qp;
+
+    // An attempt to bind the active client to a specifi device.
+    //struct addrinfo *addr;
+    //getaddrinfo("192.168.0.12", "0", nullptr, &addr);
+    //rdma_cm_id *conn = nullptr;
+    //auto ec = rdma_create_event_channel();
+    //int ret = rdma_create_id(ec, &conn, NULL, RDMA_PS_TCP);
+    //spdlog::info("{} {} {} {}", ret, conn != nullptr, addr->ai_addr != nullptr, _addr.addrinfo->ai_dst_addr != nullptr);
+    ////ret = rdma_resolve_addr(conn, addr->ai_addr, _addr.addrinfo->ai_dst_addr, 2000);
+    ////spdlog::info("{} {} {} {} {}", ret, conn != nullptr, conn->verbs != nullptr, conn->pd != nullptr, conn->qp != nullptr);
+
+    //ret = rdma_bind_addr(conn, addr->ai_addr);
+    //spdlog::info("{} {} {} {} {} {}", ret, errno, conn != nullptr, conn->verbs != nullptr, conn->pd != nullptr, conn->qp != nullptr);
+
+    //int num_of_device;
+    //struct ibv_device **dev_list;
+    //struct ibv_device *ib_dev = NULL;
+
+    //struct addrinfo *addr2;
+    //ret = rdma_resolve_addr(conn, nullptr, _addr.addrinfo->ai_dst_addr, 2000);
+    //spdlog::info("{} {} {} {} {}", ret, conn != nullptr, conn->verbs != nullptr, conn->pd != nullptr, conn->qp != nullptr);
+    ////dev_list = ibv_get_device_list(&num_of_device);
+    ////spdlog::info("{}", ibv_get_device_name(dev_list[1]));
+    ////conn->verbs = ibv_open_device(dev_list[1]);
+    //impl::expect_zero(rdma_create_qp(conn, conn->pd, &_cfg.attr));
+    //_conn._id = conn;
+    ////impl::expect_zero(rdma_create_ep(&_conn._id, _addr.addrinfo, nullptr, nullptr));
+    ////impl::expect_zero(rdma_create_qp(_conn._id, _pd, &_cfg.attr));
+    //struct rdma_cm_event *event;
+    //while (1) {
+    //  ret = rdma_get_cm_event(_conn._id->channel, &event);
+    //  if (ret) { 
+    //    exit(ret);
+    //  }
+    //  spdlog::info("{} {}", event->event, RDMA_CM_EVENT_ADDR_ERROR);
+    //  rdma_ack_cm_event(event);
+    //  break;
+    //}
+    ////
+    ////
+    //ret = rdma_resolve_route(_conn._id, 2000);
+    //spdlog::info("{} {} {} {} {} {}", ret, errno, conn != nullptr, conn->verbs != nullptr, conn->pd != nullptr, conn->qp != nullptr);
   }
 
   bool RDMAActive::connect()
