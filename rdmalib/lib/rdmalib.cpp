@@ -19,9 +19,37 @@ namespace rdmalib {
     hints.ai_port_space = RDMA_PS_TCP;
     if(passive)
       hints.ai_flags = RAI_PASSIVE;
+
     impl::expect_zero(rdma_getaddrinfo(ip.c_str(), std::to_string(port).c_str(), &hints, &addrinfo));
     this->_port = port;
   }
+
+  Address::Address(const std::string & sip,  const std::string & dip, int port)
+  {
+    struct sockaddr_in server_in, local_in;
+    memset(&server_in, 0, sizeof(server_in));
+    memset(&local_in, 0, sizeof(local_in));
+
+    /*address of remote node*/
+    server_in.sin_family = AF_INET;
+    server_in.sin_port = htons(port);  
+    inet_pton(AF_INET, dip.c_str(),   &server_in.sin_addr);
+
+    /*address of local device*/
+    local_in.sin_family = AF_INET; 
+    inet_pton(AF_INET, sip.c_str(), &local_in.sin_addr);
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_port_space = RDMA_PS_TCP;
+    hints.ai_src_len = sizeof(local_in);
+    hints.ai_dst_len = sizeof(server_in);
+    hints.ai_src_addr = (struct sockaddr *)(&local_in);
+    hints.ai_dst_addr = (struct sockaddr *)(&server_in);
+
+    impl::expect_zero(rdma_getaddrinfo(NULL, NULL, &hints, &addrinfo));
+    this->_port = port;
+  }
+
 
   Address::~Address()
   {

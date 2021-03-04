@@ -22,6 +22,8 @@ namespace rdmalib {
     uint16_t _port;
 
     Address(const std::string & ip, int port, bool passive);
+    Address(const std::string & sip, const std::string & dip, int port);
+
     ~Address();
   };
 
