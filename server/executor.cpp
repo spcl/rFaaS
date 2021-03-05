@@ -81,7 +81,8 @@ namespace server {
         this->_wc_buffer.connect(&conn);
       }
     );
-    this->_conn->inlining(_inline_data);
+    if(this->_conn)
+      this->_conn->inlining(_inline_data);
     return this->_conn;
   }
 
