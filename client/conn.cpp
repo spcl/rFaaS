@@ -11,7 +11,8 @@ namespace client {
   ServerConnection::ServerConnection(const rdmalib::server::ServerStatus & status, int rcv_buf, int max_inline_data):
     _status(status),
     _active(_status._address, _status._port, rcv_buf),
-    _max_inline_data(max_inline_data)
+    _max_inline_data(max_inline_data),
+    _msg_size(0)
   {
     _active.allocate();
     // TODO: QUEUE_MSG_SIZE
@@ -26,8 +27,7 @@ namespace client {
   bool ServerConnection::connect()
   {
     bool ret = _active.connect();
-    if(_msg_size < _max_inline_data)
-      _active.connection().inlining(true);
+    // FIXME: data header size
     return ret;
   }
 
@@ -43,6 +43,8 @@ namespace client {
       _send.back().register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE);
     }
     _msg_size = size;
+    if(_msg_size + 16 < _max_inline_data)
+      _active.connection().inlining(true);
   }
 
   void ServerConnection::allocate_receive_buffers(int count, uint32_t size)
