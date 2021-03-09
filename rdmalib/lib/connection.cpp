@@ -32,7 +32,7 @@ namespace rdmalib {
     _qp(nullptr),
     _req_count(0)
   {
-    _send_flags = IBV_SEND_SIGNALED;
+    inlining(false);
   }
 
   Connection::~Connection()
@@ -56,7 +56,6 @@ namespace rdmalib {
       _send_flags = IBV_SEND_SIGNALED | IBV_SEND_INLINE;
     else
       _send_flags = IBV_SEND_SIGNALED;
-    printf("%d %d %d\n", _send_flags, IBV_SEND_SIGNALED, IBV_SEND_SIGNALED | IBV_SEND_INLINE);
   }
 
   void Connection::close()
