@@ -20,8 +20,8 @@ namespace server {
     sigIntHandler.sa_handler = &SignalHandler::handler;
     sigemptyset(&sigIntHandler.sa_mask);
     sigIntHandler.sa_flags = 0;
-    sigaction(SIGINT, &sigIntHandler, nullptr);
-
+    //FIXME: disable signals to avoid potential interrupts
+    //sigaction(SIGINT, &sigIntHandler, nullptr);
   }
 
   void SignalHandler::handler(int)
