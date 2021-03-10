@@ -12,7 +12,7 @@ namespace rdmalib {
     int _rcv_buf_size;
     int _refill_threshold;
     int _requests;
-    constexpr int DEFAULT_REFILL_THRESHOLD = 8;
+    constexpr static int DEFAULT_REFILL_THRESHOLD = 8;
     rdmalib::Connection * _conn;
 
     RecvBuffer(int rcv_buf_size):
