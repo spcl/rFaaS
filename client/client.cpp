@@ -38,8 +38,8 @@ int main(int argc, char ** argv)
   memset(client.send_buffer(0).data(), 0, buf_size);
   memset(client.send_buffer(1).data(), 0, buf_size);
   for(int i = 0; i < buf_size; ++i) {
-    ((int*)client.send_buffer(0).data())[i] = 1;
-    ((int*)client.send_buffer(1).data())[i] = 2;
+    ((char*)client.send_buffer(0).data())[i] = 1;
+    ((char*)client.send_buffer(1).data())[i] = 2;
   }
 
   // Warmup iterations
@@ -67,11 +67,11 @@ int main(int argc, char ** argv)
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", repetitions, avg, median);
   benchmarker.export_csv(opts["out-file"].as<std::string>());
 
-  for(int i = 0; i < 100; ++i)
-    printf("%d ", ((int*)client.recv_buffer(0).data())[i]);
+  for(int i = 0; i < std::min(100, buf_size); ++i)
+    printf("%d ", ((char*)client.recv_buffer(0).data())[i]);
   printf("\n");
-  for(int i = 0; i < 100; ++i)
-    printf("%d ", ((int*)client.recv_buffer(1).data())[i]);
+  for(int i = 0; i < std::min(100, buf_size); ++i)
+    printf("%d ", ((char*)client.recv_buffer(1).data())[i]);
   printf("\n");
 
   return 0;
