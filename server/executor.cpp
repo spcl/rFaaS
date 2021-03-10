@@ -36,7 +36,7 @@ namespace server {
     _fast_exec(fast_executors, msg_size, pin_threads, *this),
     _conn(nullptr),
     _wc_buffer(rcv_buf),
-    _inline_data(msg_size < max_inline_data)
+    _inline_data(msg_size <= max_inline_data)
   {
     //listen();
 
