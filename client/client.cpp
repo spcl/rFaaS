@@ -66,7 +66,9 @@ int main(int argc, char ** argv)
     benchmarker.end(1);
     if (b)
       refills.push_back(i);
-    SPDLOG_DEBUG("Finished execution with ID {}", ntohl(wc->imm_data)); 
+    SPDLOG_DEBUG("Finished execution with ID {}", ntohl(std::get<0>(wc)[0].imm_data));
+
+    // Wait for the next iteration
     std::this_thread::sleep_for(std::chrono::microseconds(10));
   }
   auto [median, avg] = benchmarker.summary();

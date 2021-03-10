@@ -97,36 +97,41 @@ namespace server {
     while(!server::SignalHandler::closing && repetitions < total_iters) {
 
       // if we block, we never handle the interruption
-      auto wc = _wc_buffer.poll();
-      if(wc) {
+      auto wcs = _wc_buffer.poll();
+      if(std::get<1>(wcs)) {
+        // FIXME: one var per thread
         gettimeofday(&start, nullptr);
-        if(wc->status) {
-          spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
-          continue;
-        }
-        int info = ntohl(wc->imm_data);
-        int func_id = info >> 6;
-        int core = info & cores_mask;
-        // Startpoint of iteration for a given thread
-        _fast_exec._start_timestamps[core] = start;
-        SPDLOG_DEBUG("Execute func {} at core {}", func_id, core);
-        //uint32_t cur_invoc = server._exec.get_invocation_id();
-        uint32_t cur_invoc = 0;
+        for(int i = 0; i < std::get<1>(wcs); ++i) {
 
-        // FIXME: producer-consumer interface
-        SPDLOG_DEBUG("Wake-up fast thread {}", core);
-        _fast_exec.enable(core,
-          {
-            _db.functions[func_id],
-            cur_invoc,
-            this->_conn
+          ibv_wc* wc = &std::get<0>(wcs)[i];
+          if(wc->status) {
+            spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
+            continue;
           }
-        );
+          int info = ntohl(wc->imm_data);
+          int func_id = info >> 6;
+          int core = info & cores_mask;
+          // Startpoint of iteration for a given thread
+          _fast_exec._start_timestamps[core] = start;
+          SPDLOG_DEBUG("Execute func {} at core {}", func_id, core);
+          //uint32_t cur_invoc = server._exec.get_invocation_id();
+          uint32_t cur_invoc = 0;
 
-        // clean send queue
-        this->_conn->poll_wc(rdmalib::QueueType::SEND, false);
-        _wc_buffer.refill();
-        ++repetitions;
+          // FIXME: producer-consumer interface
+          SPDLOG_DEBUG("Wake-up fast thread {}", core);
+          _fast_exec.enable(core,
+            {
+              _db.functions[func_id],
+              cur_invoc,
+              this->_conn
+            }
+          );
+
+          // clean send queue
+          this->_conn->poll_wc(rdmalib::QueueType::SEND, false);
+          _wc_buffer.refill();
+          ++repetitions;
+        }
       }
     }
     _fast_exec.close();

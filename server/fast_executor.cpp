@@ -143,34 +143,41 @@ namespace server {
     while(repetitions < total_iters) {
 
       // if we block, we never handle the interruption
-      auto wc = _wc_buffer->poll();
-      if(wc) {
-        if(wc->status) {
-          spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
-          continue;
+      auto wcs = _wc_buffer->poll();
+      if(std::get<1>(wcs)) {
+        for(int i = 0; i < std::get<1>(wcs); ++i) {
+
+          server_processing_times.start();
+          ibv_wc* wc = &std::get<0>(wcs)[i];
+          if(wc->status) {
+            spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
+            continue;
+          }
+          int info = ntohl(wc->imm_data);
+          int func_id = info >> 6;
+          int core = info & cores_mask;
+          // FIXME: verify function data - valid ID
+          SPDLOG_DEBUG("Execute func {} at core {}", func_id, core);
+          //uint32_t cur_invoc = server._exec.get_invocation_id();
+          uint32_t cur_invoc = 0;
+
+          SPDLOG_DEBUG("Wake-up fast thread {}", core);
+          this->_threads_status[core] = std::move(
+            ThreadStatus{
+              _server._db.functions[func_id],
+              cur_invoc,
+              _conn
+            }
+          );
+          work(core);
+          server_processing_times.end(0);
+
+          // clean send queue
+          server_processing_times.start();
+          _conn->poll_wc(rdmalib::QueueType::SEND, true);
+          server_processing_times.end(1);
+          repetitions += 1;
         }
-        server_processing_times.start();
-        int info = ntohl(wc->imm_data);
-        int func_id = info >> 6;
-        int core = info & cores_mask;
-        SPDLOG_DEBUG("Execute func {} at core {}", func_id, core);
-        //uint32_t cur_invoc = server._exec.get_invocation_id();
-        uint32_t cur_invoc = 0;
-
-        SPDLOG_DEBUG("Wake-up fast thread {}", core);
-        this->_threads_status[core] = ThreadStatus{
-          _server._db.functions[func_id],
-          cur_invoc,
-          _conn
-        };
-        work(core);
-        server_processing_times.end(0);
-
-        server_processing_times.start();
-        // clean send queue
-        _conn->poll_wc(rdmalib::QueueType::SEND, true);
-        server_processing_times.end(1);
-        repetitions += 1;
         _wc_buffer->refill();
       }
     }

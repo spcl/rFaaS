@@ -130,7 +130,10 @@ namespace rdmalib {
       spdlog::error("Post write unsuccesful, reason {} {}", ret, strerror(ret));
       return -1;
     }
-    SPDLOG_DEBUG("Post write succesfull, remote addr {}, remote rkey {}", wr.wr.rdma.remote_addr, wr.wr.rdma.rkey);
+    SPDLOG_DEBUG(
+        "Post write succesfull id: {}, sge size: {}, first lkey {} len {}, remote addr {}, remote rkey {}, imm data {}",
+        wr.wr_id, wr.num_sge, wr.sg_list[0].lkey, wr.sg_list[0].length, wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
+    );
     return _req_count - 1;
 
   }
@@ -180,20 +183,25 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  ibv_wc* Connection::poll_wc(QueueType type, bool blocking)
+  std::tuple<ibv_wc*, int> Connection::poll_wc(QueueType type, bool blocking)
   {
-    constexpr int entries = 1;
+    memset(_wc.data(), 0, sizeof(ibv_wc) * _wc.size());
     int ret = 0;
     if(blocking) {
       do {
-        ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, entries, &_wc);
+        ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, _wc.size(), _wc.data());
       } while(ret == 0);
     }
     else
-      ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, entries, &_wc);
+      ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, _wc.size(), _wc.data());
+    if(ret < 0) {
+      spdlog::error("Failure of polling events from: {} queue! Return value {}, errno {}", type == QueueType::RECV ? "recv" : "send", ret, errno);
+      return std::make_tuple(nullptr, -1);
+    }
     if(ret)
-      SPDLOG_DEBUG("Queue {} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", _wc.wr_id, ibv_wc_status_str(_wc.status));
-    return ret == 0 ? nullptr : &_wc;
+      for(int i = 0; i < ret; ++i)
+        SPDLOG_DEBUG("Queue {} Ret {}/{} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", i + 1, ret, _wc[i].wr_id, ibv_wc_status_str(_wc[i].status));
+    return std::make_tuple(_wc.data(), ret);
   }
 
 }
