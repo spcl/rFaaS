@@ -139,36 +139,41 @@ namespace server {
     while(!server::SignalHandler::closing && repetitions < total_iters) {
 
       // if we block, we never handle the interruption
-      auto wc = _wc_buffer->poll();
-      if(wc) {
-        gettimeofday(&start, nullptr);
-        if(wc->status) {
-          spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
-          continue;
-        }
-        int info = ntohl(wc->imm_data);
-        int func_id = info >> 6;
-        int core = info & cores_mask;
-        SPDLOG_DEBUG("Execute func {} at core {}", func_id, core);
-        //uint32_t cur_invoc = server._exec.get_invocation_id();
-        uint32_t cur_invoc = 0;
+      auto wcs = _wc_buffer->poll();
+      if(std::get<1>(wcs)) {
+        for(int i = 0; i < std::get<1>(wcs); ++i) {
 
-        SPDLOG_DEBUG("Wake-up fast thread {}", core);
-        this->_threads_status[core] = std::move(
-          ThreadStatus{
-            _server._db.functions[func_id],
-            cur_invoc,
-            _conn
+          gettimeofday(&start, nullptr);
+          ibv_wc* wc = &std::get<0>(wcs)[i];
+          if(wc->status) {
+            spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
+            continue;
           }
-        );
-        work(core);
+          int info = ntohl(wc->imm_data);
+          int func_id = info >> 6;
+          int core = info & cores_mask;
+          // FIXME: verify function data - valid ID
+          SPDLOG_DEBUG("Execute func {} at core {}", func_id, core);
+          //uint32_t cur_invoc = server._exec.get_invocation_id();
+          uint32_t cur_invoc = 0;
 
-        // clean send queue
-        _conn->poll_wc(rdmalib::QueueType::SEND, false);
-        gettimeofday(&end, nullptr);
-        int usec = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
-        repetitions += 1;
-        sum += usec;
+          SPDLOG_DEBUG("Wake-up fast thread {}", core);
+          this->_threads_status[core] = std::move(
+            ThreadStatus{
+              _server._db.functions[func_id],
+              cur_invoc,
+              _conn
+            }
+          );
+          work(core);
+
+          // clean send queue
+          _conn->poll_wc(rdmalib::QueueType::SEND, true);
+          gettimeofday(&end, nullptr);
+          int usec = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+          repetitions += 1;
+          sum += usec;
+        }
         _wc_buffer->refill();
       }
     }
