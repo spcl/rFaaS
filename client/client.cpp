@@ -43,7 +43,7 @@ int main(int argc, char ** argv)
   }
 
   // Warmup iterations
-  rdmalib::Benchmarker benchmarker{repetitions};
+  rdmalib::Benchmarker<2> benchmarker{repetitions};
   rdmalib::RecvBuffer rcv_buffer{recv_buf_size};
   rcv_buffer.connect(&client.connection());
   spdlog::info("Warmups begin");
@@ -54,18 +54,28 @@ int main(int argc, char ** argv)
   }
   spdlog::info("Warmups completed");
 
+  std::vector<int> refills;
   // Start actual measurements
   for(int i = 0; i < repetitions; ++i) {
+    int b = rcv_buffer.refill();
     benchmarker.start();
-    rcv_buffer.refill();
     int id = client.submit_fast(1, "test");
+    benchmarker.end(0);
+    benchmarker.start();
     auto wc = rcv_buffer.poll(true);
-    benchmarker.end();
+    benchmarker.end(1);
+    if (b)
+      refills.push_back(i);
     SPDLOG_DEBUG("Finished execution with ID {}", ntohl(wc->imm_data)); 
+    std::this_thread::sleep_for(std::chrono::microseconds(10));
   }
   auto [median, avg] = benchmarker.summary();
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", repetitions, avg, median);
-  benchmarker.export_csv(opts["out-file"].as<std::string>());
+  benchmarker.export_csv(opts["out-file"].as<std::string>(), {"send", "recv"});
+  std::cout << "Receive buffer refills; ";
+  for(int i = 0; i < refills.size(); ++i)
+    std::cout << refills[i] << " ";
+  std::cout << '\n';
 
   for(int i = 0; i < std::min(100, buf_size); ++i)
     printf("%d ", ((char*)client.recv_buffer(0).data())[i]);

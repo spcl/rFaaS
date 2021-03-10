@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/common.h>
 
+#include <rdmalib/benchmarker.hpp>
 #include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/util.hpp>
 
@@ -135,17 +136,20 @@ namespace server {
     int repetitions = 0;
     int total_iters = _max_repetitions + _warmup_iters;
     constexpr int cores_mask = 0x3F;
-    //timeval start, end;
-    while(!server::SignalHandler::closing && repetitions < total_iters) {
+    rdmalib::Benchmarker<2> server_processing_times{total_iters};
+
+    // FIXME: disable signal handling
+    //while(!server::SignalHandler::closing && repetitions < total_iters) {
+    while(repetitions < total_iters) {
 
       // if we block, we never handle the interruption
       auto wc = _wc_buffer->poll();
       if(wc) {
-        gettimeofday(&start, nullptr);
         if(wc->status) {
           spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
           continue;
         }
+        server_processing_times.start();
         int info = ntohl(wc->imm_data);
         int func_id = info >> 6;
         int core = info & cores_mask;
@@ -154,24 +158,24 @@ namespace server {
         uint32_t cur_invoc = 0;
 
         SPDLOG_DEBUG("Wake-up fast thread {}", core);
-        this->_threads_status[core] = std::move(
-          ThreadStatus{
-            _server._db.functions[func_id],
-            cur_invoc,
-            _conn
-          }
-        );
+        this->_threads_status[core] = ThreadStatus{
+          _server._db.functions[func_id],
+          cur_invoc,
+          _conn
+        };
         work(core);
+        server_processing_times.end(0);
 
+        server_processing_times.start();
         // clean send queue
-        _conn->poll_wc(rdmalib::QueueType::SEND, false);
-        gettimeofday(&end, nullptr);
-        int usec = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+        _conn->poll_wc(rdmalib::QueueType::SEND, true);
+        server_processing_times.end(1);
         repetitions += 1;
-        sum += usec;
         _wc_buffer->refill();
       }
     }
+    server_processing_times.export_csv("server.csv", {"process", "send"});
+    // FIXME: reenable
     _time_sum.fetch_add(sum);
     _repetitions.fetch_add(repetitions);
   }
