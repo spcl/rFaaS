@@ -61,7 +61,7 @@ int main(int argc, char ** argv)
     int id = client.submit_fast(1, "test");
     auto wc = rcv_buffer.poll(true);
     benchmarker.end();
-    SPDLOG_DEBUG("Finished execution with ID {}", ntohl(wc->imm_data)); 
+    SPDLOG_DEBUG("Finished execution with ID {}", ntohl(std::get<0>(wc)[0].imm_data));
   }
   auto [median, avg] = benchmarker.summary();
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", repetitions, avg, median);
