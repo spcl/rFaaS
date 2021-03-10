@@ -27,10 +27,10 @@ namespace rdmalib {
       refill();
     }
 
-    inline ibv_wc* poll(bool blocking = false)
+    inline std::tuple<ibv_wc*,int> poll(bool blocking = false)
     {
-      ibv_wc* wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);
-      _requests -= wc != nullptr;
+      auto wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);
+      _requests -= std::get<1>(wc);
       return wc;
     }
 

@@ -63,17 +63,18 @@ namespace rdmalib {
   {
     // Size of Queue Pair
     // Maximum requests in send queue
-    _cfg.attr.cap.max_send_wr = 10;
+    _cfg.attr.cap.max_send_wr = 20;
     // Maximum requests in receive queue
     _cfg.attr.cap.max_recv_wr = recv_buf;
     // Maximal number of scatter-gather requests in a work request in send queue
-    _cfg.attr.cap.max_send_sge = 1;
+    _cfg.attr.cap.max_send_sge = 5;
     // Maximal number of scatter-gather requests in a work request in receive queue
-    _cfg.attr.cap.max_recv_sge = 1;
+    _cfg.attr.cap.max_recv_sge = 5;
     // Max inlined message size
     _cfg.attr.cap.max_inline_data = max_inline_data;
     // Reliable connection
     _cfg.attr.qp_type = IBV_QPT_RC;
+    _cfg.attr.sq_sig_all = 1;
 
     _cfg.conn_param.responder_resources = 5;
     _cfg.conn_param.initiator_depth =  5;
@@ -164,12 +165,13 @@ namespace rdmalib {
     _pd(nullptr)
   {
     // Size of Queue Pair
-    _cfg.attr.cap.max_send_wr = 10;
+    _cfg.attr.cap.max_send_wr = 20;
     _cfg.attr.cap.max_recv_wr = recv_buf;
-    _cfg.attr.cap.max_send_sge = 1;
-    _cfg.attr.cap.max_recv_sge = 1;
+    _cfg.attr.cap.max_send_sge = 5;
+    _cfg.attr.cap.max_recv_sge = 5;
     _cfg.attr.cap.max_inline_data = max_inline_data;
     _cfg.attr.qp_type = IBV_QPT_RC;
+    _cfg.attr.sq_sig_all = 1;
 
     _cfg.conn_param.responder_resources = 5;
     _cfg.conn_param.initiator_depth = 5;
