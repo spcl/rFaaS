@@ -33,6 +33,15 @@ namespace rdmalib {
     _req_count(0)
   {
     inlining(false);
+
+    for(int i=0; i < _rbatch; i++){
+      _batch_wrs[i].wr_id = -1;
+      _batch_wrs[i].sg_list = 0;
+      _batch_wrs[i].num_sge = 0;
+      _batch_wrs[i].next=&_batch_wrs[i+1];
+    }
+    _batch_wrs[_rbatch-1].next = NULL;
+ 
   }
 
   Connection::~Connection()
@@ -91,6 +100,35 @@ namespace rdmalib {
     }
     SPDLOG_DEBUG("Post send succesfull");
     return _req_count - 1;
+  }
+
+  int32_t Connection::post_batched_empty_recv(int count)
+  {
+    struct ibv_recv_wr *bad;
+    int loops = count / _rbatch;
+    int reminder = count % _rbatch;
+
+    int ret;
+
+    for(int i = 0; i < loops; ++i) {
+      ret = ibv_post_recv(_qp, _batch_wrs, &bad);
+      if(ret)
+        break;
+    }
+
+    if(ret == 0 && reminder > 0){
+      _batch_wrs[reminder-1].next=NULL;
+      ret = ibv_post_recv(_qp, _batch_wrs, &bad);
+      _batch_wrs[reminder-1].next= &_batch_wrs[reminder];
+    }
+
+    if(ret) {
+      spdlog::error("Batched Post empty recv  unsuccesful, reason {} {}", ret, strerror(ret));
+      return -1;
+    }
+
+    SPDLOG_DEBUG("Batched Post empty recv succesfull");
+    return count; 
   }
 
   int32_t Connection::post_recv(ScatterGatherElement && elem, int32_t id, int count)
@@ -185,23 +223,22 @@ namespace rdmalib {
 
   std::tuple<ibv_wc*, int> Connection::poll_wc(QueueType type, bool blocking)
   {
-    memset(_wc.data(), 0, sizeof(ibv_wc) * _wc.size());
     int ret = 0;
-    if(blocking) {
-      do {
-        ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, _wc.size(), _wc.data());
-      } while(ret == 0);
-    }
-    else
-      ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, _wc.size(), _wc.data());
+
+    ibv_wc* wcs = (type == QueueType::RECV ? _rwc.data() : _swc.data());
+
+    do {
+      ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, _wc_size, wcs);
+    } while(blocking && ret == 0);
+  
     if(ret < 0) {
       spdlog::error("Failure of polling events from: {} queue! Return value {}, errno {}", type == QueueType::RECV ? "recv" : "send", ret, errno);
       return std::make_tuple(nullptr, -1);
     }
     if(ret)
       for(int i = 0; i < ret; ++i)
-        SPDLOG_DEBUG("Queue {} Ret {}/{} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", i + 1, ret, _wc[i].wr_id, ibv_wc_status_str(_wc[i].status));
-    return std::make_tuple(_wc.data(), ret);
+        SPDLOG_DEBUG("Queue {} Ret {}/{} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", i + 1, ret, wcs[i].wr_id, ibv_wc_status_str(wcs[i].status));
+    return std::make_tuple(wcs, ret);
   }
 
 }
