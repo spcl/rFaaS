@@ -61,7 +61,7 @@ namespace rdmalib {
     std::array<ibv_wc, _wc_size> _rwc;
     int _send_flags;
 
-    static const int _rbatch = 16; // 16 for faster division in the code
+    static const int _rbatch = 32; // 32 for faster division in the code
     struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
  
     Connection();
