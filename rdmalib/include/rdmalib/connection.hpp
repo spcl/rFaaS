@@ -56,9 +56,14 @@ namespace rdmalib {
     rdma_cm_id* _id;
     ibv_qp* _qp; 
     int32_t _req_count;
-    std::array<ibv_wc, 10> _wc;
+    static const int _wc_size = 32; 
+    std::array<ibv_wc, _wc_size> _swc; // fast fix for overlapping polling
+    std::array<ibv_wc, _wc_size> _rwc;
     int _send_flags;
 
+    static const int _rbatch = 16; // 16 for faster division in the code
+    struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
+ 
     Connection();
     ~Connection();
     Connection(const Connection&) = delete;
@@ -72,6 +77,9 @@ namespace rdmalib {
     std::tuple<ibv_wc*, int> poll_wc(QueueType, bool blocking = true);
     int32_t post_send(ScatterGatherElement && elem, int32_t id = -1);
     int32_t post_recv(ScatterGatherElement && elem, int32_t id = -1, int32_t count = 1);
+
+    int32_t post_batched_empty_recv(int32_t count = 1);
+
     int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf);
     int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, uint32_t immediate);
     int32_t post_cas(ScatterGatherElement && elems, const RemoteBuffer & buf, uint64_t compare, uint64_t swap);
