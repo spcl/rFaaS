@@ -39,6 +39,7 @@ namespace rdmalib {
     {
       if(_requests < _refill_threshold) {
         this->_conn->post_batched_empty_recv(_rcv_buf_size - _requests);
+        //this->_conn->post_recv({}, -1, _rcv_buf_size - _requests);
         _requests = _rcv_buf_size;
         return true;
       }

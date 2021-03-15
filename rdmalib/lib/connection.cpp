@@ -35,10 +35,10 @@ namespace rdmalib {
     inlining(false);
 
     for(int i=0; i < _rbatch; i++){
-      _batch_wrs[i].wr_id = -1;
+      _batch_wrs[i].wr_id = 0;
       _batch_wrs[i].sg_list = 0;
       _batch_wrs[i].num_sge = 0;
-      _batch_wrs[i].next=&_batch_wrs[i+1];
+      _batch_wrs[i].next=&(_batch_wrs[i+1]);
     }
     _batch_wrs[_rbatch-1].next = NULL;
  
@@ -57,6 +57,14 @@ namespace rdmalib {
     obj._id = nullptr;
     obj._qp = nullptr;
     obj._req_count = 0;
+
+    for(int i=0; i < _rbatch; i++){
+      _batch_wrs[i].wr_id = 0;
+      _batch_wrs[i].sg_list = 0;
+      _batch_wrs[i].num_sge = 0;
+      _batch_wrs[i].next=&(_batch_wrs[i+1]);
+    }
+    _batch_wrs[_rbatch-1].next = NULL;
   }
 
   void Connection::inlining(bool enable)
@@ -109,9 +117,8 @@ namespace rdmalib {
     int reminder = count % _rbatch;
 
     int ret;
-
     for(int i = 0; i < loops; ++i) {
-      ret = ibv_post_recv(_qp, _batch_wrs, &bad);
+      ret = ibv_post_recv(_qp, &_batch_wrs[0], &bad);
       if(ret)
         break;
     }
@@ -119,7 +126,7 @@ namespace rdmalib {
     if(ret == 0 && reminder > 0){
       _batch_wrs[reminder-1].next=NULL;
       ret = ibv_post_recv(_qp, _batch_wrs, &bad);
-      _batch_wrs[reminder-1].next= &_batch_wrs[reminder];
+      _batch_wrs[reminder-1].next= &(_batch_wrs[reminder]);
     }
 
     if(ret) {
@@ -134,6 +141,7 @@ namespace rdmalib {
   int32_t Connection::post_recv(ScatterGatherElement && elem, int32_t id, int count)
   {
     // FIXME: extend with multiple sges
+
     struct ibv_recv_wr wr, *bad;
     wr.wr_id = id == -1 ? _req_count++ : id;
     wr.next = nullptr;
