@@ -35,7 +35,7 @@ namespace rdmalib {
     inlining(false);
 
     for(int i=0; i < _rbatch; i++){
-      _batch_wrs[i].wr_id = 0;
+      _batch_wrs[i].wr_id = i;
       _batch_wrs[i].sg_list = 0;
       _batch_wrs[i].num_sge = 0;
       _batch_wrs[i].next=&(_batch_wrs[i+1]);
@@ -59,7 +59,7 @@ namespace rdmalib {
     obj._req_count = 0;
 
     for(int i=0; i < _rbatch; i++){
-      _batch_wrs[i].wr_id = 0;
+      _batch_wrs[i].wr_id = i;
       _batch_wrs[i].sg_list = 0;
       _batch_wrs[i].num_sge = 0;
       _batch_wrs[i].next=&(_batch_wrs[i+1]);
@@ -112,11 +112,11 @@ namespace rdmalib {
 
   int32_t Connection::post_batched_empty_recv(int count)
   {
-    struct ibv_recv_wr *bad;
+    struct ibv_recv_wr* bad = nullptr;
     int loops = count / _rbatch;
     int reminder = count % _rbatch;
 
-    int ret;
+    int ret = 0;
     for(int i = 0; i < loops; ++i) {
       ret = ibv_post_recv(_qp, &_batch_wrs[0], &bad);
       if(ret)
