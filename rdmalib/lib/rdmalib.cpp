@@ -227,6 +227,7 @@ namespace rdmalib {
     rdma_ack_cm_event(event);
     impl::expect_zero(rdma_create_qp(connection._id, _pd, &_cfg.attr));
     connection._qp = connection._id->qp;
+    connection.initialize();
     _connections.push_back(std::move(connection));
 
     rdmalib::Connection & conn = _connections.back();

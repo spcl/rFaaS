@@ -55,6 +55,7 @@ namespace rdmalib {
   struct Connection {
     rdma_cm_id* _id;
     ibv_qp* _qp; 
+    ibv_comp_channel* _channel;
     int32_t _req_count;
     static const int _wc_size = 32; 
     std::array<ibv_wc, _wc_size> _swc; // fast fix for overlapping polling
@@ -71,6 +72,7 @@ namespace rdmalib {
     Connection(Connection&&);
 
     void inlining(bool enable);
+    void initialize();
     void close();
     ibv_qp* qp() const;
     // Blocking, no timeout
@@ -83,6 +85,11 @@ namespace rdmalib {
     int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf);
     int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, uint32_t immediate);
     int32_t post_cas(ScatterGatherElement && elems, const RemoteBuffer & buf, uint64_t compare, uint64_t swap);
+
+    // Register to be notified about all events, including unsolicited ones
+    void notify_events();
+    ibv_cq* wait_events();
+    void ack_events(ibv_cq* cq, int len);
   private:
     int32_t _post_write(ScatterGatherElement && elems, ibv_send_wr wr);
   };

@@ -3,7 +3,7 @@
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/connection.hpp>
-#include <thread>
+#include <rdmalib/util.hpp>
 
 namespace rdmalib {
 
@@ -30,6 +30,7 @@ namespace rdmalib {
   Connection::Connection():
     _id(nullptr),
     _qp(nullptr),
+    _channel(nullptr),
     _req_count(0)
   {
     inlining(false);
@@ -52,6 +53,7 @@ namespace rdmalib {
   Connection::Connection(Connection&& obj):
     _id(obj._id),
     _qp(obj._qp),
+    _channel(obj._channel),
     _req_count(obj._req_count)
   {
     obj._id = nullptr;
@@ -65,6 +67,11 @@ namespace rdmalib {
       _batch_wrs[i].next=&(_batch_wrs[i+1]);
     }
     _batch_wrs[_rbatch-1].next = NULL;
+  }
+
+  void Connection::initialize()
+  {
+    _channel = _id->recv_cq_channel;
   }
 
   void Connection::inlining(bool enable)
@@ -247,6 +254,24 @@ namespace rdmalib {
       for(int i = 0; i < ret; ++i)
         SPDLOG_DEBUG("Queue {} Ret {}/{} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", i + 1, ret, wcs[i].wr_id, ibv_wc_status_str(wcs[i].status));
     return std::make_tuple(wcs, ret);
+  }
+
+  void Connection::notify_events()
+  {
+    impl::expect_zero(ibv_req_notify_cq(_qp->recv_cq, 0));
+  }
+
+  ibv_cq* Connection::wait_events()
+  {
+    ibv_cq* ev_cq = nullptr;
+    void* ev_ctx = nullptr;
+    impl::expect_zero(ibv_get_cq_event(_channel, &ev_cq, &ev_ctx));
+    return ev_cq;
+  }
+
+  void Connection::ack_events(ibv_cq* cq, int len)
+  {
+    ibv_ack_cq_events(cq, len);
   }
 
 }
