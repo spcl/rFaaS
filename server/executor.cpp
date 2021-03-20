@@ -49,8 +49,11 @@ int main(int argc, char ** argv)
   spdlog::info("Connected a client!");
 
   int sum = 0, repetitions = 0;
+  spdlog::info(opts.polling_manager);
   if(opts.polling_manager == server::Options::PollingMgr::SERVER)
     std::tie(sum, repetitions) = server.poll_server(opts.repetitions, opts.warmup_iters);
+  else if(opts.polling_manager == server::Options::PollingMgr::SERVER_NOTIFY)
+    std::tie(sum, repetitions) = server.poll_server_notify(opts.repetitions, opts.warmup_iters);
   else
     std::tie(sum, repetitions) = server.poll_threads(opts.repetitions, opts.warmup_iters);
 

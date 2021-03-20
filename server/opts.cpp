@@ -13,7 +13,7 @@ namespace server {
       ("p,port", "Use selected port", cxxopts::value<int>()->default_value("0"))
       ("cheap", "Number of cheap executors", cxxopts::value<int>()->default_value("0"))
       ("fast", "Number of fast executors", cxxopts::value<int>()->default_value("1"))
-      ("polling-mgr", "Polling manager: server, thread", cxxopts::value<std::string>()->default_value("server"))
+      ("polling-mgr", "Polling manager: server, thread, server-notify", cxxopts::value<std::string>()->default_value("server"))
       ("polling-type", "Polling type: wc (work completions), dram", cxxopts::value<std::string>()->default_value("wc"))
       ("warmup-iters", "Number of warm-up iterations", cxxopts::value<int>()->default_value("1"))
       ("pin-threads", "Pin worker threads to CPU cores", cxxopts::value<bool>()->default_value("false"))
@@ -43,6 +43,8 @@ namespace server {
     std::string polling_mgr = parsed_options["polling-mgr"].as<std::string>();
     if(polling_mgr == "server") {
       result.polling_manager = Options::PollingMgr::SERVER;
+    } else if(polling_mgr == "server-notify") {
+      result.polling_manager = Options::PollingMgr::SERVER_NOTIFY;
     } else if(polling_mgr == "thread") {
       result.polling_manager = Options::PollingMgr::THREAD;
     } else {

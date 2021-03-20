@@ -86,6 +86,65 @@ namespace server {
     return this->_conn;
   }
 
+  std::tuple<int, int> Server::poll_server_notify(int max_repetitions, int warmup_iters)
+  {
+    _fast_exec.allocate_threads(false);
+
+    int repetitions = 0;
+    int total_iters = max_repetitions + warmup_iters;
+    constexpr int cores_mask = 0x3F;
+    timeval start;
+    _conn->notify_events();
+    while(repetitions < total_iters) {
+
+      //spdlog::info("Wait");
+      auto cq = _conn->wait_events();
+      _conn->notify_events();
+
+      // if we block, we never handle the interruption
+      auto wcs = _wc_buffer.poll();
+      if(std::get<1>(wcs)) {
+
+        gettimeofday(&start, nullptr);
+        for(int i = 0; i < std::get<1>(wcs); ++i) {
+
+          ibv_wc* wc = &std::get<0>(wcs)[i];
+          if(wc->status) {
+            spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
+            continue;
+          }
+          int info = ntohl(wc->imm_data);
+          int func_id = info >> 6;
+          int core = info & cores_mask;
+          // Startpoint of iteration for a given thread
+          _fast_exec._start_timestamps[core] = start;
+          SPDLOG_DEBUG("Execute func {} at core {}", func_id, core);
+          //uint32_t cur_invoc = server._exec.get_invocation_id();
+          uint32_t cur_invoc = 0;
+
+          // FIXME: producer-consumer interface
+          SPDLOG_DEBUG("Wake-up fast thread {}", core);
+          _fast_exec.enable(core,
+            {
+              _db.functions[func_id],
+              cur_invoc,
+              this->_conn
+            }
+          );
+
+          // clean send queue
+          this->_conn->poll_wc(rdmalib::QueueType::SEND, false);
+          _wc_buffer.refill();
+          ++repetitions;
+        }
+        _conn->ack_events(cq, std::get<1>(wcs));
+      }
+    }
+    _fast_exec.close();
+
+    return std::make_tuple(_fast_exec._time_sum.load(), repetitions);
+  }
+
   std::tuple<int, int> Server::poll_server(int max_repetitions, int warmup_iters)
   {
     _fast_exec.allocate_threads(false);

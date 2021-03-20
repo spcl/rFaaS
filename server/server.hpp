@@ -29,6 +29,7 @@ namespace server {
 
     enum class PollingMgr {
       SERVER=0,
+      SERVER_NOTIFY,
       THREAD
     };
 
@@ -142,6 +143,7 @@ namespace server {
 
     std::tuple<int, int> poll_server(int, int);
     std::tuple<int, int> poll_threads(int, int);
+    std::tuple<int, int> poll_server_notify(int, int);
 
     // FIXME: shared receive queue
     //void poll_srq();
