@@ -28,13 +28,14 @@ namespace rdmalib {
       _start = std::chrono::high_resolution_clock::now();
     }
 
-    inline void end(int col)
+    inline uint64_t end(int col = 0)
     {
       _end = std::chrono::high_resolution_clock::now();
       uint64_t duration = std::chrono::duration_cast<std::chrono::nanoseconds>(_end - _start).count();
       if(col == 0)
         _measurements.emplace_back();
       _measurements.back()[col] = duration;
+      return duration;
     }
 
     std::tuple<double, double> summary()
