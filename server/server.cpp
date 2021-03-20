@@ -152,8 +152,6 @@ namespace server {
     // FIXME: more threads
     _fast_exec._threads[0].join();
 
-    spdlog::info("{} {}", _fast_exec._time_sum.load(), _fast_exec._repetitions.load());
-
     return std::make_tuple(_fast_exec._time_sum.load(), _fast_exec._repetitions.load());
   }
 

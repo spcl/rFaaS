@@ -131,8 +131,7 @@ namespace server {
 
   void FastExecutors::thread_poll_func(int)
   {
-    timeval start, end;
-    int sum = 0;
+    uint64_t sum = 0;
     int repetitions = 0;
     int total_iters = _max_repetitions + _warmup_iters;
     constexpr int cores_mask = 0x3F;
@@ -170,20 +169,19 @@ namespace server {
             }
           );
           work(core);
-          server_processing_times.end(0);
 
           // clean send queue
-          server_processing_times.start();
+          // FIXME: this should be option - in reality, we don't want to wait for the transfer to end
           _conn->poll_wc(rdmalib::QueueType::SEND, true);
-          server_processing_times.end(1);
+          sum += server_processing_times.end();
           repetitions += 1;
         }
         _wc_buffer->refill();
       }
     }
     server_processing_times.export_csv("server.csv", {"process", "send"});
-    // FIXME: reenable
-    _time_sum.fetch_add(sum);
+
+    _time_sum.fetch_add(sum / 1000.0);
     _repetitions.fetch_add(repetitions);
   }
 
