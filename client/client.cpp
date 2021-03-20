@@ -54,6 +54,7 @@ int main(int argc, char ** argv)
   }
   spdlog::info("Warmups completed");
 
+  int pause = opts["pause"].as<int>();
   std::vector<int> refills;
   // Start actual measurements
   for(int i = 0; i < repetitions; ++i) {
@@ -69,7 +70,8 @@ int main(int argc, char ** argv)
     SPDLOG_DEBUG("Finished execution with ID {}", ntohl(std::get<0>(wc)[0].imm_data));
 
     // Wait for the next iteration
-    std::this_thread::sleep_for(std::chrono::microseconds(10));
+    if(pause)
+      std::this_thread::sleep_for(std::chrono::microseconds(pause));
   }
   auto [median, avg] = benchmarker.summary();
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", repetitions, avg, median);
