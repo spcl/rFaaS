@@ -69,6 +69,17 @@ namespace rdmalib {
     _batch_wrs[_rbatch-1].next = NULL;
   }
 
+  void Connection::initialize_batched_recv(const ScatterGatherElement & sge, size_t offset)
+  {
+    for(int i = 0; i < _rbatch; i++){
+      _rwc_sges[i] = sge;
+      for(auto & sg : _rwc_sges[i]._sges)
+        sg.addr += i*offset;
+      _batch_wrs[i].sg_list = _rwc_sges[i].array();
+      _batch_wrs[i].num_sge = _rwc_sges[i].size();
+    }
+  }
+
   void Connection::initialize()
   {
     _channel = _id->recv_cq_channel;

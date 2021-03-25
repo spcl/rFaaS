@@ -3,6 +3,7 @@
 #define __RDMALIB_CONNECTION_HPP__
 
 #include <cstdint>
+#include <initializer_list>
 #include <vector>
 #include <optional>
 
@@ -58,8 +59,10 @@ namespace rdmalib {
     ibv_comp_channel* _channel;
     int32_t _req_count;
     static const int _wc_size = 32; 
+    // FIXME: associate this with RecvBuffer
     std::array<ibv_wc, _wc_size> _swc; // fast fix for overlapping polling
     std::array<ibv_wc, _wc_size> _rwc;
+    std::array<ScatterGatherElement, _wc_size> _rwc_sges;
     int _send_flags;
 
     static const int _rbatch = 32; // 32 for faster division in the code
@@ -71,6 +74,7 @@ namespace rdmalib {
     Connection& operator=(const Connection&) = delete;
     Connection(Connection&&);
 
+    void initialize_batched_recv(const ScatterGatherElement & sge, size_t offset);
     void inlining(bool enable);
     void initialize();
     void close();
