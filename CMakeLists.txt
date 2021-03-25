@@ -154,15 +154,19 @@ target_link_libraries(rfaaslib PRIVATE cereal)
 # Warm/hot benchmarker
 ###
 add_executable(warm_benchmarker tests/warm_benchmark.cpp tests/warm_benchmark_opts.cpp)
-add_dependencies(warm_benchmarker cxxopts::cxxopts)
-add_dependencies(warm_benchmarker rdmalib)
-add_dependencies(warm_benchmarker rfaaslib)
-target_include_directories(warm_benchmarker PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(warm_benchmarker PRIVATE $<TARGET_PROPERTY:rfaaslib,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(warm_benchmarker PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(warm_benchmarker PRIVATE spdlog::spdlog)
-target_link_libraries(warm_benchmarker PRIVATE rfaaslib)
-set_target_properties(warm_benchmarker PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
+add_executable(cold_benchmarker tests/cold_benchmark.cpp tests/cold_benchmark_opts.cpp)
+set(tests_targets "warm_benchmarker" "cold_benchmarker")
+foreach(target ${tests_targets})
+  add_dependencies(${target} cxxopts::cxxopts)
+  add_dependencies(${target} rdmalib)
+  add_dependencies(${target} rfaaslib)
+  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:rfaaslib,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_link_libraries(${target} PRIVATE spdlog::spdlog)
+  target_link_libraries(${target} PRIVATE rfaaslib)
+  set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY tests)
+endforeach()
 
 ###
 # Server
