@@ -81,7 +81,7 @@ if(NOT spdlog_FOUND)
   FetchContent_Declare(spdlog
     GIT_REPOSITORY git@github.com:gabime/spdlog.git
     # default branch is v1.x - for some reason, cmake switches to master
-    GIT_TAG v1.x
+    GIT_TAG v1.8.0
   )
   FetchContent_Populate(spdlog)
   FetchContent_MakeAvailable(spdlog)
@@ -147,7 +147,7 @@ set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 # Server
 ###
 add_executable(executor server/executor.cpp server/server.cpp server/opts.cpp server/fast_executor.cpp)
-add_executable(executor_manager server/executor_manager.cpp server/server.cpp server/opts.cpp server/fast_executor.cpp)
+add_executable(executor_manager server/executor_manager.cpp server/manager.cpp server/opts.cpp)
 set(targets "executor" "executor_manager")
 foreach(target ${targets})
   add_dependencies(${target} cxxopts::cxxopts)
