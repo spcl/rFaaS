@@ -49,14 +49,14 @@ int main(int argc, char ** argv)
   }
 
   // Warmup iterations
-  rdmalib::Benchmarker<1> benchmarker{repetitions};
-  rdmalib::RecvBuffer rcv_buffer{recv_buf_size};
-  rcv_buffer.connect(&client.connection());
+  rdmalib::Benchmarker<2> benchmarker{repetitions};
+  //rdmalib::RecvBuffer rcv_buffer{recv_buf_size};
+  //rcv_buffer.connect(&client.connection());
   spdlog::info("Warmups begin");
   for(int i = 0; i < warmup_iters; ++i) {
-    rcv_buffer.refill();
+    client.recv().refill();
     client.submit_fast(1, "test");
-    auto wc = rcv_buffer.poll(true);
+    auto wc = client.recv().poll(true);
   }
   spdlog::info("Warmups completed");
 
@@ -64,10 +64,10 @@ int main(int argc, char ** argv)
   std::vector<int> refills;
   // Start actual measurements
   for(int i = 0; i < repetitions; ++i) {
-    int b = rcv_buffer.refill();
+    int b = client.recv().refill();
     benchmarker.start();
     int id = client.submit_fast(1, "test");
-    auto wc = rcv_buffer.poll(true);
+    auto wc = client.recv().poll(true);
     benchmarker.end(0);
     if (b)
       refills.push_back(i);

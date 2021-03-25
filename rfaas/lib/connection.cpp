@@ -12,6 +12,7 @@ namespace client {
   ServerConnection::ServerConnection(const rdmalib::server::ServerStatus & status, int rcv_buf, int max_inline_data):
     _status(status),
     _active(_status._address, _status._port, rcv_buf),
+    _rcv_buffer(rcv_buf),
     _max_inline_data(max_inline_data),
     _msg_size(0)
   {
@@ -28,6 +29,7 @@ namespace client {
   bool ServerConnection::connect()
   {
     bool ret = _active.connect();
+    _rcv_buffer.connect(&_active.connection());
     // FIXME: data header size
     return ret;
   }
