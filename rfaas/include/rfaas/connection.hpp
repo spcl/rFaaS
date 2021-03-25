@@ -2,15 +2,11 @@
 #include <vector>
 #include <fstream>
 
-#include <cxxopts.hpp>
-
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/server.hpp>
 
 namespace client {
-
-  cxxopts::ParseResult options(int argc, char ** argv);
 
   struct InvocationResult {
     int buf_idx;

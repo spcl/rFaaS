@@ -112,7 +112,7 @@ if(NOT cereal_FOUND)
 endif()
 
 ###
-# Main pass: build C++14, PIC and no RTTI
+# rdmalib: build C++14, PIC and no RTTI
 ###
 file(GLOB rdmalib_files "rdmalib/lib/*.cpp")
 add_library(rdmalib STATIC ${rdmalib_files})
@@ -123,7 +123,6 @@ target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:PkgConfig::rdmacm,IN
 target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:PkgConfig::ibverbs,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(rdmalib PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
-file(GENERATE OUTPUT test CONTENT $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(rdmalib PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(rdmalib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
 target_link_libraries(rdmalib PUBLIC PkgConfig::rdmacm)
@@ -132,16 +131,38 @@ target_link_libraries(rdmalib PRIVATE spdlog::spdlog)
 target_link_libraries(rdmalib PRIVATE cereal)
 
 ###
-# Client
+# client library
 ###
-add_executable(client client/client.cpp client/conn.cpp client/opts.cpp)
-add_dependencies(client cxxopts::cxxopts)
-add_dependencies(client rdmalib)
-target_include_directories(client PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(client PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(client PRIVATE spdlog::spdlog)
-target_link_libraries(client PRIVATE rdmalib)
-set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
+file(GLOB rdmalib_files "rfaas/lib/*.cpp")
+add_library(rfaaslib STATIC ${rdmalib_files})
+add_dependencies(rfaaslib spdlog)
+add_dependencies(rfaaslib cereal)
+add_dependencies(rfaaslib rdmalib)
+target_include_directories(rfaaslib PUBLIC "rfaas/include")
+target_include_directories(rfaaslib PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rfaaslib PUBLIC $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rfaaslib PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
+set_target_properties(rfaaslib PROPERTIES POSITION_INDEPENDENT_CODE On)
+set_target_properties(rfaaslib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
+target_link_libraries(rfaaslib PUBLIC rdmalib)
+target_link_libraries(rfaaslib PUBLIC PkgConfig::rdmacm)
+target_link_libraries(rfaaslib PUBLIC PkgConfig::ibverbs)
+target_link_libraries(rfaaslib PRIVATE spdlog::spdlog)
+target_link_libraries(rfaaslib PRIVATE cereal)
+
+###
+# Warm/hot benchmarker
+###
+add_executable(warm_benchmarker tests/warm_benchmark.cpp tests/warm_benchmark_opts.cpp)
+add_dependencies(warm_benchmarker cxxopts::cxxopts)
+add_dependencies(warm_benchmarker rdmalib)
+add_dependencies(warm_benchmarker rfaaslib)
+target_include_directories(warm_benchmarker PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(warm_benchmarker PRIVATE $<TARGET_PROPERTY:rfaaslib,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(warm_benchmarker PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(warm_benchmarker PRIVATE spdlog::spdlog)
+target_link_libraries(warm_benchmarker PRIVATE rfaaslib)
+set_target_properties(warm_benchmarker PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 
 ###
 # Server

@@ -4,7 +4,8 @@
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/functions.hpp>
 #include <rdmalib/util.hpp>
-#include "client.hpp"
+
+#include <rfaas/connection.hpp>
 
 namespace client {
 
@@ -140,7 +141,13 @@ namespace client {
 
     // make sure the queue doesn't overflow
     connection().poll_wc(rdmalib::QueueType::SEND, false);
-    SPDLOG_DEBUG("Function execution ID {} scheduled!", id);
+    //SPDLOG_DEBUG("Function execution ID {} scheduling!", id);
+    //for(int i = 0; i < 10; ++i) {
+    //  if(std::get<1>(connection().poll_wc(rdmalib::QueueType::SEND, false)) != 0)
+    //    break;
+    //  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    //}
+    //SPDLOG_DEBUG("Function execution ID {} scheduled!", id);
 
     return id++;
   }

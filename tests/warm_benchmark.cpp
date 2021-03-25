@@ -3,12 +3,17 @@
 #include <thread>
 
 #include <spdlog/spdlog.h>
+#include <cxxopts.hpp>
 
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/benchmarker.hpp>
-#include "client.hpp"
 
+#include <rfaas/connection.hpp>
+
+namespace client {
+  cxxopts::ParseResult options(int argc, char ** argv);
+}
 
 int main(int argc, char ** argv)
 {
@@ -30,9 +35,10 @@ int main(int argc, char ** argv)
   in.close();
   if(!client.connect())
     return -1;
+
   client.allocate_send_buffers(2, buf_size);
   client.allocate_receive_buffers(2, buf_size);
-  spdlog::info("Connected to the server!");
+  spdlog::info("Connected to the executor manager!");
 
   // prepare args
   memset(client.send_buffer(0).data(), 0, buf_size);
@@ -43,7 +49,7 @@ int main(int argc, char ** argv)
   }
 
   // Warmup iterations
-  rdmalib::Benchmarker<2> benchmarker{repetitions};
+  rdmalib::Benchmarker<1> benchmarker{repetitions};
   rdmalib::RecvBuffer rcv_buffer{recv_buf_size};
   rcv_buffer.connect(&client.connection());
   spdlog::info("Warmups begin");
@@ -61,10 +67,8 @@ int main(int argc, char ** argv)
     int b = rcv_buffer.refill();
     benchmarker.start();
     int id = client.submit_fast(1, "test");
-    benchmarker.end(0);
-    benchmarker.start();
     auto wc = rcv_buffer.poll(true);
-    benchmarker.end(1);
+    benchmarker.end(0);
     if (b)
       refills.push_back(i);
     SPDLOG_DEBUG("Finished execution with ID {}", ntohl(std::get<0>(wc)[0].imm_data));
