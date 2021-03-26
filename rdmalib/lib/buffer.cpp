@@ -72,6 +72,11 @@ namespace rdmalib { namespace impl {
     );
   }
 
+  ibv_mr* Buffer::mr() const
+  {
+    return this->_mr;
+  }
+
   uint32_t Buffer::data_size() const
   {
     return this->_size;

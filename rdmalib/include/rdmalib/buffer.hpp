@@ -20,8 +20,8 @@ namespace rdmalib {
       uint32_t _size;
       uint32_t _header;
       uint32_t _bytes;
-      ibv_mr* _mr;
       void* _ptr;
+      ibv_mr* _mr;
 
       Buffer();
       Buffer(uint32_t size, uint32_t byte_size, uint32_t header);
@@ -31,6 +31,7 @@ namespace rdmalib {
     public:
       uintptr_t address() const;
       void* ptr() const;
+      ibv_mr* mr() const;
       uint32_t data_size() const;
       uint32_t size() const;
       uint32_t bytes() const;
