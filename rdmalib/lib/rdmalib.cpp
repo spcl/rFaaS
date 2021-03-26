@@ -57,6 +57,7 @@ namespace rdmalib {
   }
 
   RDMAActive::RDMAActive(const std::string & ip, int port, int recv_buf, int max_inline_data):
+    _conn(nullptr),
     _addr(ip, port, false),
     _ec(nullptr),
     _pd(nullptr)
@@ -89,10 +90,14 @@ namespace rdmalib {
 
   void RDMAActive::allocate()
   {
-    impl::expect_zero(rdma_create_ep(&_conn._id, _addr.addrinfo, nullptr, nullptr));
-    impl::expect_zero(rdma_create_qp(_conn._id, _pd, &_cfg.attr));
-    _pd = _conn._id->pd;
-    _conn._qp = _conn._id->qp;
+    if(!_conn) {
+      _conn = std::unique_ptr<Connection>(new Connection());
+      SPDLOG_DEBUG("Allocate new connection");
+      impl::expect_zero(rdma_create_ep(&_conn->_id, _addr.addrinfo, nullptr, nullptr));
+      impl::expect_zero(rdma_create_qp(_conn->_id, _pd, &_cfg.attr));
+      _pd = _conn->_id->pd;
+      _conn->_qp = _conn->_id->qp;
+    }
 
     // An attempt to bind the active client to a specifi device.
     //struct addrinfo *addr;
@@ -139,13 +144,24 @@ namespace rdmalib {
 
   bool RDMAActive::connect()
   {
-    if(rdma_connect(_conn._id, &_cfg.conn_param)) {
+    allocate();
+    if(rdma_connect(_conn->_id, &_cfg.conn_param)) {
       spdlog::error("Connection unsuccesful, reason {} {}", errno, strerror(errno));
       return false;
     } else {
-      spdlog::info("Connection succesful to {}:{}, on device {}", _addr._port, _addr._port, ibv_get_device_name(this->_conn._id->verbs->device));
+      spdlog::info("Connection succesful to {}:{}, on device {}", _addr._port, _addr._port, ibv_get_device_name(this->_conn->_id->verbs->device));
     }
     return true;
+  }
+
+  void RDMAActive::disconnect()
+  {
+    SPDLOG_DEBUG("Disconnecting");
+    impl::expect_zero(rdma_disconnect(_conn->_id));
+    _conn.reset();
+    _pd = nullptr;
+    //rdma_destroy_qp(_conn._id);
+    //_conn._qp = nullptr;
   }
 
   ibv_pd* RDMAActive::pd() const
@@ -155,7 +171,7 @@ namespace rdmalib {
 
   Connection & RDMAActive::connection()
   {
-    return this->_conn;
+    return *this->_conn;
   }
 
   RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize, int max_inline_data):
@@ -178,12 +194,14 @@ namespace rdmalib {
     _cfg.conn_param.retry_count = 3; 
     _cfg.conn_param.rnr_retry_count = 3;
 
+    _connections.reserve(MAX_NUMBER_CONNECTIONS);
     if(initialize)
       this->allocate();
   }
 
   RDMAPassive::~RDMAPassive()
   {
+    SPDLOG_DEBUG("Destroy");
     ibv_dealloc_pd(this->_pd);
     rdma_destroy_ep(this->_listen_id);
     rdma_destroy_id(this->_listen_id);
@@ -225,6 +243,7 @@ namespace rdmalib {
     connection._id = event->id;
     // destroys event
     rdma_ack_cm_event(event);
+    SPDLOG_DEBUG("CREATE QP {} {} {}", fmt::ptr(connection._id), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd));
     impl::expect_zero(rdma_create_qp(connection._id, _pd, &_cfg.attr));
     connection._qp = connection._id->qp;
     connection.initialize();

@@ -6,6 +6,7 @@
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/server.hpp>
 #include <rdmalib/recv_buffer.hpp>
+#include <rdmalib/allocation.hpp>
 
 namespace client {
 
@@ -21,6 +22,7 @@ namespace client {
     rdmalib::server::ServerStatus _status;
     rdmalib::RDMAActive _active;
     rdmalib::RecvBuffer _rcv_buffer;
+    rdmalib::Buffer<rdmalib::AllocationRequest> _allocation_buffer;
     int _max_inline_data;
     int _msg_size;
 
@@ -28,6 +30,7 @@ namespace client {
 
     rdmalib::Connection & connection();
     bool connect();
+    void disconnect();
     void allocate_send_buffers(int count, uint32_t size);
     void allocate_receive_buffers(int count, uint32_t size);
     rdmalib::Buffer<char> & send_buffer(int idx);

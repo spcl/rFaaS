@@ -2,9 +2,12 @@
 #ifndef __SERVER_EXECUTOR_MANAGER__
 #define __SERVER_EXECUTOR_MANAGER__
 
+#include <atomic>
 #include <cstdint>
 #include <vector>
+#include <mutex>
 
+#include <rdmalib/allocation.hpp>
 #include <rdmalib/connection.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/server.hpp>
@@ -33,18 +36,24 @@ namespace executor {
   struct Client
   {
     static constexpr int RECV_BUF_SIZE = 8;
-    rdmalib::Connection& connection;
-    rdmalib::Buffer<char> allocation_requests;
+    rdmalib::Connection* connection;
+    rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
     rdmalib::RecvBuffer rcv_buffer;
     ActiveExecutor executor;
 
-    Client(rdmalib::Connection& conn, ibv_pd* pd);
+    Client(rdmalib::Connection* conn, ibv_pd* pd);
     void reload_queue();
+    void reinitialize(rdmalib::Connection* conn);
+    void disable();
+    bool active();
   };
 
   struct Manager
   {
+    static constexpr int MAX_CLIENTS_ACTIVE = 128;
+    std::mutex clients;
     std::vector<Client> _clients;
+    std::atomic<int> _clients_active;
     rdmalib::RDMAPassive _state;
     rdmalib::server::ServerStatus _status;
     bool _use_docker;

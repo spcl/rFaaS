@@ -13,6 +13,7 @@ namespace client {
     _status(status),
     _active(_status._address, _status._port, rcv_buf),
     _rcv_buffer(rcv_buf),
+    _allocation_buffer(2),
     _max_inline_data(max_inline_data),
     _msg_size(0)
   {
@@ -29,9 +30,16 @@ namespace client {
   bool ServerConnection::connect()
   {
     bool ret = _active.connect();
-    _rcv_buffer.connect(&_active.connection());
+    if(ret)
+      _rcv_buffer.connect(&_active.connection());
+    _allocation_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE); 
     // FIXME: data header size
     return ret;
+  }
+
+  void ServerConnection::disconnect()
+  {
+    _active.disconnect();
   }
 
   rdmalib::Connection & ServerConnection::connection()

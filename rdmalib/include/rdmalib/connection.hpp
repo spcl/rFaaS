@@ -29,7 +29,7 @@ namespace rdmalib {
 
   struct ScatterGatherElement {
     // smallvector in practice
-    std::vector<ibv_sge> _sges;
+    mutable std::vector<ibv_sge> _sges;
 
     ScatterGatherElement();
 
@@ -46,8 +46,15 @@ namespace rdmalib {
       _sges.push_back({buf.address(), buf.bytes(), buf.lkey()});
     }
 
-    ibv_sge * array();
-    size_t size();
+    template<typename T>
+    void add(const Buffer<T> & buf, uint32_t size, size_t offset = 0)
+    {
+      //emplace_back for structs will be supported in C++20
+      _sges.push_back({buf.address() + offset, size, buf.lkey()});
+    }
+
+    ibv_sge * array() const;
+    size_t size() const;
   };
 
   // State of a communication:
@@ -81,7 +88,7 @@ namespace rdmalib {
     ibv_qp* qp() const;
     // Blocking, no timeout
     std::tuple<ibv_wc*, int> poll_wc(QueueType, bool blocking = true);
-    int32_t post_send(ScatterGatherElement && elem, int32_t id = -1);
+    int32_t post_send(const ScatterGatherElement & elem, int32_t id = -1);
     int32_t post_recv(ScatterGatherElement && elem, int32_t id = -1, int32_t count = 1);
 
     int32_t post_batched_empty_recv(int32_t count = 1);

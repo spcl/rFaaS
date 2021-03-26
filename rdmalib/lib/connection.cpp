@@ -17,12 +17,12 @@ namespace rdmalib {
   {
   }
 
-  ibv_sge * ScatterGatherElement::array()
+  ibv_sge * ScatterGatherElement::array() const
   {
     return _sges.data();
   }
 
-  size_t ScatterGatherElement::size()
+  size_t ScatterGatherElement::size() const
   {
     return _sges.size();
   }
@@ -96,9 +96,9 @@ namespace rdmalib {
   void Connection::close()
   {
     if(_id) {
-      rdma_destroy_qp(_id);
-      rdma_destroy_id(_id);
+      //rdma_destroy_qp(_id);
       rdma_destroy_ep(_id);
+      //rdma_destroy_id(_id);
       _id = nullptr;
     }
   }
@@ -108,7 +108,7 @@ namespace rdmalib {
     return this->_qp;
   }
 
-  int32_t Connection::post_send(ScatterGatherElement && elems, int32_t id)
+  int32_t Connection::post_send(const ScatterGatherElement & elems, int32_t id)
   {
     // FIXME: extend with multiple sges
     struct ibv_send_wr wr, *bad;
@@ -133,6 +133,7 @@ namespace rdmalib {
     struct ibv_recv_wr* bad = nullptr;
     int loops = count / _rbatch;
     int reminder = count % _rbatch;
+    SPDLOG_DEBUG("Batch {} {}", loops, reminder);
 
     int ret = 0;
     for(int i = 0; i < loops; ++i) {
@@ -253,6 +254,7 @@ namespace rdmalib {
 
     ibv_wc* wcs = (type == QueueType::RECV ? _rwc.data() : _swc.data());
 
+    //spdlog::error("{} {} {}", fmt::ptr(_qp), fmt::ptr(_qp->recv_cq), fmt::ptr(wcs));
     do {
       ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, _wc_size, wcs);
     } while(blocking && ret == 0);

@@ -25,6 +25,7 @@ namespace rdmalib {
     inline void connect(rdmalib::Connection * conn)
     {
       this->_conn = conn;
+      _requests = 0;
       refill();
     }
 

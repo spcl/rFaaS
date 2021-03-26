@@ -29,7 +29,7 @@ namespace rdmalib {
 
   struct RDMAActive {
     ConnectionConfiguration _cfg;
-    Connection _conn;
+    std::unique_ptr<Connection> _conn;
     Address _addr;
     rdma_event_channel * _ec;
     ibv_pd* _pd;
@@ -38,11 +38,13 @@ namespace rdmalib {
     ~RDMAActive();
     void allocate();
     bool connect();
+    void disconnect();
     ibv_pd* pd() const;
     Connection & connection();
   };
 
   struct RDMAPassive {
+    static constexpr int MAX_NUMBER_CONNECTIONS = 128;
     ConnectionConfiguration _cfg;
     Address _addr;
     rdma_event_channel * _ec;
