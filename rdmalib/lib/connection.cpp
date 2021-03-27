@@ -189,9 +189,14 @@ namespace rdmalib {
     wr.num_sge = elems.size();
     wr.send_flags = _send_flags;
 
+    if(wr.num_sge == 1 && wr.sg_list[0].length == 0)
+      wr.num_sge = 0;
+
     int ret = ibv_post_send(_qp, &wr, &bad);
     if(ret) {
-      spdlog::error("Post write unsuccesful, reason {} {}", ret, strerror(ret));
+      spdlog::error("Post write unsuccesful, reason {} {}, sges_count {}, wr_id {}, remote addr {}, remote rkey {}, imm data {}",
+        ret, strerror(ret), wr.num_sge, wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
+      );
       return -1;
     }
     if(wr.num_sge > 0)
