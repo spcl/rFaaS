@@ -245,6 +245,7 @@ namespace rdmalib {
     rdma_ack_cm_event(event);
     SPDLOG_DEBUG("CREATE QP {} {} {}", fmt::ptr(connection._id), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd));
     impl::expect_zero(rdma_create_qp(connection._id, _pd, &_cfg.attr));
+    SPDLOG_DEBUG("CREATE QP with qpn {}", connection._id->qp->qp_num);
     connection._qp = connection._id->qp;
     connection.initialize();
     _connections.push_back(std::move(connection));
