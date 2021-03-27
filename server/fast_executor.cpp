@@ -133,6 +133,7 @@ namespace server {
       id
       //thread_id
     );
+    //_conn->poll_wc(rdmalib::QueueType::SEND, true);
     //_invocations_status[invoc_id].connection->post_write(
     //  *conn,
     //  {r_addr, r_key},
@@ -174,8 +175,8 @@ namespace server {
 
           // clean send queue
           // FIXME: this should be option - in reality, we don't want to wait for the transfer to end
-          _conn->poll_wc(rdmalib::QueueType::SEND, true);
           sum += server_processing_times.end();
+          _conn->poll_wc(rdmalib::QueueType::SEND, true);
           repetitions += 1;
         }
         _wc_buffer->refill();
@@ -267,11 +268,11 @@ namespace server {
               this->_thread_status[id].store(1);
               work(id, work_myself);
               //_conn->poll_wc(rdmalib::QueueType::SEND, false);
-            } else {
-              SPDLOG_DEBUG("Thread {} Refill");
-              _wc_buffer->refill();
-              SPDLOG_DEBUG("Thread {} Refilled");
             }
+            SPDLOG_DEBUG("Thread {} Refill");
+            _wc_buffer->refill();
+            _conn->poll_wc(rdmalib::QueueType::SEND, false);
+            SPDLOG_DEBUG("Thread {} Refilled");
           }
         }
         // we finished iterations
