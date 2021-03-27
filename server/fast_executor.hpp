@@ -45,6 +45,7 @@ namespace server {
     // Statistics
     std::atomic<int> _time_sum;
     std::atomic<int> _repetitions;
+    int _iterations;
 
 
     FastExecutors(int num, int msg_size, bool pin_threads, Server &);
@@ -55,7 +56,7 @@ namespace server {
     void disable(int thread_id);
     void wakeup();
     void close();
-    void work(int);
+    void work(int,int);
     // Thread implementation that uses condition variable to synchronize with server.
     void cv_thread_func(int id);
     // Polling implemantation directly inside a thread
