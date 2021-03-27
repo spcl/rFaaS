@@ -15,6 +15,21 @@ namespace client {
   cxxopts::ParseResult options(int argc, char ** argv);
 }
 
+bool poll_result(client::ServerConnection & client)
+{
+  auto wc = client.recv().poll(true);
+  uint32_t val = ntohl(std::get<0>(wc)[0].imm_data) >> 6;
+  if(val == 0)
+    return true;
+  else {
+    if(val == 1)
+      spdlog::error("Thread busy, cannot post work");
+    else
+      spdlog::error("Unknown error {}", val);
+    return false;
+  }
+}
+
 int main(int argc, char ** argv)
 {
   auto opts = client::options(argc, argv);
@@ -55,23 +70,29 @@ int main(int argc, char ** argv)
   spdlog::info("Warmups begin");
   for(int i = 0; i < warmup_iters; ++i) {
     client.recv().refill();
+    SPDLOG_DEBUG("Submit warm {}", i);
     client.submit_fast(1, "test");
-    auto wc = client.recv().poll(true);
+    poll_result(client);
   }
   spdlog::info("Warmups completed");
 
   int pause = opts["pause"].as<int>();
   std::vector<int> refills;
   // Start actual measurements
-  for(int i = 0; i < repetitions; ++i) {
+  for(int i = 0; i < repetitions;) {
     int b = client.recv().refill();
     benchmarker.start();
     int id = client.submit_fast(1, "test");
-    auto wc = client.recv().poll(true);
-    benchmarker.end(0);
+    SPDLOG_DEBUG("Submit actual {}", i);
+    if(poll_result(client)) {
+      benchmarker.end(0);
+      SPDLOG_DEBUG("Finished execution");
+      ++i;
+    } else {
+      continue;
+    }
     if (b)
       refills.push_back(i);
-    SPDLOG_DEBUG("Finished execution with ID {}", ntohl(std::get<0>(wc)[0].imm_data));
 
     // Wait for the next iteration
     if(pause)
