@@ -29,6 +29,10 @@ namespace server {
     std::vector<ThreadStatus> _threads_status; 
     std::vector<rdmalib::Buffer<char>> _send, _rcv;
     std::vector<timeval> _start_timestamps;
+
+    // FIXME: one atomic per cache line - does it matter?
+    std::atomic<int64_t>* _thread_status;
+    std::atomic<int64_t> _cur_poller;
     bool _closing;
     int _numcores;
     int _max_repetitions;
@@ -56,6 +60,7 @@ namespace server {
     void cv_thread_func(int id);
     // Polling implemantation directly inside a thread
     void thread_poll_func(int);
+    void serial_thread_poll_func(int);
   };
 
 }
