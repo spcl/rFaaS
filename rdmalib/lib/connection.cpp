@@ -194,10 +194,15 @@ namespace rdmalib {
       spdlog::error("Post write unsuccesful, reason {} {}", ret, strerror(ret));
       return -1;
     }
-    SPDLOG_DEBUG(
-        "Post write succesfull id: {}, sge size: {}, first lkey {} len {}, remote addr {}, remote rkey {}, imm data {}",
-        wr.wr_id, wr.num_sge, wr.sg_list[0].lkey, wr.sg_list[0].length, wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
-    );
+    if(wr.num_sge > 0)
+      SPDLOG_DEBUG(
+          "Post write succesfull id: {}, sge size: {}, first lkey {} len {}, remote addr {}, remote rkey {}, imm data {}",
+          wr.wr_id, wr.num_sge, wr.sg_list[0].lkey, wr.sg_list[0].length, wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
+      );
+    else
+      SPDLOG_DEBUG(
+          "Post write succesfull id: {}, remote addr {}, remote rkey {}, imm data {}", wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
+      );
     return _req_count - 1;
 
   }
