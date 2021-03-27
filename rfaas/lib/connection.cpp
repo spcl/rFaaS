@@ -4,13 +4,15 @@
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/functions.hpp>
 #include <rdmalib/util.hpp>
-#include "client.hpp"
+
+#include <rfaas/connection.hpp>
 
 namespace client {
 
   ServerConnection::ServerConnection(const rdmalib::server::ServerStatus & status, int rcv_buf, int max_inline_data):
     _status(status),
     _active(_status._address, _status._port, rcv_buf),
+    _rcv_buffer(rcv_buf),
     _max_inline_data(max_inline_data),
     _msg_size(0)
   {
@@ -27,6 +29,7 @@ namespace client {
   bool ServerConnection::connect()
   {
     bool ret = _active.connect();
+    _rcv_buffer.connect(&_active.connection());
     // FIXME: data header size
     return ret;
   }
@@ -140,7 +143,13 @@ namespace client {
 
     // make sure the queue doesn't overflow
     connection().poll_wc(rdmalib::QueueType::SEND, false);
-    SPDLOG_DEBUG("Function execution ID {} scheduled!", id);
+    //SPDLOG_DEBUG("Function execution ID {} scheduling!", id);
+    //for(int i = 0; i < 10; ++i) {
+    //  if(std::get<1>(connection().poll_wc(rdmalib::QueueType::SEND, false)) != 0)
+    //    break;
+    //  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    //}
+    //SPDLOG_DEBUG("Function execution ID {} scheduled!", id);
 
     return id++;
   }

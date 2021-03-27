@@ -81,7 +81,7 @@ if(NOT spdlog_FOUND)
   FetchContent_Declare(spdlog
     GIT_REPOSITORY git@github.com:gabime/spdlog.git
     # default branch is v1.x - for some reason, cmake switches to master
-    GIT_TAG v1.x
+    GIT_TAG v1.8.0
   )
   FetchContent_Populate(spdlog)
   FetchContent_MakeAvailable(spdlog)
@@ -112,7 +112,7 @@ if(NOT cereal_FOUND)
 endif()
 
 ###
-# Main pass: build C++14, PIC and no RTTI
+# rdmalib: build C++14, PIC and no RTTI
 ###
 file(GLOB rdmalib_files "rdmalib/lib/*.cpp")
 add_library(rdmalib STATIC ${rdmalib_files})
@@ -123,7 +123,6 @@ target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:PkgConfig::rdmacm,IN
 target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:PkgConfig::ibverbs,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(rdmalib PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
-file(GENERATE OUTPUT test CONTENT $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(rdmalib PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(rdmalib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
 target_link_libraries(rdmalib PUBLIC PkgConfig::rdmacm)
@@ -132,22 +131,48 @@ target_link_libraries(rdmalib PRIVATE spdlog::spdlog)
 target_link_libraries(rdmalib PRIVATE cereal)
 
 ###
-# Client
+# client library
 ###
-add_executable(client client/client.cpp client/conn.cpp client/opts.cpp)
-add_dependencies(client cxxopts::cxxopts)
-add_dependencies(client rdmalib)
-target_include_directories(client PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(client PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(client PRIVATE spdlog::spdlog)
-target_link_libraries(client PRIVATE rdmalib)
-set_target_properties(client PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
+file(GLOB rdmalib_files "rfaas/lib/*.cpp")
+add_library(rfaaslib STATIC ${rdmalib_files})
+add_dependencies(rfaaslib spdlog)
+add_dependencies(rfaaslib cereal)
+add_dependencies(rfaaslib rdmalib)
+target_include_directories(rfaaslib PUBLIC "rfaas/include")
+target_include_directories(rfaaslib PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rfaaslib PUBLIC $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rfaaslib PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
+set_target_properties(rfaaslib PROPERTIES POSITION_INDEPENDENT_CODE On)
+set_target_properties(rfaaslib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
+target_link_libraries(rfaaslib PUBLIC rdmalib)
+target_link_libraries(rfaaslib PUBLIC PkgConfig::rdmacm)
+target_link_libraries(rfaaslib PUBLIC PkgConfig::ibverbs)
+target_link_libraries(rfaaslib PRIVATE spdlog::spdlog)
+target_link_libraries(rfaaslib PRIVATE cereal)
+
+###
+# Warm/hot benchmarker
+###
+add_executable(warm_benchmarker tests/warm_benchmark.cpp tests/warm_benchmark_opts.cpp)
+add_executable(cold_benchmarker tests/cold_benchmark.cpp tests/cold_benchmark_opts.cpp)
+set(tests_targets "warm_benchmarker" "cold_benchmarker")
+foreach(target ${tests_targets})
+  add_dependencies(${target} cxxopts::cxxopts)
+  add_dependencies(${target} rdmalib)
+  add_dependencies(${target} rfaaslib)
+  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:rfaaslib,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_link_libraries(${target} PRIVATE spdlog::spdlog)
+  target_link_libraries(${target} PRIVATE rfaaslib)
+  set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY tests)
+endforeach()
 
 ###
 # Server
 ###
 add_executable(executor server/executor.cpp server/server.cpp server/opts.cpp server/fast_executor.cpp)
-add_executable(executor_manager server/executor_manager.cpp server/server.cpp server/opts.cpp server/fast_executor.cpp)
+add_executable(executor_manager server/executor_manager.cpp server/manager.cpp server/opts.cpp)
 set(targets "executor" "executor_manager")
 foreach(target ${targets})
   add_dependencies(${target} cxxopts::cxxopts)

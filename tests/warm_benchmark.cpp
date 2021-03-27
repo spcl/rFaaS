@@ -3,12 +3,32 @@
 #include <thread>
 
 #include <spdlog/spdlog.h>
+#include <cxxopts.hpp>
 
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/benchmarker.hpp>
-#include "client.hpp"
 
+#include <rfaas/connection.hpp>
+
+namespace client {
+  cxxopts::ParseResult options(int argc, char ** argv);
+}
+
+bool poll_result(client::ServerConnection & client)
+{
+  auto wc = client.recv().poll(true);
+  uint32_t val = ntohl(std::get<0>(wc)[0].imm_data) >> 6;
+  if(val == 0)
+    return true;
+  else {
+    if(val == 1)
+      spdlog::error("Thread busy, cannot post work");
+    else
+      spdlog::error("Unknown error {}", val);
+    return false;
+  }
+}
 
 int main(int argc, char ** argv)
 {
@@ -30,9 +50,10 @@ int main(int argc, char ** argv)
   in.close();
   if(!client.connect())
     return -1;
+
   client.allocate_send_buffers(2, buf_size);
   client.allocate_receive_buffers(2, buf_size);
-  spdlog::info("Connected to the server!");
+  spdlog::info("Connected to the executor manager!");
 
   // prepare args
   memset(client.send_buffer(0).data(), 0, buf_size);
@@ -44,30 +65,34 @@ int main(int argc, char ** argv)
 
   // Warmup iterations
   rdmalib::Benchmarker<2> benchmarker{repetitions};
-  rdmalib::RecvBuffer rcv_buffer{recv_buf_size};
-  rcv_buffer.connect(&client.connection());
+  //rdmalib::RecvBuffer rcv_buffer{recv_buf_size};
+  //rcv_buffer.connect(&client.connection());
   spdlog::info("Warmups begin");
   for(int i = 0; i < warmup_iters; ++i) {
-    rcv_buffer.refill();
+    client.recv().refill();
+    SPDLOG_DEBUG("Submit warm {}", i);
     client.submit_fast(1, "test");
-    auto wc = rcv_buffer.poll(true);
+    poll_result(client);
   }
   spdlog::info("Warmups completed");
 
   int pause = opts["pause"].as<int>();
   std::vector<int> refills;
   // Start actual measurements
-  for(int i = 0; i < repetitions; ++i) {
-    int b = rcv_buffer.refill();
+  for(int i = 0; i < repetitions;) {
+    int b = client.recv().refill();
     benchmarker.start();
     int id = client.submit_fast(1, "test");
-    benchmarker.end(0);
-    benchmarker.start();
-    auto wc = rcv_buffer.poll(true);
-    benchmarker.end(1);
+    SPDLOG_DEBUG("Submit actual {}", i);
+    if(poll_result(client)) {
+      benchmarker.end(0);
+      SPDLOG_DEBUG("Finished execution");
+      ++i;
+    } else {
+      continue;
+    }
     if (b)
       refills.push_back(i);
-    SPDLOG_DEBUG("Finished execution with ID {}", ntohl(std::get<0>(wc)[0].imm_data));
 
     // Wait for the next iteration
     if(pause)

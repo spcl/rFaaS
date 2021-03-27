@@ -12,49 +12,30 @@
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/server.hpp>
 #include "rdmalib/connection.hpp"
-#include "server.hpp"
+#include "manager.hpp"
 
 
 int main(int argc, char ** argv)
 {
-  server::SignalHandler sighandler;
-  auto opts = server::opts(argc, argv);
+  auto opts = executor::opts(argc, argv);
   if(opts.verbose)
     spdlog::set_level(spdlog::level::debug);
   else
     spdlog::set_level(spdlog::level::info);
   spdlog::set_level(spdlog::level::debug);
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
-  spdlog::info("Executing serverless-rdma server!");
+  spdlog::info("Executing rFaaS executor manager!");
 
-  // Start RDMA connection
-  server::Server server(
-      opts.address,
-      opts.port,
-      opts.cheap_executors,
-      opts.fast_executors,
-      opts.msg_size,
-      opts.recv_buffer_size,
-      opts.pin_threads,
-      opts.max_inline_data,
-      opts.server_file
+  executor::Manager mgr(
+    opts.address,
+    opts.port,
+    opts.use_docker,
+    opts.server_file
   );
 
-  // Wait for a client
-  // FIXME: handle more clients
-  auto conn = server.poll_communication();
-  if(!conn)
-    return -1;
-  // TODO: Display client's address
-  spdlog::info("Connected a client!");
+  mgr.start();
 
-  int sum = 0, repetitions = 0;
-  if(opts.polling_manager == server::Options::PollingMgr::SERVER)
-    std::tie(sum, repetitions) = server.poll_server(opts.repetitions, opts.warmup_iters);
-  else
-    std::tie(sum, repetitions) = server.poll_threads(opts.repetitions, opts.warmup_iters);
-
-  spdlog::info("Server is closing down, avg response time {} usec", ((float)sum)/repetitions);
+  spdlog::info("Executor manager is closing down");
   std::this_thread::sleep_for(std::chrono::seconds(1)); 
 
   //int sum = 0;
