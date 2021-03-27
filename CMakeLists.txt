@@ -64,7 +64,7 @@ find_package(cxxopts QUIET)
 if(NOT cxxopts_FOUND)
   message(STATUS "Downloading and building cxxopts dependency")
   FetchContent_Declare(cxxopts
-    GIT_REPOSITORY git@github.com:jarro2783/cxxopts.git
+    GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
     CMAKE_ARGS -DCXXOPTS_BUILD_EXAMPLES=Off -DCXXOPTS_BUILD_TESTS=Off
   )
   FetchContent_Populate(cxxopts)
@@ -79,7 +79,7 @@ find_package(spdlog QUIET)
 if(NOT spdlog_FOUND)
   message(STATUS "Downloading and building spdlog dependency")
   FetchContent_Declare(spdlog
-    GIT_REPOSITORY git@github.com:gabime/spdlog.git
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
     # default branch is v1.x - for some reason, cmake switches to master
     GIT_TAG v1.8.0
   )
@@ -97,7 +97,7 @@ find_package(cereal QUIET)
 if(NOT cereal_FOUND)
   message(STATUS "Downloading and building cereal dependency")
   FetchContent_Declare(cereal
-    GIT_REPOSITORY git@github.com:USCiLab/cereal.git
+    GIT_REPOSITORY https://github.com/USCiLab/cereal.git
     CMAKE_ARGS -DSKIP_PERFORMANCE_COMPARISON=On -DSKIP_PORTABILITY_TEST=On -DJUST_INSTALL_CEREAL=On
     # default branch is v1.x - for some reason, cmake switches to master
     GIT_TAG v1.3.0
