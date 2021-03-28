@@ -94,7 +94,7 @@ namespace rdmalib {
     return this->_qp;
   }
 
-  int32_t Connection::post_send(ScatterGatherElement && elems, int32_t id)
+  int32_t Connection::post_send(ScatterGatherElement && elems, int32_t id, bool force_inline)
   {
     // FIXME: extend with multiple sges
     struct ibv_send_wr wr, *bad;
@@ -103,7 +103,7 @@ namespace rdmalib {
     wr.sg_list = elems.array();
     wr.num_sge = elems.size();
     wr.opcode = IBV_WR_SEND;
-    wr.send_flags = _send_flags;
+    wr.send_flags = force_inline ? IBV_SEND_SIGNALED | IBV_SEND_INLINE : _send_flags;
 
     int ret = ibv_post_send(_qp, &wr, &bad);
     if(ret) {
@@ -166,14 +166,14 @@ namespace rdmalib {
     return wr.wr_id;
   }
 
-  int32_t Connection::_post_write(ScatterGatherElement && elems, ibv_send_wr wr)
+  int32_t Connection::_post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline)
   {
     ibv_send_wr* bad;
     wr.wr_id = _req_count++;
     wr.next = nullptr;
     wr.sg_list = elems.array();
     wr.num_sge = elems.size();
-    wr.send_flags = _send_flags;
+    wr.send_flags = force_inline ? IBV_SEND_SIGNALED | IBV_SEND_INLINE : _send_flags;
 
     if(wr.num_sge == 1 && wr.sg_list[0].length == 0)
       wr.num_sge = 0;
@@ -198,17 +198,17 @@ namespace rdmalib {
 
   }
 
-  int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf)
+  int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, bool force_inline)
   {
     ibv_send_wr wr;
     memset(&wr, 0, sizeof(wr));
     wr.opcode = IBV_WR_RDMA_WRITE;
     wr.wr.rdma.remote_addr = rbuf.addr;
     wr.wr.rdma.rkey = rbuf.rkey;
-    return _post_write(std::forward<ScatterGatherElement>(elems), wr);
+    return _post_write(std::forward<ScatterGatherElement>(elems), wr, force_inline);
   }
 
-  int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint32_t immediate)
+  int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint32_t immediate, bool force_inline)
   {
     ibv_send_wr wr;
     memset(&wr, 0, sizeof(wr));
@@ -216,7 +216,7 @@ namespace rdmalib {
     wr.imm_data = htonl(immediate);
     wr.wr.rdma.remote_addr = rbuf.addr;
     wr.wr.rdma.rkey = rbuf.rkey;
-    return _post_write(std::forward<ScatterGatherElement>(elems), wr);
+    return _post_write(std::forward<ScatterGatherElement>(elems), wr, force_inline);
   }
 
   int32_t Connection::post_cas(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t compare, uint64_t swap)
