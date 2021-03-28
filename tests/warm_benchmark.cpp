@@ -15,7 +15,7 @@ namespace client {
   cxxopts::ParseResult options(int argc, char ** argv);
 }
 
-bool poll_result(client::ServerConnection & client)
+bool poll_result(client::ServerConnection & client, int iter)
 {
   auto wc = client.recv().poll(true);
   uint32_t val = ntohl(std::get<0>(wc)[0].imm_data) >> 6;
@@ -23,9 +23,9 @@ bool poll_result(client::ServerConnection & client)
     return true;
   else {
     if(val == 1)
-      spdlog::error("Thread busy, cannot post work");
+      spdlog::error("Iter {}, Thread busy, cannot post work", iter);
     else
-      spdlog::error("Unknown error {}", val);
+      spdlog::error("Iter {}, Unknown error {}", iter, val);
     return false;
   }
 }
@@ -72,7 +72,7 @@ int main(int argc, char ** argv)
     client.recv().refill();
     SPDLOG_DEBUG("Submit warm {}", i);
     client.submit_fast(1, "test");
-    poll_result(client);
+    poll_result(client, i);
   }
   spdlog::info("Warmups completed");
 
@@ -84,7 +84,7 @@ int main(int argc, char ** argv)
     benchmarker.start();
     int id = client.submit_fast(1, "test");
     SPDLOG_DEBUG("Submit actual {}", i);
-    if(poll_result(client)) {
+    if(poll_result(client, i)) {
       benchmarker.end(0);
       SPDLOG_DEBUG("Finished execution");
       ++i;
