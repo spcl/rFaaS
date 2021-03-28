@@ -44,7 +44,8 @@ namespace server {
     conn->post_write(
       send,
       {header->r_address, header->r_key},
-      0
+      0,
+      send.bytes() <= max_inline_data
     );
   }
 
@@ -98,7 +99,6 @@ namespace server {
     if(!active.connect())
       return;
     this->conn = &active.connection();
-    this->conn->inlining(inline_data);
     this->wc_buffer.connect(this->conn);
     send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
@@ -108,7 +108,7 @@ namespace server {
     buf.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     buf.data()[0].r_addr = rcv.address();
     buf.data()[0].r_key = rcv.rkey();
-    this->conn->post_send(buf);
+    this->conn->post_send(buf, 0, true);
     SPDLOG_DEBUG("Thread {} Send buffer details to client!", id);
 
     if(timeout == -1) {

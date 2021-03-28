@@ -32,8 +32,8 @@ int main(int argc, char ** argv)
     opts.fast_executors,
     opts.msg_size,
     opts.recv_buffer_size,
-    opts.pin_threads,
-    opts.max_inline_data
+    opts.max_inline_data,
+    opts.pin_threads
   );
 
   // FIXME: proper option

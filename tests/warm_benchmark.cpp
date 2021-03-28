@@ -38,7 +38,7 @@ int main(int argc, char ** argv)
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
   spdlog::info("Executing serverless-rdma test warm_benchmarker!");
 
-  rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size);
+  rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size, opts.max_inline_data);
   executor.allocate(opts.numcores);
 
   // FIXME: move me to allocator

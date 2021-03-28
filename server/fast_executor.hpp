@@ -24,7 +24,7 @@ namespace server {
   struct Thread {
     std::string addr;
     int port;
-    bool inline_data;
+    int max_inline_data;
     int id, repetitions;
     int max_repetitions;
     uint64_t sum;
@@ -36,7 +36,7 @@ namespace server {
       //active(addr, port, recv_buffer_size),
       addr(addr),
       port(port),
-      inline_data(buf_size <= max_inline_data),
+      max_inline_data(max_inline_data),
       id(id),
       repetitions(0),
       max_repetitions(0),
