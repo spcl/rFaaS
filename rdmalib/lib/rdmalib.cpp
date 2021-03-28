@@ -184,9 +184,9 @@ namespace rdmalib {
 
   RDMAPassive::~RDMAPassive()
   {
-    ibv_dealloc_pd(this->_pd);
     rdma_destroy_ep(this->_listen_id);
-    rdma_destroy_id(this->_listen_id);
+    //ibv_dealloc_pd(this->_pd);
+    //rdma_destroy_id(this->_listen_id);
   }
 
   void RDMAPassive::allocate()
