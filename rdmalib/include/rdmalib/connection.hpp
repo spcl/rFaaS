@@ -35,6 +35,7 @@ namespace rdmalib {
     ibv_qp* _qp; 
     ibv_comp_channel* _channel;
     int32_t _req_count;
+    bool _passive;
     static const int _wc_size = 32; 
     // FIXME: associate this with RecvBuffer
     std::array<ibv_wc, _wc_size> _swc; // fast fix for overlapping polling
@@ -45,7 +46,7 @@ namespace rdmalib {
     static const int _rbatch = 32; // 32 for faster division in the code
     struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
  
-    Connection();
+    Connection(bool passive = false);
     ~Connection();
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;

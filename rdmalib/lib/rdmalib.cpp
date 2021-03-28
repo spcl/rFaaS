@@ -221,7 +221,7 @@ namespace rdmalib {
     }
 
     // Now receive id for the communication
-    Connection connection;
+    Connection connection{true};
     connection._id = event->id;
     // destroys event
     rdma_ack_cm_event(event);

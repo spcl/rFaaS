@@ -71,8 +71,8 @@ int main(int argc, char ** argv)
     printf("%d ", i++);
     for(int i = 0; i < std::min(100, opts.input_size); ++i)
       printf("%d ", ((char*)buf.data())[i]);
+    printf("\n");
   }
-  printf("\n");
 
   return 0;
   //std::ifstream in(opts["file"].as<std::string>());

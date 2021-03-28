@@ -13,11 +13,12 @@ namespace rdmalib {
     memset(&conn_param, 0 , sizeof(conn_param));
   }
 
-  Connection::Connection():
+  Connection::Connection(bool passive):
     _id(nullptr),
     _qp(nullptr),
     _channel(nullptr),
-    _req_count(0)
+    _req_count(0),
+    _passive(passive)
   {
     inlining(false);
 
@@ -40,7 +41,8 @@ namespace rdmalib {
     _id(obj._id),
     _qp(obj._qp),
     _channel(obj._channel),
-    _req_count(obj._req_count)
+    _req_count(obj._req_count),
+    _passive(obj._passive)
   {
     obj._id = nullptr;
     obj._qp = nullptr;
@@ -82,9 +84,16 @@ namespace rdmalib {
   void Connection::close()
   {
     if(_id) {
-      rdma_destroy_qp(_id);
-      rdma_destroy_id(_id);
-      rdma_destroy_ep(_id);
+      // When the connection is allocated on active side
+      // We allocated ep, and that's the only thing we need to do
+      if(!_passive)
+        rdma_destroy_ep(_id);
+      // When the connection is allocated on passive side
+      // We allocated QP and we need to free an ID
+      else {
+        rdma_destroy_qp(_id);
+        rdma_destroy_id(_id);
+      }
       _id = nullptr;
     }
   }
