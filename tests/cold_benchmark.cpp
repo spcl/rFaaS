@@ -49,7 +49,7 @@ int main(int argc, char ** argv)
 
   spdlog::info("Connected to the executor manager!");
   // Disconnect?
-  client.disconnect();
+  //client.disconnect();
 
   // Second connection
   client::ServerConnection client2(
