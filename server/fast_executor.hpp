@@ -2,15 +2,18 @@
 #ifndef __SERVER_FASTEXECUTORS_HPP__
 #define __SERVER_FASTEXECUTORS_HPP__
 
+#include "rdmalib/rdmalib.hpp"
 #include <vector>
 #include <thread>
 #include <atomic>
 #include <condition_variable>
 
 #include <rdmalib/buffer.hpp>
+#include <rdmalib/connection.hpp>
+#include <rdmalib/recv_buffer.hpp>
+#include <rdmalib/functions.hpp>
 
-#include "rdmalib/connection.hpp"
-#include "structures.hpp"
+//#include "structures.hpp"
 
 namespace rdmalib {
   struct RecvBuffer;
@@ -18,50 +21,61 @@ namespace rdmalib {
 
 namespace server {
 
-  struct Server;
+  struct Thread {
+    std::string addr;
+    int port;
+    bool inline_data;
+    int id, repetitions;
+    int max_repetitions;
+    uint64_t sum;
+    rdmalib::Buffer<char> send, rcv;
+    rdmalib::RecvBuffer wc_buffer;
+    rdmalib::Connection* conn;
+
+    Thread(std::string addr, int port, int id, int buf_size, int recv_buffer_size, int max_inline_data):
+      //active(addr, port, recv_buffer_size),
+      addr(addr),
+      port(port),
+      inline_data(buf_size <= max_inline_data),
+      id(id),
+      repetitions(0),
+      max_repetitions(0),
+      sum(0),
+      send(buf_size),
+      rcv(buf_size, rdmalib::functions::Submission::DATA_HEADER_SIZE),
+      wc_buffer(recv_buffer_size),
+      conn(nullptr)
+    {
+    }
+
+    void work(int func_id);
+    void hot();
+    void warm();
+    void thread_work(int timeout);
+  };
 
   struct FastExecutors {
 
-    // Workers
-    std::mutex m;
-    std::condition_variable _cv;
+    std::vector<Thread> _threads_data;
     std::vector<std::thread> _threads;
-    std::vector<ThreadStatus> _threads_status; 
-    std::vector<rdmalib::Buffer<char>> _send, _rcv;
-    std::vector<timeval> _start_timestamps;
-
-    // FIXME: one atomic per cache line - does it matter?
-    std::atomic<int64_t>* _thread_status;
-    std::atomic<int64_t> _cur_poller;
     bool _closing;
     int _numcores;
     int _max_repetitions;
     int _warmup_iters;
-    bool _pin_threads;
-    Server & _server;
-    rdmalib::Connection* _conn;
-    rdmalib::RecvBuffer* _wc_buffer;
+    int _pin_threads;
 
-    // Statistics
-    std::atomic<int> _time_sum;
-    std::atomic<int> _repetitions;
-    int _iterations;
-
-
-    FastExecutors(int num, int msg_size, bool pin_threads, Server &);
+    FastExecutors(
+      std::string client_addr, int port,
+      int numcores,
+      int msg_size,
+      int recv_buf_size,
+      int max_inline_data,
+      int pin_threads
+    );
     ~FastExecutors();
 
-    void allocate_threads(bool poll);
-    void enable(int thread_id, ThreadStatus && status);
-    void disable(int thread_id);
-    void wakeup();
     void close();
-    void work(int,int);
-    // Thread implementation that uses condition variable to synchronize with server.
-    void cv_thread_func(int id);
-    // Polling implemantation directly inside a thread
-    void thread_poll_func(int);
-    void serial_thread_poll_func(int);
+    void allocate_threads(int, int);
   };
 
 }
