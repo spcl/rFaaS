@@ -138,7 +138,7 @@ namespace client {
     // 3. Write arguments
     for(int i = 0; i < numcores; ++i) {
       auto & status = _status._buffers[i];
-      connection().post_write(_send[i], status, (func_id << 6) | i);
+      //connection().post_write(_send[i], status, (func_id << 6) | i);
     }
 
     // make sure the queue doesn't overflow

@@ -15,11 +15,12 @@ namespace rfaas {
 
   }
 
-  executor::executor(std::string address, int port, int rcv_buf_size):
-    _state(address, port, rcv_buf_size),
+  executor::executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
+    _state(address, port, rcv_buf_size + 1),
     _rcv_buffer(rcv_buf_size),
     _rcv_buf_size(rcv_buf_size),
-    _executions(0)
+    _executions(0),
+    _max_inlined_msg(max_inlined_msg)
   {
   }
 

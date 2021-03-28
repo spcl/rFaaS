@@ -33,9 +33,11 @@ namespace rfaas {
     rdmalib::RecvBuffer _rcv_buffer;
     int _rcv_buf_size;
     int _executions;
+    // FIXME: global settings
+    int _max_inlined_msg;
     std::vector<executor_state> _connections;
 
-    executor(std::string address, int port, int rcv_buf_size);
+    executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg);
 
     // FIXME: irange for cores
     // FIXME: now only operates on buffers
@@ -51,8 +53,9 @@ namespace rfaas {
       *reinterpret_cast<uint32_t*>(data + 8) = out.rkey();
 
       // FIXME: function ID
-      _connections[0].conn->post_write(in, _connections[0].remote_input, 0);
+      _connections[0].conn->post_write(in, _connections[0].remote_input, 0, in.bytes() <= _max_inlined_msg);
       _connections[0]._rcv_buffer.refill();
+      _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
 
       auto wc = _connections[0]._rcv_buffer.poll(true);
       uint32_t val = ntohl(std::get<0>(wc)[0].imm_data);
