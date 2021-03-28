@@ -70,6 +70,45 @@ namespace rfaas {
       }
     }
 
+    template<typename T>
+    bool execute(std::string fname, const std::vector<rdmalib::Buffer<T>> & in, std::vector<rdmalib::Buffer<T>> & out)
+    {
+      int numcores = _connections.size();
+      for(int i = 0; i < numcores; ++i) {
+        // FIXME: here get a future for async
+        char* data = static_cast<char*>(in[i].ptr());
+        // TODO: we assume here uintptr_t is 8 bytes
+        *reinterpret_cast<uint64_t*>(data) = out[i].address();
+        *reinterpret_cast<uint32_t*>(data + 8) = out[i].rkey();
+        // FIXME: function ID
+        _connections[i].conn->post_write(in[i], _connections[i].remote_input, 0, in[i].bytes() <= _max_inlined_msg);
+      }
+
+      for(int i = 0; i < numcores; ++i) {
+        _connections[i]._rcv_buffer.refill();
+      }
+      int expected = numcores;
+      while(expected) {
+        auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
+        expected -= std::get<1>(wc);
+      }
+
+      expected = numcores;
+      bool correct = true;
+      while(expected) {
+        auto wc = _connections[0]._rcv_buffer.poll(true);
+        expected -= std::get<1>(wc);
+        for(int i = 0; i < std::get<1>(wc); ++i) {
+          uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
+          correct &= val == 0;
+        }
+      }
+      _connections[0]._rcv_buffer._requests += numcores - 1;
+      for(int i = 1; i < numcores; ++i)
+        _connections[i]._rcv_buffer._requests--;
+      return correct;
+    }
+
     void allocate(int numcores);
   };
 
