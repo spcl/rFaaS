@@ -13,20 +13,6 @@ namespace rdmalib {
     memset(&conn_param, 0 , sizeof(conn_param));
   }
 
-  ScatterGatherElement::ScatterGatherElement()
-  {
-  }
-
-  ibv_sge * ScatterGatherElement::array()
-  {
-    return _sges.data();
-  }
-
-  size_t ScatterGatherElement::size()
-  {
-    return _sges.size();
-  }
-
   Connection::Connection():
     _id(nullptr),
     _qp(nullptr),

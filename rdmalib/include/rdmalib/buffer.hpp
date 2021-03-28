@@ -9,8 +9,11 @@
 
 struct ibv_pd;
 struct ibv_mr;
+struct ibv_sge;
 
 namespace rdmalib {
+
+  struct ScatterGatherElement;
 
   namespace impl {
 
@@ -20,6 +23,7 @@ namespace rdmalib {
       uint32_t _size;
       uint32_t _header;
       uint32_t _bytes;
+      uint32_t _byte_size;
       void* _ptr;
       ibv_mr* _mr;
 
@@ -38,6 +42,7 @@ namespace rdmalib {
       void register_memory(ibv_pd *pd, int access);
       uint32_t lkey() const;
       uint32_t rkey() const;
+      ScatterGatherElement sge(int size, int offset);
     };
 
   }
@@ -82,6 +87,31 @@ namespace rdmalib {
     {
       return static_cast<T*>(this->_ptr) + this->_header;
     }
+  };
+
+  struct ScatterGatherElement {
+    // smallvector in practice
+    std::vector<ibv_sge> _sges;
+
+    ScatterGatherElement();
+
+    ScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey);
+
+    template<typename T>
+    ScatterGatherElement(const Buffer<T> & buf)
+    {
+      add(buf);
+    }
+
+    template<typename T>
+    void add(const Buffer<T> & buf)
+    {
+      //emplace_back for structs will be supported in C++20
+      _sges.push_back({buf.address(), buf.bytes(), buf.lkey()});
+    }
+
+    ibv_sge * array();
+    size_t size();
   };
 }
 

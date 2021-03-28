@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/common.h>
 
+#include <rdmalib/allocation.hpp>
 #include <rdmalib/benchmarker.hpp>
 #include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/util.hpp>
@@ -98,9 +99,17 @@ namespace server {
     this->conn = &active.connection();
     this->conn->inlining(inline_data);
     this->wc_buffer.connect(this->conn);
-    // FIXME: here send buffer details
+    send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
+    rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     SPDLOG_DEBUG("Thread {} Established connection to client!", id);
-    return;
+
+    rdmalib::Buffer<rdmalib::BufferInformation> buf(1);
+    buf.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
+    buf.data()[0].r_addr = rcv.address();
+    buf.data()[0].r_key = rcv.rkey();
+    this->conn->post_send(buf);
+    SPDLOG_DEBUG("Thread {} Send buffer details to client!", id);
+
     if(timeout == -1) {
       hot();
     } else if(timeout == 0) {

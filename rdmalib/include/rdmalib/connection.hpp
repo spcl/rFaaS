@@ -27,29 +27,6 @@ namespace rdmalib {
     ConnectionConfiguration();
   };
 
-  struct ScatterGatherElement {
-    // smallvector in practice
-    std::vector<ibv_sge> _sges;
-
-    ScatterGatherElement();
-
-    template<typename T>
-    ScatterGatherElement(const Buffer<T> & buf)
-    {
-      add(buf);
-    }
-
-    template<typename T>
-    void add(const Buffer<T> & buf)
-    {
-      //emplace_back for structs will be supported in C++20
-      _sges.push_back({buf.address(), buf.bytes(), buf.lkey()});
-    }
-
-    ibv_sge * array();
-    size_t size();
-  };
-
   // State of a communication:
   // a) communication ID
   // b) Queue Pair

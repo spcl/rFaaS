@@ -12,6 +12,7 @@ namespace rdmalib { namespace impl {
     _size(0),
     _header(0),
     _bytes(0),
+    _byte_size(0),
     _mr(nullptr),
     _ptr(nullptr)
   {}
@@ -20,6 +21,7 @@ namespace rdmalib { namespace impl {
     _size(obj._size),
     _header(obj._header),
     _bytes(obj._bytes),
+    _byte_size(obj._byte_size),
     _mr(obj._mr),
     _ptr(obj._ptr)
   {
@@ -31,6 +33,7 @@ namespace rdmalib { namespace impl {
   {
     _size = obj._size;
     _bytes = obj._bytes;
+    _bytes = obj._byte_size;
     _header = obj._header;
     _ptr = obj._ptr;
     _mr = obj._mr;
@@ -44,6 +47,7 @@ namespace rdmalib { namespace impl {
     _size(size),
     _header(header),
     _bytes((size + header) * byte_size),
+    _byte_size(byte_size),
     _mr(nullptr)
   {
     //size_t alloc = _bytes;
@@ -67,8 +71,8 @@ namespace rdmalib { namespace impl {
     _mr = ibv_reg_mr(pd, _ptr, _bytes, access);
     impl::expect_nonnull(_mr);
     SPDLOG_DEBUG(
-      "Allocated {} bytes, address {}, lkey {}, rkey {}",
-      _bytes, fmt::ptr(_mr->addr), _mr->lkey, _mr->rkey
+      "Allocated {} bytes, mr {}, address {}, lkey {}, rkey {}",
+      _bytes, fmt::ptr(_mr), fmt::ptr(_mr->addr), _mr->lkey, _mr->rkey
     );
   }
 
@@ -117,9 +121,33 @@ namespace rdmalib { namespace impl {
     return this->_ptr;
   }
 
+  ScatterGatherElement Buffer::sge(int size, int offset)
+  {
+    return {address() + offset, size * _byte_size, lkey()};
+  }
+
 }}
 
 namespace rdmalib {
+
+  ScatterGatherElement::ScatterGatherElement()
+  {
+  }
+
+  ibv_sge * ScatterGatherElement::array()
+  {
+    return _sges.data();
+  }
+
+  size_t ScatterGatherElement::size()
+  {
+    return _sges.size();
+  }
+
+  ScatterGatherElement::ScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey)
+  {
+    _sges.push_back({addr, bytes, lkey});
+  }
 
   RemoteBuffer::RemoteBuffer():
     addr(0),
