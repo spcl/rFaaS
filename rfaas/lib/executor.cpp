@@ -18,7 +18,8 @@ namespace rfaas {
   executor::executor(std::string address, int port, int rcv_buf_size):
     _state(address, port, rcv_buf_size),
     _rcv_buffer(rcv_buf_size),
-    _rcv_buf_size(rcv_buf_size)
+    _rcv_buf_size(rcv_buf_size),
+    _executions(0)
   {
   }
 
@@ -43,6 +44,7 @@ namespace rfaas {
         ),
         _rcv_buf_size
       );
+      this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn);
     }
 
     // Now receive buffer information
@@ -56,6 +58,7 @@ namespace rfaas {
           "Received buffer details for thread {}, addr {}, rkey {}",
           i, buf.data()[id].r_addr, buf.data()[id].r_key
         );
+        _connections[id].remote_input = rdmalib::RemoteBuffer(buf.data()[id].r_addr, buf.data()[id].r_key);
       }
       received += std::get<1>(wcs);
     }

@@ -53,6 +53,7 @@ namespace server {
     uint64_t sum = 0;
     int repetitions = 0;
     rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
+    SPDLOG_DEBUG("Thread {} Begins hot polling", id);
 
     while(repetitions < max_repetitions) {
 
@@ -117,6 +118,7 @@ namespace server {
     } else {
       //FIXME: here implement switching
     }
+    spdlog::info("Thread {} finished work", id);
   }
 
   FastExecutors::FastExecutors(std::string client_addr, int port,

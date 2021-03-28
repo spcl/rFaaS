@@ -41,6 +41,42 @@ int main(int argc, char ** argv)
   rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size);
   executor.allocate(opts.numcores);
 
+  // FIXME: move me to allocator
+  rdmalib::Buffer<char> in(opts.input_size), out(opts.input_size);
+  in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
+  out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+  memset(in.data(), 0, opts.input_size);
+  for(int i = 0; i < opts.input_size; ++i) {
+    ((char*)in.data())[i] = 1;
+  }
+
+  rdmalib::Benchmarker<1> benchmarker{opts.repetitions};
+  spdlog::info("Warmups begin");
+  for(int i = 0; i < opts.warmup_iters; ++i) {
+    SPDLOG_DEBUG("Submit warm {}", i);
+    executor.execute("test", in, out);
+  }
+  spdlog::info("Warmups completed");
+
+  // Start actual measurements
+  for(int i = 0; i < opts.repetitions;) {
+    benchmarker.start();
+    SPDLOG_DEBUG("Submit execution {}", i);
+    if(executor.execute("test", in, out)) {
+      SPDLOG_DEBUG("Finished execution");
+      benchmarker.end(0);
+      ++i;
+    } else {
+      continue;
+    }
+  }
+  auto [median, avg] = benchmarker.summary();
+  spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", opts.repetitions, avg, median);
+
+  for(int i = 0; i < std::min(100, opts.input_size); ++i)
+    printf("%d ", ((char*)out.data())[i]);
+  printf("\n");
+
   return 0;
   //std::ifstream in(opts["file"].as<std::string>());
   //client::ServerConnection client(rdmalib::server::ServerStatus::deserialize(in), recv_buf_size, max_inline_data);
@@ -103,9 +139,6 @@ int main(int argc, char ** argv)
   //  std::cout << refills[i] << " ";
   //std::cout << '\n';
 
-  //for(int i = 0; i < std::min(100, buf_size); ++i)
-  //  printf("%d ", ((char*)client.recv_buffer(0).data())[i]);
-  //printf("\n");
   //for(int i = 0; i < std::min(100, buf_size); ++i)
   //  printf("%d ", ((char*)client.recv_buffer(1).data())[i]);
   //printf("\n");
