@@ -173,7 +173,7 @@ endforeach()
 ###
 # Server
 ###
-add_executable(executor server/executor.cpp server/opts.cpp server/fast_executor.cpp)
+add_executable(executor server/executor.cpp server/opts.cpp server/fast_executor.cpp server/functions.cpp)
 add_executable(executor_manager server/executor_manager.cpp server/manager.cpp server/opts.cpp)
 set(targets "executor" "executor_manager")
 foreach(target ${targets})
@@ -188,3 +188,12 @@ foreach(target ${targets})
   target_link_libraries(${target} PRIVATE Threads::Threads)
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 endforeach()
+target_link_libraries(executor PRIVATE dl)
+
+###
+# Examples
+###
+add_library(functions SHARED examples/functions.cpp)
+set_target_properties(functions PROPERTIES POSITION_INDEPENDENT_CODE On)
+set_target_properties(functions PROPERTIES LIBRARY_OUTPUT_DIRECTORY examples)
+
