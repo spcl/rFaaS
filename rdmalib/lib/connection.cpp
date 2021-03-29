@@ -116,7 +116,9 @@ namespace rdmalib {
 
     int ret = ibv_post_send(_qp, &wr, &bad);
     if(ret) {
-      spdlog::error("Post send unsuccesful, reason {} {}", errno, strerror(errno));
+      spdlog::error("Post send unsuccesful, reason {} {}, sges_count {}, wr_id {}, wr.send_flags {}",
+        errno, strerror(errno), wr.num_sge, wr.wr_id, wr.send_flags
+      );
       return -1;
     }
     SPDLOG_DEBUG("Post send succesfull");
