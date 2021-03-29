@@ -19,26 +19,17 @@
 
 namespace server {
 
-  void test_function(void* args, void* res)
-  {
-    int* src = static_cast<int*>(args), *dest = static_cast<int*>(res);
-    SPDLOG_DEBUG("Received {}, value {}", fmt::ptr(args), *src);
-    //for(int i = 0; i < 100; ++i)
-    //*dest++ = *src++;
-    *dest = *src;
-  }
-
-  void Thread::work(int func_id)
+  void Thread::work(int func_id, uint32_t in_size)
   {
     // FIXME: load func ptr
     rdmalib::functions::Submission* header = reinterpret_cast<rdmalib::functions::Submission*>(rcv.ptr());
-    auto ptr = &test_function;
+    auto ptr = _functions.function(func_id);
     char* data = static_cast<char*>(rcv.ptr());
     uint32_t thread_id = *reinterpret_cast<uint32_t*>(data + 12);
 
-    SPDLOG_DEBUG("Thread {} begins work! Executing function {}", id, thread_id);
+    SPDLOG_DEBUG("Thread {} begins work! Executing function {} with size {}", id, thread_id, in_size);
     // Data to ignore header passed in the buffer
-    (*ptr)(rcv.data(), send.ptr());
+    (*ptr)(rcv.data(), in_size, send.ptr());
     SPDLOG_DEBUG("Thread {} finished work!", id);
 
     conn->post_write(
@@ -71,11 +62,12 @@ namespace server {
           }
           int info = ntohl(wc->imm_data);
           // FIXME: here pass function
-          int func_id = info >> 6;
+          //int func_id = info >> 6;
+          int func_id = 1;
           SPDLOG_DEBUG("Thread {} Execute func {}", id, func_id);
 
           SPDLOG_DEBUG("Wake-up fast thread {}", id);
-          work(func_id);
+          work(func_id, wc->byte_len);
 
           sum += server_processing_times.end();
           conn->poll_wc(rdmalib::QueueType::SEND, true);
@@ -108,8 +100,10 @@ namespace server {
     buf.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     buf.data()[0].r_addr = rcv.address();
     buf.data()[0].r_key = rcv.rkey();
-    this->conn->post_send(buf, 0, true);
-    SPDLOG_DEBUG("Thread {} Send buffer details to client!", id);
+    SPDLOG_DEBUG("Thread {} Sends buffer details to client!", id);
+    this->conn->post_send(buf, 0, buf.size() <= max_inline_data);
+
+    // FIXME: send function
 
     if(timeout == -1) {
       hot();
@@ -122,19 +116,21 @@ namespace server {
   }
 
   FastExecutors::FastExecutors(std::string client_addr, int port,
+      int func_size,
       int numcores,
       int msg_size,
       int recv_buf_size,
       int max_inline_data,
       int pin_threads
   ):
+    _functions(func_size),
     _closing(false),
     _numcores(numcores),
     _max_repetitions(0),
     _pin_threads(pin_threads)
   {
     for(int i = 0; i < numcores; ++i)
-      _threads_data.emplace_back(client_addr, port, i, msg_size, recv_buf_size, max_inline_data);
+      _threads_data.emplace_back(client_addr, port, i, _functions, msg_size, recv_buf_size, max_inline_data);
   }
 
   FastExecutors::~FastExecutors()

@@ -29,6 +29,7 @@ namespace rfaas {
     // FIXME: here send cold allocations
 
     // FIXME: temporary fix of vector reallocation - return Connection object?
+    SPDLOG_DEBUG("Allocating {} threads on a remote executor", numcores);
     _state._connections.reserve(numcores);
     // Now receive the connections from executors
     rdmalib::Buffer<rdmalib::BufferInformation> buf(numcores);

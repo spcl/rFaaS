@@ -13,7 +13,7 @@
 #include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/functions.hpp>
 
-//#include "structures.hpp"
+#include "functions.hpp"
 
 namespace rdmalib {
   struct RecvBuffer;
@@ -22,6 +22,7 @@ namespace rdmalib {
 namespace server {
 
   struct Thread {
+    Functions & _functions;
     std::string addr;
     int port;
     int max_inline_data;
@@ -32,8 +33,10 @@ namespace server {
     rdmalib::RecvBuffer wc_buffer;
     rdmalib::Connection* conn;
 
-    Thread(std::string addr, int port, int id, int buf_size, int recv_buffer_size, int max_inline_data):
-      //active(addr, port, recv_buffer_size),
+    Thread(std::string addr, int port, int id,
+        Functions & functions,
+        int buf_size, int recv_buffer_size, int max_inline_data):
+      _functions(functions),
       addr(addr),
       port(port),
       max_inline_data(max_inline_data),
@@ -48,7 +51,7 @@ namespace server {
     {
     }
 
-    void work(int func_id);
+    void work(int func_id, uint32_t in_size);
     void hot();
     void warm();
     void thread_work(int timeout);
@@ -56,6 +59,7 @@ namespace server {
 
   struct FastExecutors {
 
+    Functions _functions;
     std::vector<Thread> _threads_data;
     std::vector<std::thread> _threads;
     bool _closing;
@@ -66,6 +70,7 @@ namespace server {
 
     FastExecutors(
       std::string client_addr, int port,
+      int function_size,
       int numcores,
       int msg_size,
       int recv_buf_size,

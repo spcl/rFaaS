@@ -29,6 +29,7 @@ int main(int argc, char ** argv)
 
   server::FastExecutors executor(
     opts.address, opts.port,
+    opts.func_size,
     opts.fast_executors,
     opts.msg_size,
     opts.recv_buffer_size,

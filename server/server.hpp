@@ -47,6 +47,7 @@ namespace server {
     int warmup_iters;
     bool pin_threads;
     int max_inline_data;
+    int func_size;
     std::string server_file;
     bool verbose;
     PollingMgr polling_manager;
