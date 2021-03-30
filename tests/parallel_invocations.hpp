@@ -24,6 +24,7 @@ namespace parallel_invocations {
     int warmup_iters;
     int numcores;
     std::string fname;
+    std::string flib;
     int input_size;
     std::string out_file;
     bool pin_threads;

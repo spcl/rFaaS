@@ -39,7 +39,7 @@ int main(int argc, char ** argv)
   spdlog::info("Executing serverless-rdma test warm_benchmarker!");
 
   rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size, opts.max_inline_data);
-  executor.allocate(opts.numcores);
+  executor.allocate(opts.flib, opts.numcores);
 
   // FIXME: move me to allocator
   rdmalib::Buffer<char> in(opts.input_size), out(opts.input_size);

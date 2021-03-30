@@ -17,6 +17,7 @@ namespace warm_benchmarker {
       ("x,recv-buf-size", "Size of recv buffer", cxxopts::value<int>()->default_value("1"))
       ("c,cores", "Number of cores", cxxopts::value<int>())
       ("name", "Function name", cxxopts::value<std::string>())
+      ("functions", "Functions library", cxxopts::value<std::string>())
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
       ("f,file", "Server status", cxxopts::value<std::string>())
       ("o,out-file", "Output with statistics", cxxopts::value<std::string>())
@@ -32,6 +33,7 @@ namespace warm_benchmarker {
     result.repetitions = parsed_options["repetitions"].as<int>();
     result.warmup_iters = parsed_options["warmup-iters"].as<int>();
     result.fname = parsed_options["name"].as<std::string>();
+    result.flib = parsed_options["functions"].as<std::string>();
     result.input_size = parsed_options["size"].as<int>();
     result.out_file = parsed_options["out-file"].as<std::string>();
     result.pin_threads = parsed_options["pin-threads"].as<bool>();
