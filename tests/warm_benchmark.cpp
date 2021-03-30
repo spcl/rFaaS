@@ -54,7 +54,7 @@ int main(int argc, char ** argv)
   spdlog::info("Warmups begin");
   for(int i = 0; i < opts.warmup_iters; ++i) {
     SPDLOG_DEBUG("Submit warm {}", i);
-    executor.execute("test", in, out);
+    executor.execute(opts.fname, in, out);
   }
   spdlog::info("Warmups completed");
 
@@ -62,7 +62,7 @@ int main(int argc, char ** argv)
   for(int i = 0; i < opts.repetitions;) {
     benchmarker.start();
     SPDLOG_DEBUG("Submit execution {}", i);
-    if(executor.execute("test", in, out)) {
+    if(executor.execute(opts.fname, in, out)) {
       SPDLOG_DEBUG("Finished execution");
       benchmarker.end(0);
       ++i;

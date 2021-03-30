@@ -23,6 +23,7 @@ namespace server {
 
   // FIXME: is not movable or copyable at the moment
   struct Thread {
+    constexpr static int invocation_mask = 0x0000FFFF;
     Functions _functions;
     std::string addr;
     int port;
@@ -52,7 +53,7 @@ namespace server {
     {
     }
 
-    void work(int func_id, uint32_t in_size);
+    void work(int invoc_id, int func_id, uint32_t in_size);
     void hot();
     void warm();
     void thread_work(int timeout);

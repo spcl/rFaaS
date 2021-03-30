@@ -21,7 +21,7 @@
 
 namespace server {
 
-  void Thread::work(int func_id, uint32_t in_size)
+  void Thread::work(int invoc_id, int func_id, uint32_t in_size)
   {
     // FIXME: load func ptr
     rdmalib::functions::Submission* header = reinterpret_cast<rdmalib::functions::Submission*>(rcv.ptr());
@@ -34,10 +34,13 @@ namespace server {
     (*ptr)(rcv.data(), in_size, send.ptr());
     SPDLOG_DEBUG("Thread {} finished work!", id);
 
+    // Send back: the value of immediate write
+    // first 16 bytes - invocation id
+    // second 16 bytes - return value (0 on no error)
     conn->post_write(
       send,
       {header->r_address, header->r_key},
-      0,
+      (invoc_id << 16) | 0,
       send.bytes() <= max_inline_data
     );
   }
@@ -63,13 +66,14 @@ namespace server {
             continue;
           }
           int info = ntohl(wc->imm_data);
-          // FIXME: here pass function
-          //int func_id = info >> 6;
-          int func_id = 1;
-          SPDLOG_DEBUG("Thread {} Execute func {}", id, func_id);
+          int func_id = info & invocation_mask;
+          int invoc_id = info >> 16;
+          SPDLOG_DEBUG(
+            "Thread {} Invoc id {} Execute func {} Repetition {}",
+            id, invoc_id, func_id, repetitions
+          );
 
-          SPDLOG_DEBUG("Wake-up fast thread {}", id);
-          work(func_id, wc->byte_len);
+          work(invoc_id, func_id, wc->byte_len);
 
           sum += server_processing_times.end();
           conn->poll_wc(rdmalib::QueueType::SEND, true);

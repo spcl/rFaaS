@@ -149,6 +149,7 @@ target_link_libraries(rfaaslib PUBLIC PkgConfig::rdmacm)
 target_link_libraries(rfaaslib PUBLIC PkgConfig::ibverbs)
 target_link_libraries(rfaaslib PRIVATE spdlog::spdlog)
 target_link_libraries(rfaaslib PRIVATE cereal)
+target_link_libraries(rfaaslib PUBLIC dl)
 
 ###
 # Warm/hot benchmarker
