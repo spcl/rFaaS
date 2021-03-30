@@ -46,7 +46,8 @@ namespace server {
       sum(0),
       send(buf_size),
       rcv(buf_size, rdmalib::functions::Submission::DATA_HEADER_SIZE),
-      wc_buffer(recv_buffer_size),
+      // +1 to handle batching of functions work completions + initial code submission
+      wc_buffer(recv_buffer_size + 1),
       conn(nullptr)
     {
     }
