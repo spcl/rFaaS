@@ -83,7 +83,8 @@ namespace server {
       _library_handle = dlopen(
         ("/proc/self/fd/" + std::to_string(_fd)).c_str(),
         RTLD_NOW
-      )
+      ),
+      [](){ spdlog::error(dlerror()); }
     );
     extract_symbols(_library_handle, _names);
     _functions.resize(_names.size(), nullptr);

@@ -92,16 +92,19 @@ namespace server {
     rdmalib::Buffer<char> func_buffer(_functions.memory(), _functions.size());
 
     active.allocate();
+    // Receive function data from the client - this WC must be posted first
+    // We do it before connection to ensure that client does not start sending before us
+    func_buffer.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    this->conn = &active.connection();
+    this->conn->post_recv(func_buffer);
+
     if(!active.connect())
       return;
-    this->conn = &active.connection();
-    // Receive function data from the client - this WC must be posted first
-    func_buffer.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    this->conn->post_recv(func_buffer);
+
     // Now generic receives for function invocations
-    this->wc_buffer.connect(this->conn);
     send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    this->wc_buffer.connect(this->conn);
     SPDLOG_DEBUG("Thread {} Established connection to client!", id);
 
     // Send to the client information about thread buffer
