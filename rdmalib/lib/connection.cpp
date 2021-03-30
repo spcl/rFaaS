@@ -281,8 +281,16 @@ namespace rdmalib {
       return std::make_tuple(nullptr, -1);
     }
     if(ret)
-      for(int i = 0; i < ret; ++i)
+      for(int i = 0; i < ret; ++i) {
+        if(wcs[i].status != IBV_WC_SUCCESS) {
+          spdlog::error(
+            "Queue {} Work Completion {}/{} finished with an error {}, {}",
+            type == QueueType::RECV ? "recv" : "send",
+            i+1, ret, wcs[i].status, ibv_wc_status_str(wcs[i].status)
+          );
+        }
         SPDLOG_DEBUG("Queue {} Ret {}/{} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", i + 1, ret, wcs[i].wr_id, ibv_wc_status_str(wcs[i].status));
+      }
     return std::make_tuple(wcs, ret);
   }
 
