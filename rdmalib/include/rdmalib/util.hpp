@@ -51,6 +51,17 @@ namespace rdmalib { namespace impl {
     assert(ptr);
   }
 
+  template<typename U, typename F>
+  void expect_nonnull(U* ptr, F && f)
+  {
+    if(!ptr) {
+      spdlog::error("Expected nonnull ptr");
+      f();
+      traceback();
+    }
+    assert(ptr);
+  }
+
 }}
 
 #endif
