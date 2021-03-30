@@ -26,8 +26,10 @@ namespace rdmalib {
       uint32_t _byte_size;
       void* _ptr;
       ibv_mr* _mr;
+      bool _own_memory;
 
       Buffer();
+      Buffer(void* ptr, uint32_t size, uint32_t byte_size);
       Buffer(uint32_t size, uint32_t byte_size, uint32_t header);
       Buffer(Buffer &&);
       Buffer & operator=(Buffer && obj);
@@ -42,7 +44,7 @@ namespace rdmalib {
       void register_memory(ibv_pd *pd, int access);
       uint32_t lkey() const;
       uint32_t rkey() const;
-      ScatterGatherElement sge(int size, int offset);
+      ScatterGatherElement sge(uint32_t size, uint32_t offset);
     };
 
   }
@@ -68,6 +70,18 @@ namespace rdmalib {
 
     Buffer():
       impl::Buffer()
+    {}
+
+    // Provide a buffer instance for existing memory pool
+    // Does NOT free the associated resource
+    Buffer(T * ptr, uint32_t size):
+      impl::Buffer(ptr, size, sizeof(T))
+    {}
+
+    // Provide a buffer instance for existing memory pool
+    // Does NOT free the associated resource
+    Buffer(void * ptr, uint32_t size):
+      impl::Buffer(ptr, size, sizeof(T))
     {}
 
     Buffer(size_t size, size_t header = 0):
