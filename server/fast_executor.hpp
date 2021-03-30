@@ -27,7 +27,7 @@ namespace server {
     Functions _functions;
     std::string addr;
     int port;
-    int max_inline_data;
+    uint32_t  max_inline_data;
     int id, repetitions;
     int max_repetitions;
     uint64_t sum;

@@ -26,8 +26,6 @@ namespace server {
     // FIXME: load func ptr
     rdmalib::functions::Submission* header = reinterpret_cast<rdmalib::functions::Submission*>(rcv.ptr());
     auto ptr = _functions.function(func_id);
-    char* data = static_cast<char*>(rcv.ptr());
-    uint32_t thread_id = *reinterpret_cast<uint32_t*>(data + 12);
 
     SPDLOG_DEBUG("Thread {} begins work! Executing function {} with size {}", id, _functions._names[func_id], in_size);
     // Data to ignore header passed in the buffer
@@ -47,8 +45,6 @@ namespace server {
 
   void Thread::hot()
   {
-    uint64_t sum = 0;
-    int repetitions = 0;
     rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
     SPDLOG_DEBUG("Thread {} Begins hot polling", id);
 
@@ -86,8 +82,6 @@ namespace server {
 
   void Thread::warm()
   {
-    uint64_t sum = 0;
-    int repetitions = 0;
     rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
     // FIXME: this should be automatic
     conn->initialize();
@@ -224,7 +218,7 @@ namespace server {
       spdlog::info("Thread {} Repetitions {} Avg time {}",
           thread.id,
           thread.repetitions,
-          static_cast<double>(thread.sum) / thread.repetitions
+          static_cast<double>(thread.sum) / thread.repetitions / 1000.0
       );
     _closing = true;
   }
