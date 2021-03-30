@@ -58,7 +58,7 @@ namespace rdmalib {
     void close();
     ibv_qp* qp() const;
     // Blocking, no timeout
-    std::tuple<ibv_wc*, int> poll_wc(QueueType, bool blocking = true);
+    std::tuple<ibv_wc*, int> poll_wc(QueueType, bool blocking = true, int count = -1);
     int32_t post_send(ScatterGatherElement && elem, int32_t id = -1, bool force_inline = false);
     int32_t post_recv(ScatterGatherElement && elem, int32_t id = -1, int32_t count = 1);
 

@@ -121,7 +121,10 @@ namespace rdmalib {
       );
       return -1;
     }
-    SPDLOG_DEBUG("Post send succesfull");
+    SPDLOG_DEBUG(
+      "Post send succesfull, sges_count {}, sge[0].addr {}, sge[0].size {}, wr_id {}, wr.send_flags {}",
+      wr.num_sge, wr.sg_list[0].addr, wr.sg_list[0].length, wr.wr_id, wr.send_flags
+    );
     return _req_count - 1;
   }
 
@@ -173,7 +176,13 @@ namespace rdmalib {
       spdlog::error("Post receive unsuccesful, reason {} {}", ret, strerror(ret));
       return -1;
     }
-    SPDLOG_DEBUG("Post recv succesfull");
+    if(wr.num_sge > 0)
+      SPDLOG_DEBUG(
+        "Post recv succesfull, sges_count {}, sge[0].addr {}, sge[0].size {}, wr_id {}",
+        wr.num_sge, wr.sg_list[0].addr, wr.sg_list[0].length, wr.wr_id
+      );
+    else
+      SPDLOG_DEBUG("Post recv succesfull");
     return wr.wr_id;
   }
 
@@ -254,14 +263,17 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  std::tuple<ibv_wc*, int> Connection::poll_wc(QueueType type, bool blocking)
+  std::tuple<ibv_wc*, int> Connection::poll_wc(QueueType type, bool blocking, int count)
   {
     int ret = 0;
-
     ibv_wc* wcs = (type == QueueType::RECV ? _rwc.data() : _swc.data());
 
     do {
-      ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, _wc_size, wcs);
+      ret = ibv_poll_cq(
+        type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq,
+        count == -1 ? _wc_size : count,
+        wcs
+      );
     } while(blocking && ret == 0);
   
     if(ret < 0) {
