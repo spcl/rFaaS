@@ -11,9 +11,11 @@
 #include <rdmalib/benchmarker.hpp>
 #include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/util.hpp>
-
+#include "rdmalib/buffer.hpp"
+#include "rdmalib/connection.hpp"
 #include "rdmalib/functions.hpp"
 #include "rdmalib/rdmalib.hpp"
+
 #include "server.hpp"
 #include "fast_executor.hpp"
 
@@ -27,7 +29,7 @@ namespace server {
     char* data = static_cast<char*>(rcv.ptr());
     uint32_t thread_id = *reinterpret_cast<uint32_t*>(data + 12);
 
-    SPDLOG_DEBUG("Thread {} begins work! Executing function {} with size {}", id, thread_id, in_size);
+    SPDLOG_DEBUG("Thread {} begins work! Executing function {} with size {}", id, _functions._names[func_id], in_size);
     // Data to ignore header passed in the buffer
     (*ptr)(rcv.data(), in_size, send.ptr());
     SPDLOG_DEBUG("Thread {} finished work!", id);
@@ -85,25 +87,37 @@ namespace server {
 
   void Thread::thread_work(int timeout)
   {
-    // FIXME: why rdmaactive needs rcv_buf_size
+    // FIXME: why rdmaactive needs rcv_buf_size?
     rdmalib::RDMAActive active(addr, port, wc_buffer._rcv_buf_size);
+    rdmalib::Buffer<char> func_buffer(_functions.memory(), _functions.size());
+
     active.allocate();
     if(!active.connect())
       return;
     this->conn = &active.connection();
+    // Receive function data from the client - this WC must be posted first
+    func_buffer.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    this->conn->post_recv(func_buffer);
+    // Now generic receives for function invocations
     this->wc_buffer.connect(this->conn);
     send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     SPDLOG_DEBUG("Thread {} Established connection to client!", id);
 
+    // Send to the client information about thread buffer
     rdmalib::Buffer<rdmalib::BufferInformation> buf(1);
     buf.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     buf.data()[0].r_addr = rcv.address();
     buf.data()[0].r_key = rcv.rkey();
     SPDLOG_DEBUG("Thread {} Sends buffer details to client!", id);
     this->conn->post_send(buf, 0, buf.size() <= max_inline_data);
+    this->conn->poll_wc(rdmalib::QueueType::SEND, true, 1);
+    SPDLOG_DEBUG("Thread {} Sent buffer details to client!", id);
 
-    // FIXME: send function
+    // We should have received functions data - just one message
+    auto wcs = this->conn->poll_wc(rdmalib::QueueType::RECV, true, 1);
+    _functions.process_library();
+    SPDLOG_DEBUG("Thread {} Received functions library of size {}", id, std::get<0>(wcs)[0].byte_len);
 
     if(timeout == -1) {
       hot();
@@ -123,14 +137,15 @@ namespace server {
       int max_inline_data,
       int pin_threads
   ):
-    _functions(func_size),
     _closing(false),
     _numcores(numcores),
     _max_repetitions(0),
     _pin_threads(pin_threads)
   {
+    // Reserve place to ensure that no reallocations happen
+    _threads_data.reserve(numcores);
     for(int i = 0; i < numcores; ++i)
-      _threads_data.emplace_back(client_addr, port, i, _functions, msg_size, recv_buf_size, max_inline_data);
+      _threads_data.emplace_back(client_addr, port, i, func_size, msg_size, recv_buf_size, max_inline_data);
   }
 
   FastExecutors::~FastExecutors()

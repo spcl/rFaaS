@@ -64,11 +64,21 @@ namespace server {
     rdmalib::impl::expect_nonnull(
       _memory_handle = mmap(NULL, size, PROT_WRITE, MAP_SHARED, _fd, 0)
     );
-    FILE* pFile = fopen("examples/libfunctions.so" , "rb");
-    fseek (pFile , 0 , SEEK_END);
-    size_t len = ftell(pFile);
-    rewind(pFile);
-    fread(_memory_handle,1,len,pFile);
+  }
+
+  Functions::~Functions()
+  {
+    munmap(_memory_handle, _size);
+    dlclose(_library_handle);
+  }
+
+  void Functions::process_library()
+  {
+    //FILE* pFile = fopen("examples/libfunctions.so" , "rb");
+    //fseek (pFile , 0 , SEEK_END);
+    //size_t len = ftell(pFile);
+    //rewind(pFile);
+    //fread(_memory_handle,1,len,pFile);
     rdmalib::impl::expect_nonnull(
       _library_handle = dlopen(
         ("/proc/self/fd/" + std::to_string(_fd)).c_str(),
@@ -79,10 +89,14 @@ namespace server {
     _functions.resize(_names.size(), nullptr);
   }
 
-  Functions::~Functions()
+  size_t Functions::size() const
   {
-    munmap(_memory_handle, _size);
-    dlclose(_library_handle);
+    return _size;
+  }
+
+  void* Functions::memory() const
+  {
+    return this->_memory_handle;
   }
 
   Functions::FuncType Functions::function(int idx)

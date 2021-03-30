@@ -21,8 +21,9 @@ namespace rdmalib {
 
 namespace server {
 
+  // FIXME: is not movable or copyable at the moment
   struct Thread {
-    Functions & _functions;
+    Functions _functions;
     std::string addr;
     int port;
     int max_inline_data;
@@ -33,10 +34,9 @@ namespace server {
     rdmalib::RecvBuffer wc_buffer;
     rdmalib::Connection* conn;
 
-    Thread(std::string addr, int port, int id,
-        Functions & functions,
+    Thread(std::string addr, int port, int id, int functions_size,
         int buf_size, int recv_buffer_size, int max_inline_data):
-      _functions(functions),
+      _functions(functions_size),
       addr(addr),
       port(port),
       max_inline_data(max_inline_data),
@@ -59,7 +59,6 @@ namespace server {
 
   struct FastExecutors {
 
-    Functions _functions;
     std::vector<Thread> _threads_data;
     std::vector<std::thread> _threads;
     bool _closing;

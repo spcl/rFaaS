@@ -24,12 +24,21 @@ namespace rfaas {
   {
   }
 
-  void executor::allocate(int numcores)
+  void executor::allocate(std::string functions_path, int numcores)
   {
     // FIXME: here send cold allocations
 
-    // FIXME: temporary fix of vector reallocation - return Connection object?
+    // Load the shared library with functions code
+    FILE* file = fopen(functions_path.c_str(), "rb");
+    fseek (file, 0 , SEEK_END);
+    size_t len = ftell(file);
+    rewind(file);
+    rdmalib::Buffer<char> functions(len);
+    fread(functions.data(), 1, len, file);
+    functions.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
+
     SPDLOG_DEBUG("Allocating {} threads on a remote executor", numcores);
+    // FIXME: temporary fix of vector reallocation - return Connection object?
     _state._connections.reserve(numcores);
     // Now receive the connections from executors
     rdmalib::Buffer<rdmalib::BufferInformation> buf(numcores);
@@ -46,6 +55,9 @@ namespace rfaas {
         ),
         _rcv_buf_size
       );
+      this->_connections.back().conn->post_send(functions);
+      SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", i + 1, numcores);
+      // FIXME: this should be in a function
       this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn);
     }
 
@@ -57,13 +69,21 @@ namespace rfaas {
       for(int i = 0; i < std::get<1>(wcs); ++i) {
         int id = std::get<0>(wcs)[i].wr_id;
         SPDLOG_DEBUG(
-          "Received buffer details for thread {}, addr {}, rkey {}",
-          i, buf.data()[id].r_addr, buf.data()[id].r_key
+          "Received buffer details for thread, addr {}, rkey {}",
+          buf.data()[id].r_addr, buf.data()[id].r_key
         );
         _connections[id].remote_input = rdmalib::RemoteBuffer(buf.data()[id].r_addr, buf.data()[id].r_key);
       }
       received += std::get<1>(wcs);
     }
+
+    // FIXME: Ensure that function code has been submitted
+    received = 0;
+    while(received < numcores) {
+      auto wcs = this->_connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
+      received += std::get<1>(wcs);
+    }
+    SPDLOG_DEBUG("Code submission for all threads is finished");
   }
 
 }

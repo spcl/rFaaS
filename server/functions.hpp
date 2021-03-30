@@ -5,6 +5,8 @@
 #include <vector>
 #include <string>
 
+#include <rdmalib/buffer.hpp>
+
 namespace server {
 
   void extract_symbols(void* handle, std::vector<std::string> & names);
@@ -23,6 +25,10 @@ namespace server {
 
     Functions(size_t size);
     ~Functions();
+
+    void process_library();
+    size_t size() const;
+    void* memory() const;
     FuncType function(int idx);
   };
 

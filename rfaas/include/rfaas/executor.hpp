@@ -109,7 +109,7 @@ namespace rfaas {
       return correct;
     }
 
-    void allocate(int numcores);
+    void allocate(std::string functions_path, int numcores);
   };
 
 }
