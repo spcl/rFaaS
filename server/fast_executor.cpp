@@ -86,7 +86,48 @@ namespace server {
 
   void Thread::warm()
   {
-    // FIXME: implement warm
+    uint64_t sum = 0;
+    int repetitions = 0;
+    rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
+    // FIXME: this should be automatic
+    conn->initialize();
+    conn->notify_events();
+    SPDLOG_DEBUG("Thread {} Begins warm polling", id);
+
+    while(repetitions < max_repetitions) {
+
+      auto cq = conn->wait_events();
+      conn->notify_events();
+
+      // if we block, we never handle the interruption
+      auto wcs = wc_buffer.poll();
+      if(std::get<1>(wcs)) {
+        for(int i = 0; i < std::get<1>(wcs); ++i) {
+
+          server_processing_times.start();
+          ibv_wc* wc = &std::get<0>(wcs)[i];
+          if(wc->status) {
+            spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
+            continue;
+          }
+          int info = ntohl(wc->imm_data);
+          int func_id = info & invocation_mask;
+          int invoc_id = info >> 16;
+          SPDLOG_DEBUG(
+            "Thread {} Invoc id {} Execute func {} Repetition {}",
+            id, invoc_id, func_id, repetitions
+          );
+
+          work(invoc_id, func_id, wc->byte_len);
+
+          sum += server_processing_times.end();
+          conn->poll_wc(rdmalib::QueueType::SEND, true);
+          repetitions += 1;
+        }
+        wc_buffer.refill();
+      }
+      conn->ack_events(cq, std::get<1>(wcs));
+    }
   }
 
   void Thread::thread_work(int timeout)
@@ -109,7 +150,7 @@ namespace server {
     send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     this->wc_buffer.connect(this->conn);
-    SPDLOG_DEBUG("Thread {} Established connection to client!", id);
+    spdlog::info("Thread {} Established connection to client!", id);
 
     // Send to the client information about thread buffer
     rdmalib::Buffer<rdmalib::BufferInformation> buf(1);
@@ -126,6 +167,7 @@ namespace server {
     _functions.process_library();
     SPDLOG_DEBUG("Thread {} Received functions library of size {}", id, std::get<0>(wcs)[0].byte_len);
 
+    spdlog::info("Thread {} begins work with timeout {}", id, timeout);
     if(timeout == -1) {
       hot();
     } else if(timeout == 0) {

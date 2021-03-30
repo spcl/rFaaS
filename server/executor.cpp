@@ -37,8 +37,7 @@ int main(int argc, char ** argv)
     opts.pin_threads
   );
 
-  // FIXME: proper option
-  executor.allocate_threads(-1, opts.repetitions + opts.warmup_iters);
+  executor.allocate_threads(opts.timeout, opts.repetitions + opts.warmup_iters);
 
   executor.close();
   // Start RDMA connection
