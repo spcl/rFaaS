@@ -1,6 +1,7 @@
 
 #include <chrono>
 #include <thread>
+#include <string>
 
 #include <spdlog/spdlog.h>
 #include <cxxopts.hpp>
@@ -25,11 +26,12 @@ int main(int argc, char ** argv)
     spdlog::set_level(spdlog::level::info);
   spdlog::info("Executing cold_benchmarker");
 
+  // Read connection details to the manager
   std::ifstream in_cfg(opts.server_file);
   auto cfg = rdmalib::server::ServerStatus::deserialize(in_cfg);
   in_cfg.close();
 
-  rfaas::executor executor("148.187.105.20", 10010, opts.recv_buf_size, opts.max_inline_data);
+  rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size, opts.max_inline_data);
 
   // First connection
   client::ServerConnection client(
@@ -39,14 +41,23 @@ int main(int argc, char ** argv)
   );
   if(!client.connect())
     return -1;
-
   spdlog::info("Connected to the executor manager!");
-  client._allocation_buffer.data()[0] = (rdmalib::AllocationRequest) {1, 1, 1024, 1024, 10010, {"148.187.105.20"}};
+  // FIXME: timeout
+  // FIXME: hot timeout
+  // FIXME: flib size
+  client._allocation_buffer.data()[0] = (rdmalib::AllocationRequest) {
+    -1, 5,
+    static_cast<int16_t>(opts.cores),
+    1,
+    opts.input_size, 15912,
+    opts.port
+  };
+  strcpy(client._allocation_buffer.data()[0].listen_address, opts.address.c_str());
   rdmalib::ScatterGatherElement sge;
   sge.add(client._allocation_buffer, sizeof(rdmalib::AllocationRequest));
   client.connection().post_send(sge);
   client.connection().poll_wc(rdmalib::QueueType::SEND, true);
-  executor.allocate("examples/libfunctions.so", 1);
+  executor.allocate(opts.flib, 1);
 
   rdmalib::Buffer<char> in(opts.input_size), out(opts.input_size);
   in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
@@ -83,7 +94,7 @@ int main(int argc, char ** argv)
     printf("%d ", ((char*)out.data())[i]);
   printf("\n");
 
-  client._allocation_buffer.data()[0] = (rdmalib::AllocationRequest) {-1, 0, 0, 0, 0, ""};
+  client._allocation_buffer.data()[0] = (rdmalib::AllocationRequest) {-1, 0, 0, 0, 0, 0, 0, ""};
   rdmalib::ScatterGatherElement sge2;
   sge2.add(client._allocation_buffer, sizeof(rdmalib::AllocationRequest));
   client.connection().post_send(sge2);
@@ -93,18 +104,18 @@ int main(int argc, char ** argv)
   return 0;
 
   // Second connection
-  client::ServerConnection client2(
-    cfg,
-    opts.recv_buf_size,
-    opts.max_inline_data
-  );
+  //client::ServerConnection client2(
+  //  cfg,
+  //  opts.recv_buf_size,
+  //  opts.max_inline_data
+  //);
 
-  if(!client2.connect())
-    return -1;
-  client2._allocation_buffer.data()[0] = (rdmalib::AllocationRequest) {1, 1, 1024, 1024, 10002, "192.168.0.12"};
-  rdmalib::ScatterGatherElement sge3;
-  sge3.add(client2._allocation_buffer, sizeof(rdmalib::AllocationRequest));
-  client2.connection().post_send(sge3);
+  //if(!client2.connect())
+  //  return -1;
+  //client2._allocation_buffer.data()[0] = (rdmalib::AllocationRequest) {1, 1, 1024, 1024, 10002, "192.168.0.12"};
+  //rdmalib::ScatterGatherElement sge3;
+  //sge3.add(client2._allocation_buffer, sizeof(rdmalib::AllocationRequest));
+  //client2.connection().post_send(sge3);
 
   return 0;
 }

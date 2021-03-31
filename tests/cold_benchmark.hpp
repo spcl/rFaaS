@@ -19,10 +19,14 @@ namespace cold_benchmarker {
       DRAM
     };
 
+    std::string address;
+    int port;
     std::string server_file;
     int repetitions;
     int warmup_iters;
+    int cores;
     std::string fname;
+    std::string flib;
     int input_size;
     std::string out_file;
     bool pin_threads;
