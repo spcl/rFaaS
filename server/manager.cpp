@@ -3,6 +3,7 @@
 #include <thread>
 
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -54,8 +55,34 @@ namespace executor {
   {
     return connection;
   }
+  
+  ActiveExecutor::~ActiveExecutor() {}
 
-  int Manager::fork_client(const rdmalib::AllocationRequest & request)
+  ProcessExecutor::ProcessExecutor(pid_t pid):
+    _pid(pid)
+  {}
+
+  std::tuple<ProcessExecutor::Status,int> ProcessExecutor::check() const
+  {
+    int status;
+    pid_t return_pid = waitpid(_pid, &status, WNOHANG);
+    if(!return_pid) {
+      return std::make_tuple(Status::RUNNING, 0);
+    } else {
+      if(WIFEXITED(status)) {
+        return std::make_tuple(Status::FINISHED, WEXITSTATUS(status));
+      } else if (WIFSIGNALED(status)) {
+        return std::make_tuple(Status::FINISHED_FAIL, WTERMSIG(status));
+      }
+    }
+  }
+
+  int ProcessExecutor::id() const
+  {
+    return static_cast<int>(_pid);
+  }
+
+  ProcessExecutor* ProcessExecutor::spawn(const rdmalib::AllocationRequest & request, const ExecutorSettings & exec)
   {
     // FIXME: doesn't work every well?
     //int rc = ibv_fork_init();
@@ -77,10 +104,10 @@ namespace executor {
       std::string client_func_size = std::to_string(request.func_buf_size);
       std::string client_cores = std::to_string(request.cores);
       std::string client_timeout = std::to_string(request.hot_timeout);
-      std::string executor_repetitions = std::to_string(_settings.repetitions);
-      std::string executor_warmups = std::to_string(_settings.warmup_iters);
-      std::string executor_recv_buf = std::to_string(_settings.recv_buffer_size);
-      std::string executor_max_inline = std::to_string(_settings.max_inline_data);
+      std::string executor_repetitions = std::to_string(exec.repetitions);
+      std::string executor_warmups = std::to_string(exec.warmup_iters);
+      std::string executor_recv_buf = std::to_string(exec.recv_buffer_size);
+      std::string executor_max_inline = std::to_string(exec.max_inline_data);
 
       int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
       dup2(fd, 1);
@@ -110,7 +137,7 @@ namespace executor {
       close(fd);
       exit(0);
     }
-    return mypid;
+    return new ProcessExecutor{mypid};
   }
 
   Manager::Manager(std::string addr, int port, std::string server_file, const ExecutorSettings & settings):
@@ -178,8 +205,17 @@ namespace executor {
             int client_port = client.allocation_requests.data()[id].listen_port;
             if(cores > 0) {
               spdlog::info("Client {} at {}:{} wants {} cores", i, client_address, client_port, cores);
-              int pid = fork_client(client.allocation_requests.data()[id]);
-              spdlog::info("Client {} at {}:{} has executor with {} pid", i, client_address, client_port, pid);
+              // FIXME: Docker
+              client.executor.reset(
+                ProcessExecutor::spawn(
+                  client.allocation_requests.data()[id],
+                  _settings
+                )
+              );
+              spdlog::info(
+                "Client {} at {}:{} has executor with {} ID",
+                i, client_address, client_port, client.executor->id()
+              );
             } else {
               spdlog::info("Client {} disconnects", i);
               client.disable();
@@ -188,8 +224,16 @@ namespace executor {
             }
           }
         }
-        if(client.active())
+        if(client.active()) {
           client.rcv_buffer.refill();
+          if(client.executor) {
+            auto status = client.executor->check();
+            if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
+              spdlog::info("Executor at client {} exited, status {}", i, std::get<1>(status));
+              client.executor.reset(nullptr);
+            }
+          }
+        }
       }
     }
   }

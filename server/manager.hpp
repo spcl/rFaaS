@@ -39,11 +39,35 @@ namespace executor {
   };
   Options opts(int, char**);
 
+  struct ActiveExecutor {
 
-  struct ActiveExecutor
+    enum class Status {
+      RUNNING,
+      FINISHED,
+      FINISHED_FAIL 
+    };
+
+    virtual ~ActiveExecutor();
+    virtual int id() const = 0;
+    virtual std::tuple<Status,int> check() const = 0;
+  };
+
+  struct ProcessExecutor : public ActiveExecutor
   {
-    pid_t pid;
+    pid_t _pid;
 
+    ProcessExecutor(pid_t pid);
+
+    // FIXME: kill active executor
+    //~ProcessExecutor();
+    //void close();
+    int id() const override;
+    std::tuple<Status,int> check() const override;
+    static ProcessExecutor* spawn(const rdmalib::AllocationRequest & request, const ExecutorSettings & exec);
+  };
+
+  struct DockerExecutor : public ActiveExecutor
+  {
   };
 
   struct Client
@@ -76,7 +100,6 @@ namespace executor {
     void start();
     void listen();
     void poll_rdma();
-    int fork_client(const rdmalib::AllocationRequest &);
   };
 
 }
