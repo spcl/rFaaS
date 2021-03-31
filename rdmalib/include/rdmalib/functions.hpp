@@ -10,8 +10,7 @@ namespace rdmalib { namespace functions {
   struct Submission {
     uint64_t r_address;
     uint32_t r_key;
-    char ID[4];
-    static constexpr int DATA_HEADER_SIZE = 16;
+    static constexpr int DATA_HEADER_SIZE = 12;
   };
 
   typedef void (*FuncType)(void*, void*);

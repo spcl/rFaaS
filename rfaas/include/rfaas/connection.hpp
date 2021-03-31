@@ -40,8 +40,8 @@ namespace client {
       return _rcv_buffer;
     }
 
-    int submit(int numcores, std::string fname);
-    int submit_fast(int numcores, std::string fname);
+    //int submit(int numcores, std::string fname);
+    //int submit_fast(int numcores, std::string fname);
     void poll_completion(int);
   };
 

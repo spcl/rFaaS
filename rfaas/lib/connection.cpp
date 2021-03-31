@@ -78,89 +78,89 @@ namespace client {
     return _rcv[idx];
   }
 
-  int ServerConnection::submit(int numcores, std::string fname)
-  {
-    assert(numcores <= _send.size() && numcores <= _rcv.size());
+  //int ServerConnection::submit(int numcores, std::string fname)
+  //{
+  //  assert(numcores <= _send.size() && numcores <= _rcv.size());
 
-    int id = 0;
+  //  int id = 0;
 
-    // 1. Allocate cores
-    // TODO more than 2 cores
-    // currently allocates 0...n-1 cores
-    connection().post_cas(
-      _atomic_buffer,
-      _status._threads_allocator,
-      0,
-      3
-    );
-    connection().poll_wc(rdmalib::QueueType::SEND);
-    if(*_atomic_buffer.data() == 0) {
-      SPDLOG_DEBUG("Allocation succesfull!");
-    }
-    
-    // 2. Write recv buffer data to arguments
-    for(int i = 0; i < numcores; ++i) {
-      char* data = static_cast<char*>(_send[i].ptr());
-      // TODO: we assume here uintptr_t is 8 bytes
-      *reinterpret_cast<uint64_t*>(data) = _rcv[i].address();
-      *reinterpret_cast<uint32_t*>(data + 8) = _rcv[i].rkey();
-      *reinterpret_cast<uint32_t*>(data + 12) = id;
-    }
+  //  // 1. Allocate cores
+  //  // TODO more than 2 cores
+  //  // currently allocates 0...n-1 cores
+  //  connection().post_cas(
+  //    _atomic_buffer,
+  //    _status._threads_allocator,
+  //    0,
+  //    3
+  //  );
+  //  connection().poll_wc(rdmalib::QueueType::SEND);
+  //  if(*_atomic_buffer.data() == 0) {
+  //    SPDLOG_DEBUG("Allocation succesfull!");
+  //  }
+  //  
+  //  // 2. Write recv buffer data to arguments
+  //  for(int i = 0; i < numcores; ++i) {
+  //    char* data = static_cast<char*>(_send[i].ptr());
+  //    // TODO: we assume here uintptr_t is 8 bytes
+  //    *reinterpret_cast<uint64_t*>(data) = _rcv[i].address();
+  //    *reinterpret_cast<uint32_t*>(data + 8) = _rcv[i].rkey();
+  //    *reinterpret_cast<uint32_t*>(data + 12) = id;
+  //  }
 
-    // 3. Write arguments
-    for(int i = 0; i < numcores; ++i) {
-      auto & status = _status._buffers[i];
-      connection().post_write(_send[i], status);
-    }
+  //  // 3. Write arguments
+  //  for(int i = 0; i < numcores; ++i) {
+  //    auto & status = _status._buffers[i];
+  //    connection().post_write(_send[i], status);
+  //  }
 
-    // 4. Write recv for notification
-    connection().post_recv({});
+  //  // 4. Write recv for notification
+  //  connection().post_recv({});
 
-    // 5. Send execution notification
-    rdmalib::functions::Submission* ptr = ((rdmalib::functions::Submission*)_submit_buffer.data());
-    //ptr[0].core_begin = 0;
-    //ptr[0].core_end = 2;
-    memcpy(ptr[0].ID, "test", strlen("test") + 1);
-    connection().post_send(_submit_buffer);
-    connection().poll_wc(rdmalib::QueueType::SEND);
-    SPDLOG_DEBUG("Function execution ID {} scheduled!", id);
+  //  // 5. Send execution notification
+  //  rdmalib::functions::Submission* ptr = ((rdmalib::functions::Submission*)_submit_buffer.data());
+  //  //ptr[0].core_begin = 0;
+  //  //ptr[0].core_end = 2;
+  //  memcpy(ptr[0].ID, "test", strlen("test") + 1);
+  //  connection().post_send(_submit_buffer);
+  //  connection().poll_wc(rdmalib::QueueType::SEND);
+  //  SPDLOG_DEBUG("Function execution ID {} scheduled!", id);
 
-    return id;
-  }
+  //  return id;
+  //}
 
-  int ServerConnection::submit_fast(int numcores, std::string fname)
-  {
-    // TODO: check if buffers are available
+  //int ServerConnection::submit_fast(int numcores, std::string fname)
+  //{
+  //  // TODO: check if buffers are available
 
-    static int id = 0;
-    int func_id = 1234;
+  //  static int id = 0;
+  //  int func_id = 1234;
 
-    for(int i = 0; i < numcores; ++i) {
-      char* data = static_cast<char*>(_send[i].ptr());
-      // TODO: we assume here uintptr_t is 8 bytes
-      *reinterpret_cast<uint64_t*>(data) = _rcv[i].address();
-      *reinterpret_cast<uint32_t*>(data + 8) = _rcv[i].rkey();
-      *reinterpret_cast<uint32_t*>(data + 12) = id;
-    }
+  //  for(int i = 0; i < numcores; ++i) {
+  //    char* data = static_cast<char*>(_send[i].ptr());
+  //    // TODO: we assume here uintptr_t is 8 bytes
+  //    *reinterpret_cast<uint64_t*>(data) = _rcv[i].address();
+  //    *reinterpret_cast<uint32_t*>(data + 8) = _rcv[i].rkey();
+  //    *reinterpret_cast<uint32_t*>(data + 12) = id;
+  //  }
 
-    // 3. Write arguments
-    for(int i = 0; i < numcores; ++i) {
-      auto & status = _status._buffers[i];
-      //connection().post_write(_send[i], status, (func_id << 6) | i);
-    }
+  //  // 3. Write arguments
+  //  for(int i = 0; i < numcores; ++i) {
+  //    auto & status = _status._buffers[i];
+  //    //connection().post_write(_send[i], status, (func_id << 6) | i);
+  //  }
 
-    // make sure the queue doesn't overflow
-    connection().poll_wc(rdmalib::QueueType::SEND, false);
-    //SPDLOG_DEBUG("Function execution ID {} scheduling!", id);
-    //for(int i = 0; i < 10; ++i) {
-    //  if(std::get<1>(connection().poll_wc(rdmalib::QueueType::SEND, false)) != 0)
-    //    break;
-    //  std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    //}
-    //SPDLOG_DEBUG("Function execution ID {} scheduled!", id);
+  //  // make sure the queue doesn't overflow
+  //  connection().poll_wc(rdmalib::QueueType::SEND, false);
+  //  //SPDLOG_DEBUG("Function execution ID {} scheduling!", id);
+  //  //for(int i = 0; i < 10; ++i) {
+  //  //  if(std::get<1>(connection().poll_wc(rdmalib::QueueType::SEND, false)) != 0)
+  //  //    break;
+  //  //  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  //  //}
+  //  //SPDLOG_DEBUG("Function execution ID {} scheduled!", id);
 
-    return id++;
-  }
+  //  return id++;
+  //}
 
   void ServerConnection::poll_completion(int)
   {
