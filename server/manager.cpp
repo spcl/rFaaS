@@ -80,24 +80,13 @@ namespace executor {
     while(true) {
       // Connection initialization:
       // (1) Initialize receive WCs with the allocation request buffer
-      //auto conn = passive->poll_events(
-      //  [this](rdmalib::Connection & conn) {
-      //    int i = 0;
-      //    SPDLOG_DEBUG("NEW CONNECTION {}, _clients_active");
-      //    _clients.emplace_back(&conn, _state.pd());
-      //    _clients_active++;
-      //  }
-      //);
-      //std::this_thread::sleep_for(std::chrono::seconds(1));
-      //passive.reset();
-      //std::this_thread::sleep_for(std::chrono::seconds(1));
       auto conn = _state.poll_events(
         [this](rdmalib::Connection & conn) {
-          SPDLOG_DEBUG("NEW CONNECTION");
-
           _clients.emplace_back(&conn, _state.pd());
-        }
+        },
+        false
       );
+      spdlog::info("Connected new client id {}", _clients_active);
       atomic_thread_fence(std::memory_order_release);
       _clients_active++;
     }
@@ -117,16 +106,18 @@ namespace executor {
         auto wcs = client.connection->poll_wc(rdmalib::QueueType::RECV, false);
         if(std::get<1>(wcs)) {
           spdlog::error("RECEIVED! {} wcs {} clients {} size {}", i,std::get<1>(wcs), _clients_active, _clients.size());
-          for(int i = 0; i < std::get<1>(wcs); ++i) {
-            auto wc = std::get<0>(wcs)[i];
+          for(int j = 0; j < std::get<1>(wcs); ++j) {
+            auto wc = std::get<0>(wcs)[j];
             spdlog::error("wc {} {}", wc.wr_id, ibv_wc_status_str(wc.status));
             if(wc.status != 0)
               continue;
             uint64_t id = wc.wr_id;
             int16_t cores = client.allocation_requests.data()[id].cores;
-            if(cores > 0) {
-              SPDLOG_DEBUG("Client wants {} cores", cores);
-            } else {
+            char * client_address = client.allocation_requests.data()[id].
+            if(cores > 0)
+              spdlog::info("Client {} wants {} cores", i, cores);
+            else {
+              spdlog::info("Client {} disconnects", i);
               client.disable();
               --_clients_active;
               break;
