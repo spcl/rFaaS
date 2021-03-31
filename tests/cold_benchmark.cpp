@@ -29,7 +29,7 @@ int main(int argc, char ** argv)
   auto cfg = rdmalib::server::ServerStatus::deserialize(in_cfg);
   in_cfg.close();
 
-  rfaas::executor executor("192.168.0.12", 10010, opts.recv_buf_size, opts.max_inline_data);
+  rfaas::executor executor("148.187.105.20", 10010, opts.recv_buf_size, opts.max_inline_data);
 
   // First connection
   client::ServerConnection client(
@@ -41,7 +41,7 @@ int main(int argc, char ** argv)
     return -1;
 
   spdlog::info("Connected to the executor manager!");
-  client._allocation_buffer.data()[0] = {1, 1, 1024, 1024, 10010, "192.168.0.12"};
+  client._allocation_buffer.data()[0] = (rdmalib::AllocationRequest) {1, 1, 1024, 1024, 10010, {"148.187.105.20"}};
   rdmalib::ScatterGatherElement sge;
   sge.add(client._allocation_buffer, sizeof(rdmalib::AllocationRequest));
   client.connection().post_send(sge);
@@ -83,7 +83,7 @@ int main(int argc, char ** argv)
     printf("%d ", ((char*)out.data())[i]);
   printf("\n");
 
-  client._allocation_buffer.data()[0] = {-1, 0, 0, 0, 0, ""};
+  client._allocation_buffer.data()[0] = (rdmalib::AllocationRequest) {-1, 0, 0, 0, 0, ""};
   rdmalib::ScatterGatherElement sge2;
   sge2.add(client._allocation_buffer, sizeof(rdmalib::AllocationRequest));
   client.connection().post_send(sge2);
@@ -101,7 +101,7 @@ int main(int argc, char ** argv)
 
   if(!client2.connect())
     return -1;
-  client2._allocation_buffer.data()[0] = {1, 1, 1024, 1024, 10002, "192.168.0.12"};
+  client2._allocation_buffer.data()[0] = (rdmalib::AllocationRequest) {1, 1, 1024, 1024, 10002, "192.168.0.12"};
   rdmalib::ScatterGatherElement sge3;
   sge3.add(client2._allocation_buffer, sizeof(rdmalib::AllocationRequest));
   client2.connection().post_send(sge3);
