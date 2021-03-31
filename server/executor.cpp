@@ -25,7 +25,10 @@ int main(int argc, char ** argv)
     spdlog::set_level(spdlog::level::info);
   spdlog::set_level(spdlog::level::debug);
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
-  spdlog::info("Executing serverless-rdma server! Waiting for client at {}:{}", opts.address, opts.port);
+  spdlog::info(
+    "Executing serverless-rdma executor with {} cores! Waiting for client at {}:{}",
+    opts.fast_executors, opts.address, opts.port
+  );
 
   server::FastExecutors executor(
     opts.address, opts.port,
