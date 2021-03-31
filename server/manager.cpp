@@ -26,7 +26,6 @@ namespace executor {
     // Initialize batch receive WCs
     conn->initialize_batched_recv(allocation_requests, sizeof(rdmalib::AllocationRequest));
     rcv_buffer.connect(conn);
-    SPDLOG_DEBUG("CREATED {}", connection != nullptr);
   }
 
   void Client::reinitialize(rdmalib::Connection* conn)
@@ -78,6 +77,11 @@ namespace executor {
       std::string client_func_size = std::to_string(request.func_buf_size);
       std::string client_cores = std::to_string(request.cores);
       std::string client_timeout = std::to_string(request.hot_timeout);
+      std::string executor_repetitions = std::to_string(_settings.repetitions);
+      std::string executor_warmups = std::to_string(_settings.warmup_iters);
+      std::string executor_recv_buf = std::to_string(_settings.recv_buffer_size);
+      std::string executor_max_inline = std::to_string(_settings.max_inline_data);
+
       int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
       dup2(fd, 1);
       dup2(fd, 2);
@@ -86,12 +90,12 @@ namespace executor {
         "-a", request.listen_address,
         "-p", client_port.c_str(),
         "--polling-mgr", "thread",
-        "-r", "10000",
-        "-x", "32",
+        "-r", executor_repetitions.c_str(),
+        "-x", executor_recv_buf.c_str(),
         "-s", client_in_size.c_str(),
         "--fast", client_cores.c_str(),
-        "--warmup-iters", "100",
-        "--max-inline-data", "0",
+        "--warmup-iters", executor_warmups.c_str(),
+        "--max-inline-data", executor_max_inline.c_str(),
         "--func-size", client_func_size.c_str(),
         "--timeout", client_timeout.c_str(),
         nullptr
@@ -109,11 +113,11 @@ namespace executor {
     return mypid;
   }
 
-  Manager::Manager(std::string addr, int port, bool use_docker, std::string server_file):
+  Manager::Manager(std::string addr, int port, std::string server_file, const ExecutorSettings & settings):
     _clients_active(0),
     _state(addr, port, 32, true),
     _status(addr, port),
-    _use_docker(use_docker)
+    _settings(settings)
   {
     _clients.reserve(this->MAX_CLIENTS_ACTIVE);
     std::ofstream out(server_file);

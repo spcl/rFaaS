@@ -19,13 +19,23 @@ namespace rdmalib {
 
 namespace executor {
 
+  struct ExecutorSettings
+  {
+    bool use_docker;
+    int repetitions;
+    int warmup_iters;
+    int recv_buffer_size;
+    int max_inline_data;
+  };
+
   struct Options {
     std::string address;
     int port;
     bool pin_threads;
     std::string server_file;
     bool verbose;
-    bool use_docker;
+    // Passed to the scheduled executor
+    ExecutorSettings exec;
   };
   Options opts(int, char**);
 
@@ -59,9 +69,9 @@ namespace executor {
     std::atomic<int> _clients_active;
     rdmalib::RDMAPassive _state;
     rdmalib::server::ServerStatus _status;
-    bool _use_docker;
+    ExecutorSettings _settings;
 
-    Manager(std::string addr, int port, bool use_docker, std::string server_file);
+    Manager(std::string addr, int port, std::string server_file, const ExecutorSettings & settings);
 
     void start();
     void listen();

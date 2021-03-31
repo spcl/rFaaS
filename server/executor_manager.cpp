@@ -29,8 +29,8 @@ int main(int argc, char ** argv)
   executor::Manager mgr(
     opts.address,
     opts.port,
-    opts.use_docker,
-    opts.server_file
+    opts.server_file,
+    opts.exec
   );
 
   mgr.start();
