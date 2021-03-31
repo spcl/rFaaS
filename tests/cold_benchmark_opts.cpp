@@ -22,6 +22,7 @@ namespace cold_benchmarker {
       ("max-inline-data", "Maximum size of inlined message", cxxopts::value<int>()->default_value("0"))
       ("recv-buf-size", "Size of recv buffer", cxxopts::value<int>()->default_value("1"))
       ("c,cores", "Number of cores", cxxopts::value<int>())
+      ("hot-timeout", "Polling timeout", cxxopts::value<int>())
     ;
     auto parsed_options = options.parse(argc, argv);
 
@@ -38,7 +39,8 @@ namespace cold_benchmarker {
     result.out_file = parsed_options["out-file"].as<std::string>();
     result.max_inline_data = parsed_options["max-inline-data"].as<int>();
     result.recv_buf_size = parsed_options["recv-buf-size"].as<int>();
-    result.verbose = parsed_options["verbose"].as<bool>();;
+    result.verbose = parsed_options["verbose"].as<bool>();
+    result.hot_timeout = parsed_options["hot-timeout"].as<int>();
 
     return result;
   }  

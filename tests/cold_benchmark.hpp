@@ -25,6 +25,7 @@ namespace cold_benchmarker {
     int repetitions;
     int warmup_iters;
     int cores;
+    int hot_timeout;
     std::string fname;
     std::string flib;
     int input_size;

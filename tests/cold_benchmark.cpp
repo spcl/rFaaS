@@ -43,10 +43,9 @@ int main(int argc, char ** argv)
     return -1;
   spdlog::info("Connected to the executor manager!");
   // FIXME: timeout
-  // FIXME: hot timeout
   // FIXME: flib size
   client._allocation_buffer.data()[0] = (rdmalib::AllocationRequest) {
-    -1, 5,
+    static_cast<int16_t>(opts.hot_timeout), 5,
     static_cast<int16_t>(opts.cores),
     1,
     opts.input_size, 15912,
