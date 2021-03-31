@@ -55,7 +55,8 @@ namespace server {
   }
 
   Functions::Functions(size_t size):
-    _size(size)
+    _size(size),
+    _library_handle(nullptr)
   {
     // FIXME: works only on Linux
     rdmalib::impl::expect_nonnegative(_fd = memfd_create("libfunction", 0));
@@ -69,7 +70,8 @@ namespace server {
   Functions::~Functions()
   {
     munmap(_memory_handle, _size);
-    dlclose(_library_handle);
+    if(_library_handle)
+      dlclose(_library_handle);
   }
 
   void Functions::process_library()
