@@ -82,13 +82,14 @@ namespace executor {
         "-p", client_port.c_str(),
         "-f", "server.json",
         "--polling-mgr", "thread",
-        "-r", "1000",
+        "-r", "10000",
         "-x", "32",
-        "-s", "1024",
+        "-s", "32",
         "--fast", client_cores.c_str(),
-        "--warmup-iters", "1",
+        "--warmup-iters", "100",
+        "--max-inline-data", "128",
         "--func-size", "18496",
-        "--timeout", "0",
+        "--timeout", "-1",
         nullptr
       };
       int ret = execve(argv[0], const_cast<char**>(&argv[0]), nullptr);
