@@ -7,12 +7,15 @@
 #include <vector>
 #include <mutex>
 
-#include <rdmalib/allocation.hpp>
 #include <rdmalib/connection.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/server.hpp>
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/recv_buffer.hpp>
+
+namespace rdmalib {
+  struct AllocationRequest;
+}
 
 namespace executor {
 
@@ -31,8 +34,6 @@ namespace executor {
   {
     pid_t pid;
 
-    //ActiveExecutor(std::string addr, int port, int func_size);
-
   };
 
   struct Client
@@ -41,7 +42,7 @@ namespace executor {
     rdmalib::Connection* connection;
     rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
     rdmalib::RecvBuffer rcv_buffer;
-    ActiveExecutor executor;
+    std::unique_ptr<ActiveExecutor> executor;
 
     Client(rdmalib::Connection* conn, ibv_pd* pd);
     void reload_queue();
@@ -65,6 +66,7 @@ namespace executor {
     void start();
     void listen();
     void poll_rdma();
+    int fork_client(const rdmalib::AllocationRequest &);
   };
 
 }

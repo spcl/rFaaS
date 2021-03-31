@@ -29,6 +29,12 @@ int main(int argc, char ** argv)
     "Executing serverless-rdma executor with {} cores! Waiting for client at {}:{}",
     opts.fast_executors, opts.address, opts.port
   );
+  spdlog::info(
+    "Configuration options: expecting function size {}, function payloads {},"
+    " receive WCs buffer size {}, max inline data {}, hot polling timeout {}",
+    opts.func_size, opts.msg_size, opts.recv_buffer_size, opts.max_inline_data,
+    opts.timeout
+  );
 
   server::FastExecutors executor(
     opts.address, opts.port,

@@ -8,7 +8,8 @@ namespace rdmalib {
 
   struct AllocationRequest
   {
-
+    int16_t hot_timeout;
+    int16_t timeout;
     // > 0: Number of cores to be allocated
     // < 0: client_id with negative sign, deallocation & disconnect request
     int16_t cores;
