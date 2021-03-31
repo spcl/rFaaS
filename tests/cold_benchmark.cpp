@@ -45,7 +45,7 @@ int main(int argc, char ** argv)
   client.connection().poll_wc(rdmalib::QueueType::SEND, true);
   spdlog::info("Connected to the executor manager!");
 
-  client._allocation_buffer.data()[0] = {-1, 0, 0, 0};
+  client._allocation_buffer.data()[0] = {-1, 0, 0, 0, 0, ""};
   rdmalib::ScatterGatherElement sge2;
   sge2.add(client._allocation_buffer, sizeof(rdmalib::AllocationRequest));
   client.connection().post_send(sge2);
@@ -62,7 +62,7 @@ int main(int argc, char ** argv)
 
   if(!client2.connect())
     return -1;
-  client2._allocation_buffer.data()[0] = {1, 1, 1024, 1024};
+  client2._allocation_buffer.data()[0] = {1, 1, 1024, 1024, 10002, "192.168.0.12"};
   rdmalib::ScatterGatherElement sge3;
   sge3.add(client2._allocation_buffer, sizeof(rdmalib::AllocationRequest));
   client2.connection().post_send(sge3);

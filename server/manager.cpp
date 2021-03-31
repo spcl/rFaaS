@@ -113,9 +113,10 @@ namespace executor {
               continue;
             uint64_t id = wc.wr_id;
             int16_t cores = client.allocation_requests.data()[id].cores;
-            char * client_address = client.allocation_requests.data()[id].
+            char * client_address = client.allocation_requests.data()[id].listen_address;
+            int client_port = client.allocation_requests.data()[id].listen_port;
             if(cores > 0)
-              spdlog::info("Client {} wants {} cores", i, cores);
+              spdlog::info("Client {} at {}:{} wants {} cores", i, client_address, client_port, cores);
             else {
               spdlog::info("Client {} disconnects", i);
               client.disable();

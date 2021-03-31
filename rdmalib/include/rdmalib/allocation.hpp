@@ -15,6 +15,8 @@ namespace rdmalib {
     int16_t input_buf_count;
     int32_t input_buf_size; 
     int32_t func_buf_size;
+    int32_t listen_port;
+    char listen_address[16];
   };
 
   struct BufferInformation
