@@ -28,6 +28,7 @@ int main(int argc, char ** argv)
   auto cfg = rdmalib::server::ServerStatus::deserialize(in);
   in.close();
 
+
   // First connection
   client::ServerConnection client(
     cfg,
@@ -37,7 +38,7 @@ int main(int argc, char ** argv)
   if(!client.connect())
     return -1;
 
-  client._allocation_buffer.data()[0] = {1, 1, 1024, 1024};
+  client._allocation_buffer.data()[0] = {1, 1, 1024, 1024, 10002, "192.168.0.12"};
   rdmalib::ScatterGatherElement sge;
   sge.add(client._allocation_buffer, sizeof(rdmalib::AllocationRequest));
   client.connection().post_send(sge);
@@ -49,7 +50,7 @@ int main(int argc, char ** argv)
 
   spdlog::info("Connected to the executor manager!");
   // Disconnect?
-  //client.disconnect();
+  client.disconnect();
 
   // Second connection
   client::ServerConnection client2(
