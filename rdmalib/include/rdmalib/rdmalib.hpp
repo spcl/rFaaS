@@ -56,7 +56,7 @@ namespace rdmalib {
     ~RDMAPassive();
     void allocate();
     ibv_pd* pd() const;
-    Connection* poll_events(std::function<void(Connection&)> before_accept = nullptr);
+    Connection* poll_events(std::function<void(Connection&)> before_accept = nullptr, bool share_cqs = false);
 
   };
 }

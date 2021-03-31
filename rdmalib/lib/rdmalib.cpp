@@ -226,7 +226,7 @@ namespace rdmalib {
     return this->_pd;
   }
 
-  Connection* RDMAPassive::poll_events(std::function<void(Connection&)> before_accept)
+  Connection* RDMAPassive::poll_events(std::function<void(Connection&)> before_accept, bool share_cqs)
   {
     rdma_cm_event* event;
     if(rdma_get_cm_event(this->_ec, &event)) {
@@ -244,8 +244,8 @@ namespace rdmalib {
     // destroys event
     rdma_ack_cm_event(event);
     SPDLOG_DEBUG("CREATE QP {} {} {}", fmt::ptr(connection._id), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd));
-     _cfg.attr.send_cq = NULL;
-     _cfg.attr.recv_cq = NULL;
+    if(!share_cqs)
+      _cfg.attr.send_cq = _cfg.attr.recv_cq = nullptr;
     SPDLOG_DEBUG("used cq for creating a qp {} {}", fmt::ptr(_cfg.attr.send_cq),fmt::ptr(_cfg.attr.recv_cq));
     impl::expect_zero(rdma_create_qp(connection._id, _pd, &_cfg.attr));
     SPDLOG_DEBUG("CREATE QP with qpn {}", connection._id->qp->qp_num);

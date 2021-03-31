@@ -110,7 +110,8 @@ namespace rfaas {
         _state.poll_events(
           [this,&buf,obj_size,i](rdmalib::Connection& conn){
             conn.post_recv(buf.sge(obj_size, i*obj_size), i);
-          }
+          },
+          true
         ),
         _rcv_buf_size
       );
