@@ -84,13 +84,12 @@ namespace server {
   {
     rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
     // FIXME: this should be automatic
-    conn->initialize();
-    conn->notify_events();
     SPDLOG_DEBUG("Thread {} Begins warm polling", id);
 
     while(repetitions < max_repetitions) {
 
       auto cq = conn->wait_events();
+      conn->ack_events(cq, 1);
       conn->notify_events();
 
       // if we block, we never handle the interruption
@@ -120,7 +119,6 @@ namespace server {
         }
         wc_buffer.refill();
       }
-      conn->ack_events(cq, std::get<1>(wcs));
     }
   }
 
@@ -131,11 +129,17 @@ namespace server {
     rdmalib::Buffer<char> func_buffer(_functions.memory(), _functions.size());
 
     active.allocate();
+    this->conn = &active.connection();
+    this->conn->initialize();
     // Receive function data from the client - this WC must be posted first
     // We do it before connection to ensure that client does not start sending before us
     func_buffer.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    this->conn = &active.connection();
     this->conn->post_recv(func_buffer);
+
+    // Request notification before connecting - avoid missing a WC!
+    // Do it only when starting from a warm directly
+    if(timeout == 0)
+      conn->notify_events();
 
     if(!active.connect())
       return;
