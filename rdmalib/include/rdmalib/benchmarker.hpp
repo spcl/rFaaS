@@ -38,20 +38,27 @@ namespace rdmalib {
       return duration;
     }
 
-    std::tuple<double, double> summary()
+    std::tuple<double, double> summary(int idx = 0)
     {
       // FIXME: reenable
-      //long sum = std::accumulate(_measurements.begin(), _measurements.end(), 0L);
-      //double avg = static_cast<double>(sum) / _measurements.size();
+      long sum = std::accumulate(_measurements.begin(), _measurements.end(), 0L,
+        [idx](long x, const std::array<uint64_t, Cols> & y) {
+          return x + y[idx];
+        }
+      );
+      double avg = static_cast<double>(sum) / _measurements.size();
 
       //// compute median
       //// let's just ignore the rule that for even size we should take an average of middle elements
-      //int middle = _measurements.size() / 2;
-      //std::nth_element(_measurements.begin(), _measurements.begin() + middle, _measurements.end());
-      //int median = _measurements[middle];
+      int middle = _measurements.size() / 2;
+      std::nth_element(_measurements.begin(), _measurements.begin() + middle, _measurements.end(),
+        [idx](const std::array<uint64_t, Cols> & x, const std::array<uint64_t, Cols> & y) {
+          return x[idx] < y[idx];
+        }
+      );
+      int median = _measurements[middle][idx];
 
-      //return std::make_tuple(static_cast<double>(median) / 1000, avg / 1000);
-      return std::make_tuple(0,0);
+      return std::make_tuple(static_cast<double>(median) / 1000, avg / 1000);
     }
 
     void export_csv(std::string fname, const std::array<std::string, Cols> & headers)

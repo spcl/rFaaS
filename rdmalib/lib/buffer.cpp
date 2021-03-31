@@ -12,16 +12,20 @@ namespace rdmalib { namespace impl {
     _size(0),
     _header(0),
     _bytes(0),
+    _byte_size(0),
+    _ptr(nullptr),
     _mr(nullptr),
-    _ptr(nullptr)
+    _own_memory(false)
   {}
 
   Buffer::Buffer(Buffer && obj):
     _size(obj._size),
     _header(obj._header),
     _bytes(obj._bytes),
+    _byte_size(obj._byte_size),
+    _ptr(obj._ptr),
     _mr(obj._mr),
-    _ptr(obj._ptr)
+    _own_memory(obj._own_memory)
   {
     obj._size = obj._bytes = obj._header = 0;
     obj._ptr = obj._mr = nullptr;
@@ -31,9 +35,11 @@ namespace rdmalib { namespace impl {
   {
     _size = obj._size;
     _bytes = obj._bytes;
+    _bytes = obj._byte_size;
     _header = obj._header;
     _ptr = obj._ptr;
     _mr = obj._mr;
+    _own_memory = obj._own_memory;
 
     obj._size = obj._bytes = 0;
     obj._ptr = obj._mr = nullptr;
@@ -44,7 +50,9 @@ namespace rdmalib { namespace impl {
     _size(size),
     _header(header),
     _bytes((size + header) * byte_size),
-    _mr(nullptr)
+    _byte_size(byte_size),
+    _mr(nullptr),
+    _own_memory(true)
   {
     //size_t alloc = _bytes;
     //if(alloc < 4096) {
@@ -54,12 +62,23 @@ namespace rdmalib { namespace impl {
     // page-aligned address for maximum performance
     _ptr = mmap(nullptr, _bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
   }
+
+  Buffer::Buffer(void* ptr, uint32_t size, uint32_t byte_size):
+    _size(size),
+    _header(0),
+    _bytes(size * byte_size),
+    _byte_size(byte_size),
+    _ptr(ptr),
+    _mr(nullptr),
+    _own_memory(false)
+  {}
   
   Buffer::~Buffer()
   {
     if(_mr)
       ibv_dereg_mr(_mr);
-    munmap(_ptr, _bytes);
+    if(_own_memory)
+      munmap(_ptr, _bytes);
   }
 
   void Buffer::register_memory(ibv_pd* pd, int access)
@@ -67,8 +86,8 @@ namespace rdmalib { namespace impl {
     _mr = ibv_reg_mr(pd, _ptr, _bytes, access);
     impl::expect_nonnull(_mr);
     SPDLOG_DEBUG(
-      "Allocated {} bytes, address {}, lkey {}, rkey {}",
-      _bytes, fmt::ptr(_mr->addr), _mr->lkey, _mr->rkey
+      "Allocated {} bytes, mr {}, address {}, lkey {}, rkey {}",
+      _bytes, fmt::ptr(_mr), fmt::ptr(_mr->addr), _mr->lkey, _mr->rkey
     );
   }
 
@@ -117,9 +136,33 @@ namespace rdmalib { namespace impl {
     return this->_ptr;
   }
 
+  ScatterGatherElement Buffer::sge(uint32_t size, uint32_t offset)
+  {
+    return {address() + offset, size, lkey()};
+  }
+
 }}
 
 namespace rdmalib {
+
+  ScatterGatherElement::ScatterGatherElement()
+  {
+  }
+
+  ibv_sge * ScatterGatherElement::array() const
+  {
+    return _sges.data();
+  }
+
+  size_t ScatterGatherElement::size() const
+  {
+    return _sges.size();
+  }
+
+  ScatterGatherElement::ScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey)
+  {
+    _sges.push_back({addr, bytes, lkey});
+  }
 
   RemoteBuffer::RemoteBuffer():
     addr(0),

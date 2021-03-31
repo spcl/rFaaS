@@ -149,13 +149,16 @@ target_link_libraries(rfaaslib PUBLIC PkgConfig::rdmacm)
 target_link_libraries(rfaaslib PUBLIC PkgConfig::ibverbs)
 target_link_libraries(rfaaslib PRIVATE spdlog::spdlog)
 target_link_libraries(rfaaslib PRIVATE cereal)
+target_link_libraries(rfaaslib PUBLIC dl)
 
 ###
 # Warm/hot benchmarker
 ###
 add_executable(warm_benchmarker tests/warm_benchmark.cpp tests/warm_benchmark_opts.cpp)
-add_executable(cold_benchmarker tests/cold_benchmark.cpp tests/cold_benchmark_opts.cpp)
-set(tests_targets "warm_benchmarker" "cold_benchmarker")
+add_executable(parallel_invocations tests/parallel_invocations.cpp tests/parallel_invocations_opts.cpp)
+#add_executable(cold_benchmarker tests/cold_benchmark.cpp tests/cold_benchmark_opts.cpp)
+#set(tests_targets "warm_benchmarker" "cold_benchmarker")
+set(tests_targets "warm_benchmarker" "parallel_invocations")
 foreach(target ${tests_targets})
   add_dependencies(${target} cxxopts::cxxopts)
   add_dependencies(${target} rdmalib)
@@ -171,7 +174,7 @@ endforeach()
 ###
 # Server
 ###
-add_executable(executor server/executor.cpp server/server.cpp server/opts.cpp server/fast_executor.cpp)
+add_executable(executor server/executor.cpp server/opts.cpp server/fast_executor.cpp server/functions.cpp)
 add_executable(executor_manager server/executor_manager.cpp server/manager.cpp server/opts.cpp)
 set(targets "executor" "executor_manager")
 foreach(target ${targets})
@@ -186,3 +189,12 @@ foreach(target ${targets})
   target_link_libraries(${target} PRIVATE Threads::Threads)
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 endforeach()
+target_link_libraries(executor PRIVATE dl)
+
+###
+# Examples
+###
+add_library(functions SHARED examples/functions.cpp)
+set_target_properties(functions PROPERTIES POSITION_INDEPENDENT_CODE On)
+set_target_properties(functions PROPERTIES LIBRARY_OUTPUT_DIRECTORY examples)
+

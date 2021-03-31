@@ -8,8 +8,9 @@
 namespace rdmalib { namespace functions {
 
   struct Submission {
-    int32_t core_begin, core_end;
-    char ID[92];
+    uint64_t r_address;
+    uint32_t r_key;
+    char ID[4];
     static constexpr int DATA_HEADER_SIZE = 16;
   };
 

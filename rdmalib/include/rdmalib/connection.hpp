@@ -27,36 +27,6 @@ namespace rdmalib {
     ConnectionConfiguration();
   };
 
-  struct ScatterGatherElement {
-    // smallvector in practice
-    mutable std::vector<ibv_sge> _sges;
-
-    ScatterGatherElement();
-
-    template<typename T>
-    ScatterGatherElement(const Buffer<T> & buf)
-    {
-      add(buf);
-    }
-
-    template<typename T>
-    void add(const Buffer<T> & buf)
-    {
-      //emplace_back for structs will be supported in C++20
-      _sges.push_back({buf.address(), buf.bytes(), buf.lkey()});
-    }
-
-    template<typename T>
-    void add(const Buffer<T> & buf, uint32_t size, size_t offset = 0)
-    {
-      //emplace_back for structs will be supported in C++20
-      _sges.push_back({buf.address() + offset, size, buf.lkey()});
-    }
-
-    ibv_sge * array() const;
-    size_t size() const;
-  };
-
   // State of a communication:
   // a) communication ID
   // b) Queue Pair
@@ -65,6 +35,7 @@ namespace rdmalib {
     ibv_qp* _qp; 
     ibv_comp_channel* _channel;
     int32_t _req_count;
+    bool _passive;
     static const int _wc_size = 32; 
     // FIXME: associate this with RecvBuffer
     std::array<ibv_wc, _wc_size> _swc; // fast fix for overlapping polling
@@ -75,7 +46,7 @@ namespace rdmalib {
     static const int _rbatch = 32; // 32 for faster division in the code
     struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
  
-    Connection();
+    Connection(bool passive = false);
     ~Connection();
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;
@@ -87,14 +58,14 @@ namespace rdmalib {
     void close();
     ibv_qp* qp() const;
     // Blocking, no timeout
-    std::tuple<ibv_wc*, int> poll_wc(QueueType, bool blocking = true);
-    int32_t post_send(const ScatterGatherElement & elem, int32_t id = -1);
+    std::tuple<ibv_wc*, int> poll_wc(QueueType, bool blocking = true, int count = -1);
+    int32_t post_send(const ScatterGatherElement & elem, int32_t id = -1, bool force_inline = false);
     int32_t post_recv(ScatterGatherElement && elem, int32_t id = -1, int32_t count = 1);
 
     int32_t post_batched_empty_recv(int32_t count = 1);
 
-    int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf);
-    int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, uint32_t immediate);
+    int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, bool force_inline = false);
+    int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, uint32_t immediate, bool force_inline = false);
     int32_t post_cas(ScatterGatherElement && elems, const RemoteBuffer & buf, uint64_t compare, uint64_t swap);
 
     // Register to be notified about all events, including unsolicited ones
@@ -102,7 +73,7 @@ namespace rdmalib {
     ibv_cq* wait_events();
     void ack_events(ibv_cq* cq, int len);
   private:
-    int32_t _post_write(ScatterGatherElement && elems, ibv_send_wr wr);
+    int32_t _post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline);
   };
 }
 

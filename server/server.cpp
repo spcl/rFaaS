@@ -209,7 +209,8 @@ namespace server {
     _fast_exec.allocate_threads(true);
 
     // FIXME: more threads
-    _fast_exec._threads[0].join();
+    for(int i = 0; i < _fast_exec._threads.size(); ++i)
+      _fast_exec._threads[i].join();
 
     return std::make_tuple(_fast_exec._time_sum.load(), _fast_exec._repetitions.load());
   }

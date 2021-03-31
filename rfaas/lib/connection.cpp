@@ -118,8 +118,8 @@ namespace client {
 
     // 5. Send execution notification
     rdmalib::functions::Submission* ptr = ((rdmalib::functions::Submission*)_submit_buffer.data());
-    ptr[0].core_begin = 0;
-    ptr[0].core_end = 2;
+    //ptr[0].core_begin = 0;
+    //ptr[0].core_end = 2;
     memcpy(ptr[0].ID, "test", strlen("test") + 1);
     connection().post_send(_submit_buffer);
     connection().poll_wc(rdmalib::QueueType::SEND);
@@ -146,7 +146,7 @@ namespace client {
     // 3. Write arguments
     for(int i = 0; i < numcores; ++i) {
       auto & status = _status._buffers[i];
-      connection().post_write(_send[i], status, (func_id << 6) | i);
+      //connection().post_write(_send[i], status, (func_id << 6) | i);
     }
 
     // make sure the queue doesn't overflow

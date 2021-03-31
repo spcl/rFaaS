@@ -48,6 +48,8 @@ namespace server {
       ("pin-threads", "Pin worker threads to CPU cores", cxxopts::value<bool>()->default_value("false"))
       ("max-inline-data", "Maximum size of inlined message", cxxopts::value<int>()->default_value("0"))
       ("x,requests", "Size of recv buffer", cxxopts::value<int>()->default_value("32"))
+      ("func-size", "Size of functions library", cxxopts::value<int>())
+      ("timeout", "Timeout for switching hot to warm polling; -1 always hot, 0 always warm", cxxopts::value<int>())
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
       ("r,repetitions", "Repetitions to execute", cxxopts::value<int>()->default_value("1"))
       ("f,file", "Output server status.", cxxopts::value<std::string>())
@@ -68,6 +70,8 @@ namespace server {
     result.verbose = parsed_options["verbose"].as<bool>();
     result.pin_threads = parsed_options["pin-threads"].as<bool>();
     result.max_inline_data = parsed_options["max-inline-data"].as<int>();
+    result.func_size = parsed_options["func-size"].as<int>();
+    result.timeout = parsed_options["timeout"].as<int>();
 
     std::string polling_mgr = parsed_options["polling-mgr"].as<std::string>();
     if(polling_mgr == "server") {

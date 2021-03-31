@@ -13,11 +13,11 @@
 #include <rdmalib/server.hpp>
 #include "rdmalib/connection.hpp"
 #include "server.hpp"
-
+#include "fast_executor.hpp"
 
 int main(int argc, char ** argv)
 {
-  server::SignalHandler sighandler;
+  //server::SignalHandler sighandler;
   auto opts = server::opts(argc, argv);
   if(opts.verbose)
     spdlog::set_level(spdlog::level::debug);
@@ -27,38 +27,50 @@ int main(int argc, char ** argv)
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
   spdlog::info("Executing serverless-rdma server!");
 
-  // Start RDMA connection
-  server::Server server(
-      opts.address,
-      opts.port,
-      opts.cheap_executors,
-      opts.fast_executors,
-      opts.msg_size,
-      opts.recv_buffer_size,
-      opts.pin_threads,
-      opts.max_inline_data,
-      opts.server_file
+  server::FastExecutors executor(
+    opts.address, opts.port,
+    opts.func_size,
+    opts.fast_executors,
+    opts.msg_size,
+    opts.recv_buffer_size,
+    opts.max_inline_data,
+    opts.pin_threads
   );
 
-  // Wait for a client
-  // FIXME: handle more clients
-  auto conn = server.poll_communication();
-  if(!conn)
-    return -1;
-  // TODO: Display client's address
-  spdlog::info("Connected a client!");
+  executor.allocate_threads(opts.timeout, opts.repetitions + opts.warmup_iters);
 
-  int sum = 0, repetitions = 0;
-  spdlog::info(opts.polling_manager);
-  if(opts.polling_manager == server::Options::PollingMgr::SERVER)
-    std::tie(sum, repetitions) = server.poll_server(opts.repetitions, opts.warmup_iters);
-  else if(opts.polling_manager == server::Options::PollingMgr::SERVER_NOTIFY)
-    std::tie(sum, repetitions) = server.poll_server_notify(opts.repetitions, opts.warmup_iters);
-  else
-    std::tie(sum, repetitions) = server.poll_threads(opts.repetitions, opts.warmup_iters);
+  executor.close();
+  // Start RDMA connection
+  //server::Server server(
+  //    opts.address,
+  //    opts.port,
+  //    opts.cheap_executors,
+  //    opts.fast_executors,
+  //    opts.msg_size,
+  //    opts.recv_buffer_size,
+  //    opts.pin_threads,
+  //    opts.max_inline_data,
+  //    opts.server_file
+  //);
 
-  spdlog::info("Server is closing down, avg response time {} usec", ((float)sum)/repetitions);
-  std::this_thread::sleep_for(std::chrono::seconds(1)); 
+  //// Wait for a client
+  //// FIXME: handle more clients
+  //auto conn = server.poll_communication();
+  //if(!conn)
+  //  return -1;
+  //// TODO: Display client's address
+  //spdlog::info("Connected a client!");
+
+  //int sum = 0, repetitions = 0;
+  //if(opts.polling_manager == server::Options::PollingMgr::SERVER)
+  //  std::tie(sum, repetitions) = server.poll_server(opts.repetitions, opts.warmup_iters);
+  //else if(opts.polling_manager == server::Options::PollingMgr::SERVER_NOTIFY)
+  //  std::tie(sum, repetitions) = server.poll_server_notify(opts.repetitions, opts.warmup_iters);
+  //else
+  //  std::tie(sum, repetitions) = server.poll_threads(opts.repetitions, opts.warmup_iters);
+
+  //spdlog::info("Server is closing down, avg response time {} usec", ((float)sum)/repetitions);
+  //std::this_thread::sleep_for(std::chrono::seconds(1)); 
 
   //int sum = 0;
   //int repetitions = 0;

@@ -1,9 +1,9 @@
 
 #include <cxxopts.hpp>
 
-#include "warm_benchmark.hpp"
+#include "parallel_invocations.hpp"
 
-namespace warm_benchmarker {
+namespace parallel_invocations {
 
   // Compilation time of client.cpp decreased from 11 to 1.5 seconds!!!
 

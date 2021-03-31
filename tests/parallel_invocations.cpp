@@ -11,43 +11,36 @@
 
 #include <rfaas/executor.hpp>
 
-#include "warm_benchmark.hpp"
+#include "parallel_invocations.hpp"
 
-//bool poll_result(client::ServerConnection & client, int iter)
-//{
-//  auto wc = client.recv().poll(true);
-//  uint32_t val = ntohl(std::get<0>(wc)[0].imm_data) >> 6;
-//  if(val == 0)
-//    return true;
-//  else {
-//    if(val == 1)
-//      spdlog::error("Iter {}, Thread busy, cannot post work", iter);
-//    else
-//      spdlog::error("Iter {}, Unknown error {}", iter, val);
-//    return false;
-//  }
-//}
 
 int main(int argc, char ** argv)
 {
-  auto opts = warm_benchmarker::options(argc, argv);
+  auto opts = parallel_invocations::options(argc, argv);
   if(opts.verbose)
     spdlog::set_level(spdlog::level::debug);
   else
     spdlog::set_level(spdlog::level::info);
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
-  spdlog::info("Executing serverless-rdma test warm_benchmarker!");
+  spdlog::info("Executing serverless-rdma test parallel invocations!");
 
   rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size, opts.max_inline_data);
   executor.allocate(opts.flib, opts.numcores);
 
   // FIXME: move me to allocator
-  rdmalib::Buffer<char> in(opts.input_size), out(opts.input_size);
-  in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
-  out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-  memset(in.data(), 0, opts.input_size);
-  for(int i = 0; i < opts.input_size; ++i) {
-    ((char*)in.data())[i] = 1;
+  std::vector<rdmalib::Buffer<char>> in;
+  std::vector<rdmalib::Buffer<char>> out;
+  for(int i = 0; i < opts.numcores; ++i) {
+    in.emplace_back(opts.input_size);
+    in.back().register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
+    memset(in.back().data(), 0, opts.input_size);
+    for(int i = 0; i < opts.input_size; ++i) {
+      ((char*)in.back().data())[i] = 1;
+    }
+  }
+  for(int i = 0; i < opts.numcores; ++i) {
+    out.emplace_back(opts.input_size);
+    out.back().register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
   }
 
   rdmalib::Benchmarker<1> benchmarker{opts.repetitions};
@@ -73,9 +66,13 @@ int main(int argc, char ** argv)
   auto [median, avg] = benchmarker.summary();
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", opts.repetitions, avg, median);
 
-  for(int i = 0; i < std::min(100, opts.input_size); ++i)
-    printf("%d ", ((char*)out.data())[i]);
-  printf("\n");
+  int i = 0;
+  for(rdmalib::Buffer<char> & buf : out) {
+    printf("%d ", i++);
+    for(int i = 0; i < std::min(100, opts.input_size); ++i)
+      printf("%d ", ((char*)buf.data())[i]);
+    printf("\n");
+  }
 
   return 0;
   //std::ifstream in(opts["file"].as<std::string>());

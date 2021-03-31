@@ -201,10 +201,10 @@ namespace rdmalib {
 
   RDMAPassive::~RDMAPassive()
   {
-    SPDLOG_DEBUG("Destroy");
     ibv_dealloc_pd(this->_pd);
     rdma_destroy_ep(this->_listen_id);
-    rdma_destroy_id(this->_listen_id);
+    //ibv_dealloc_pd(this->_pd);
+    //rdma_destroy_id(this->_listen_id);
   }
 
   void RDMAPassive::allocate()
@@ -239,7 +239,7 @@ namespace rdmalib {
     }
 
     // Now receive id for the communication
-    Connection connection;
+    Connection connection{true};
     connection._id = event->id;
     // destroys event
     rdma_ack_cm_event(event);

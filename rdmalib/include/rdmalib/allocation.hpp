@@ -17,6 +17,12 @@ namespace rdmalib {
     int32_t func_buf_size;
   };
 
+  struct BufferInformation
+  {
+    uint64_t r_addr;
+    uint32_t r_key;
+  };
+
 }
 
 #endif

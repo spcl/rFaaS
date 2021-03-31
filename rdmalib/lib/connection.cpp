@@ -13,25 +13,12 @@ namespace rdmalib {
     memset(&conn_param, 0 , sizeof(conn_param));
   }
 
-  ScatterGatherElement::ScatterGatherElement()
-  {
-  }
-
-  ibv_sge * ScatterGatherElement::array() const
-  {
-    return _sges.data();
-  }
-
-  size_t ScatterGatherElement::size() const
-  {
-    return _sges.size();
-  }
-
-  Connection::Connection():
+  Connection::Connection(bool passive):
     _id(nullptr),
     _qp(nullptr),
     _channel(nullptr),
-    _req_count(0)
+    _req_count(0),
+    _passive(passive)
   {
     inlining(false);
 
@@ -54,7 +41,9 @@ namespace rdmalib {
     _id(obj._id),
     _qp(obj._qp),
     _channel(obj._channel),
-    _req_count(obj._req_count)
+    _req_count(obj._req_count),
+    _passive(obj._passive),
+    _send_flags(obj._send_flags)
   {
     obj._id = nullptr;
     obj._qp = nullptr;
@@ -96,9 +85,16 @@ namespace rdmalib {
   void Connection::close()
   {
     if(_id) {
-      //rdma_destroy_qp(_id);
-      rdma_destroy_ep(_id);
-      //rdma_destroy_id(_id);
+      // When the connection is allocated on active side
+      // We allocated ep, and that's the only thing we need to do
+      if(!_passive)
+        rdma_destroy_ep(_id);
+      // When the connection is allocated on passive side
+      // We allocated QP and we need to free an ID
+      else {
+        rdma_destroy_qp(_id);
+        rdma_destroy_id(_id);
+      }
       _id = nullptr;
     }
   }
@@ -108,7 +104,7 @@ namespace rdmalib {
     return this->_qp;
   }
 
-  int32_t Connection::post_send(const ScatterGatherElement & elems, int32_t id)
+  int32_t Connection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline)
   {
     // FIXME: extend with multiple sges
     struct ibv_send_wr wr, *bad;
@@ -117,14 +113,19 @@ namespace rdmalib {
     wr.sg_list = elems.array();
     wr.num_sge = elems.size();
     wr.opcode = IBV_WR_SEND;
-    wr.send_flags = _send_flags;
+    wr.send_flags = force_inline ? IBV_SEND_SIGNALED | IBV_SEND_INLINE : _send_flags;
 
     int ret = ibv_post_send(_qp, &wr, &bad);
     if(ret) {
-      spdlog::error("Post send unsuccesful, reason {} {}", errno, strerror(errno));
+      spdlog::error("Post send unsuccesful, reason {} {}, sges_count {}, wr_id {}, wr.send_flags {}",
+        errno, strerror(errno), wr.num_sge, wr.wr_id, wr.send_flags
+      );
       return -1;
     }
-    SPDLOG_DEBUG("Post send succesfull");
+    SPDLOG_DEBUG(
+      "Post send succesfull, sges_count {}, sge[0].addr {}, sge[0].size {}, wr_id {}, wr.send_flags {}",
+      wr.num_sge, wr.sg_list[0].addr, wr.sg_list[0].length, wr.wr_id, wr.send_flags
+    );
     return _req_count - 1;
   }
 
@@ -177,43 +178,59 @@ namespace rdmalib {
       spdlog::error("Post receive unsuccesful, reason {} {}", ret, strerror(ret));
       return -1;
     }
-    SPDLOG_DEBUG("Post recv succesfull");
+    if(wr.num_sge > 0)
+      SPDLOG_DEBUG(
+        "Post recv succesfull, sges_count {}, sge[0].addr {}, sge[0].size {}, wr_id {}",
+        wr.num_sge, wr.sg_list[0].addr, wr.sg_list[0].length, wr.wr_id
+      );
+    else
+      SPDLOG_DEBUG("Post recv succesfull");
     return wr.wr_id;
   }
 
-  int32_t Connection::_post_write(ScatterGatherElement && elems, ibv_send_wr wr)
+  int32_t Connection::_post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline)
   {
     ibv_send_wr* bad;
     wr.wr_id = _req_count++;
     wr.next = nullptr;
     wr.sg_list = elems.array();
     wr.num_sge = elems.size();
-    wr.send_flags = _send_flags;
+    wr.send_flags = force_inline ? IBV_SEND_SIGNALED | IBV_SEND_INLINE : _send_flags;
+
+    if(wr.num_sge == 1 && wr.sg_list[0].length == 0)
+      wr.num_sge = 0;
 
     int ret = ibv_post_send(_qp, &wr, &bad);
     if(ret) {
-      spdlog::error("Post write unsuccesful, reason {} {}", ret, strerror(ret));
+      spdlog::error("Post write unsuccesful, reason {} {}, sges_count {}, wr_id {}, remote addr {}, remote rkey {}, imm data {}",
+        ret, strerror(ret), wr.num_sge, wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
+      );
       return -1;
     }
-    SPDLOG_DEBUG(
-        "Post write succesfull id: {}, sge size: {}, first lkey {} len {}, remote addr {}, remote rkey {}, imm data {}",
-        wr.wr_id, wr.num_sge, wr.sg_list[0].lkey, wr.sg_list[0].length, wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
-    );
+    if(wr.num_sge > 0)
+      SPDLOG_DEBUG(
+          "Post write succesfull id: {}, sge size: {}, first lkey {} len {}, remote addr {}, remote rkey {}, imm data {}",
+          wr.wr_id, wr.num_sge, wr.sg_list[0].lkey, wr.sg_list[0].length, wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
+      );
+    else
+      SPDLOG_DEBUG(
+          "Post write succesfull id: {}, remote addr {}, remote rkey {}, imm data {}", wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
+      );
     return _req_count - 1;
 
   }
 
-  int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf)
+  int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, bool force_inline)
   {
     ibv_send_wr wr;
     memset(&wr, 0, sizeof(wr));
     wr.opcode = IBV_WR_RDMA_WRITE;
     wr.wr.rdma.remote_addr = rbuf.addr;
     wr.wr.rdma.rkey = rbuf.rkey;
-    return _post_write(std::forward<ScatterGatherElement>(elems), wr);
+    return _post_write(std::forward<ScatterGatherElement>(elems), wr, force_inline);
   }
 
-  int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint32_t immediate)
+  int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint32_t immediate, bool force_inline)
   {
     ibv_send_wr wr;
     memset(&wr, 0, sizeof(wr));
@@ -221,7 +238,7 @@ namespace rdmalib {
     wr.imm_data = htonl(immediate);
     wr.wr.rdma.remote_addr = rbuf.addr;
     wr.wr.rdma.rkey = rbuf.rkey;
-    return _post_write(std::forward<ScatterGatherElement>(elems), wr);
+    return _post_write(std::forward<ScatterGatherElement>(elems), wr, force_inline);
   }
 
   int32_t Connection::post_cas(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t compare, uint64_t swap)
@@ -248,15 +265,18 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  std::tuple<ibv_wc*, int> Connection::poll_wc(QueueType type, bool blocking)
+  std::tuple<ibv_wc*, int> Connection::poll_wc(QueueType type, bool blocking, int count)
   {
     int ret = 0;
-
     ibv_wc* wcs = (type == QueueType::RECV ? _rwc.data() : _swc.data());
 
     //spdlog::error("{} {} {}", fmt::ptr(_qp), fmt::ptr(_qp->recv_cq), fmt::ptr(wcs));
     do {
-      ret = ibv_poll_cq(type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq, _wc_size, wcs);
+      ret = ibv_poll_cq(
+        type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq,
+        count == -1 ? _wc_size : count,
+        wcs
+      );
     } while(blocking && ret == 0);
   
     if(ret < 0) {
@@ -264,8 +284,16 @@ namespace rdmalib {
       return std::make_tuple(nullptr, -1);
     }
     if(ret)
-      for(int i = 0; i < ret; ++i)
+      for(int i = 0; i < ret; ++i) {
+        if(wcs[i].status != IBV_WC_SUCCESS) {
+          spdlog::error(
+            "Queue {} Work Completion {}/{} finished with an error {}, {}",
+            type == QueueType::RECV ? "recv" : "send",
+            i+1, ret, wcs[i].status, ibv_wc_status_str(wcs[i].status)
+          );
+        }
         SPDLOG_DEBUG("Queue {} Ret {}/{} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", i + 1, ret, wcs[i].wr_id, ibv_wc_status_str(wcs[i].status));
+      }
     return std::make_tuple(wcs, ret);
   }
 

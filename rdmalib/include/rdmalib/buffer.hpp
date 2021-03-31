@@ -9,8 +9,11 @@
 
 struct ibv_pd;
 struct ibv_mr;
+struct ibv_sge;
 
 namespace rdmalib {
+
+  struct ScatterGatherElement;
 
   namespace impl {
 
@@ -20,10 +23,13 @@ namespace rdmalib {
       uint32_t _size;
       uint32_t _header;
       uint32_t _bytes;
+      uint32_t _byte_size;
       void* _ptr;
       ibv_mr* _mr;
+      bool _own_memory;
 
       Buffer();
+      Buffer(void* ptr, uint32_t size, uint32_t byte_size);
       Buffer(uint32_t size, uint32_t byte_size, uint32_t header);
       Buffer(Buffer &&);
       Buffer & operator=(Buffer && obj);
@@ -38,6 +44,7 @@ namespace rdmalib {
       void register_memory(ibv_pd *pd, int access);
       uint32_t lkey() const;
       uint32_t rkey() const;
+      ScatterGatherElement sge(uint32_t size, uint32_t offset);
     };
 
   }
@@ -65,6 +72,18 @@ namespace rdmalib {
       impl::Buffer()
     {}
 
+    // Provide a buffer instance for existing memory pool
+    // Does NOT free the associated resource
+    Buffer(T * ptr, uint32_t size):
+      impl::Buffer(ptr, size, sizeof(T))
+    {}
+
+    // Provide a buffer instance for existing memory pool
+    // Does NOT free the associated resource
+    Buffer(void * ptr, uint32_t size):
+      impl::Buffer(ptr, size, sizeof(T))
+    {}
+
     Buffer(size_t size, size_t header = 0):
       impl::Buffer(size, sizeof(T), header)
     {}
@@ -82,6 +101,38 @@ namespace rdmalib {
     {
       return static_cast<T*>(this->_ptr) + this->_header;
     }
+  };
+
+  struct ScatterGatherElement {
+    // smallvector in practice
+    mutable std::vector<ibv_sge> _sges;
+
+    ScatterGatherElement();
+
+    ScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey);
+
+    template<typename T>
+    ScatterGatherElement(const Buffer<T> & buf)
+    {
+      add(buf);
+    }
+
+    template<typename T>
+    void add(const Buffer<T> & buf)
+    {
+      //emplace_back for structs will be supported in C++20
+      _sges.push_back({buf.address(), buf.bytes(), buf.lkey()});
+    }
+
+    template<typename T>
+    void add(const Buffer<T> & buf, uint32_t size, size_t offset = 0)
+    {
+      //emplace_back for structs will be supported in C++20
+      _sges.push_back({buf.address() + offset, size, buf.lkey()});
+    }
+
+    ibv_sge * array() const;
+    size_t size() const;
   };
 }
 
