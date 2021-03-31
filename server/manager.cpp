@@ -96,16 +96,6 @@ namespace executor {
           SPDLOG_DEBUG("NEW CONNECTION");
 
           _clients.emplace_back(&conn, _state.pd());
-          //_clients_active.fetch_add(1, std::memory_order_release);
-          //for(; i < _clients_active; ++i) {
-          //  Client & client = _clients[i];
-          //  if(!client.active()) {
-          //    client.reinitialize(&conn);
-          //    break;
-          //  }
-          //}
-          //if(i == _clients_active) {
-          //}
         }
       );
       atomic_thread_fence(std::memory_order_release);
@@ -120,7 +110,7 @@ namespace executor {
     while(active_clients) {
       // FIXME: not safe? memory fance
       atomic_thread_fence(std::memory_order_acquire);
-      for(int i = 0; i < _clients_active; ++i) {
+      for(int i = 0; i < _clients.size(); ++i) {
         Client & client = _clients[i];
         if(!client.active())
           continue;
@@ -134,10 +124,11 @@ namespace executor {
               continue;
             uint64_t id = wc.wr_id;
             int16_t cores = client.allocation_requests.data()[id].cores;
-            if(cores > 0)
+            if(cores > 0) {
               SPDLOG_DEBUG("Client wants {} cores", cores);
-            else {
+            } else {
               client.disable();
+              --_clients_active;
               break;
             }
           }

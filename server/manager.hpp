@@ -29,7 +29,9 @@ namespace executor {
 
   struct ActiveExecutor
   {
-    // pid; 
+    pid_t pid;
+
+    //ActiveExecutor(std::string addr, int port, int func_size);
 
   };
 
