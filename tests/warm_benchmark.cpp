@@ -73,6 +73,7 @@ int main(int argc, char ** argv)
   }
   auto [median, avg] = benchmarker.summary();
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", opts.repetitions, avg, median);
+  benchmarker.export_csv(opts.out_file, {"time"});
 
   for(int i = 0; i < std::min(100, opts.input_size); ++i)
     printf("%d ", ((char*)out.data())[i]);
@@ -134,7 +135,6 @@ int main(int argc, char ** argv)
   //}
   //auto [median, avg] = benchmarker.summary();
   //spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", repetitions, avg, median);
-  //benchmarker.export_csv(opts["out-file"].as<std::string>(), {"send", "recv"});
   //std::cout << "Receive buffer refills; ";
   //for(int i = 0; i < refills.size(); ++i)
   //  std::cout << refills[i] << " ";
