@@ -125,7 +125,7 @@ namespace server {
   void Thread::thread_work(int timeout)
   {
     // FIXME: why rdmaactive needs rcv_buf_size?
-    rdmalib::RDMAActive active(addr, port, wc_buffer._rcv_buf_size);
+    rdmalib::RDMAActive active(addr, port, wc_buffer._rcv_buf_size, max_inline_data);
     rdmalib::Buffer<char> func_buffer(_functions.memory(), _functions.size());
 
     active.allocate();
