@@ -189,7 +189,7 @@ namespace rfaas {
         int id = std::get<0>(wcs)[i].wr_id;
         SPDLOG_DEBUG(
           "Received buffer details for thread, addr {}, rkey {}",
-          buf.data()[id].r_addr, buf.data()[id].r_key
+          _execs_buf.data()[id].r_addr, _execs_buf.data()[id].r_key
         );
         _connections[id].remote_input = rdmalib::RemoteBuffer(
           _execs_buf.data()[id].r_addr,
