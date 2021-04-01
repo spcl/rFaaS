@@ -136,7 +136,7 @@ namespace rfaas {
       if(!ret)
         return false;
 
-      _exec_manager->request() = {
+      _exec_manager->request() = (rdmalib::AllocationRequest) {
         static_cast<int16_t>(hot_timeout),
         // FIXME: timeout
         5,
