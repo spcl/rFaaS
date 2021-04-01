@@ -25,7 +25,7 @@ int main(int argc, char ** argv)
   spdlog::info("Executing serverless-rdma test parallel invocations!");
 
   rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size, opts.max_inline_data);
-  executor.allocate(opts.flib, opts.numcores);
+  executor.allocate(opts.flib, opts.numcores, opts.input_size, -1, true);
 
   // FIXME: move me to allocator
   std::vector<rdmalib::Buffer<char>> in;
