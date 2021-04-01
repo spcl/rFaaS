@@ -8,6 +8,7 @@
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/benchmarker.hpp>
+#include <rdmalib/functions.hpp>
 
 #include <rfaas/executor.hpp>
 
@@ -31,7 +32,7 @@ int main(int argc, char ** argv)
   std::vector<rdmalib::Buffer<char>> in;
   std::vector<rdmalib::Buffer<char>> out;
   for(int i = 0; i < opts.numcores; ++i) {
-    in.emplace_back(opts.input_size);
+    in.emplace_back(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE);
     in.back().register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
     memset(in.back().data(), 0, opts.input_size);
     for(int i = 0; i < opts.input_size; ++i) {
