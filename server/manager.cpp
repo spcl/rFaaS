@@ -17,25 +17,25 @@
 
 namespace executor {
 
-  Client::Client(rdmalib::Connection* conn, ibv_pd* pd):
-    connection(conn),
+  Client::Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd):
+    connection(std::move(conn)),
     rcv_buffer(RECV_BUF_SIZE),
     allocation_requests(RECV_BUF_SIZE)
   {
     // Make the buffer accessible to clients
     allocation_requests.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     // Initialize batch receive WCs
-    conn->initialize_batched_recv(allocation_requests, sizeof(rdmalib::AllocationRequest));
-    rcv_buffer.connect(conn);
+    connection->initialize_batched_recv(allocation_requests, sizeof(rdmalib::AllocationRequest));
+    rcv_buffer.connect(connection.get());
   }
 
-  void Client::reinitialize(rdmalib::Connection* conn)
-  {
-    connection = conn;
-    // Initialize batch receive WCs
-    connection->initialize_batched_recv(allocation_requests, sizeof(rdmalib::AllocationRequest));
-    rcv_buffer.connect(conn);
-  }
+  //void Client::reinitialize(rdmalib::Connection* conn)
+  //{
+  //  connection = conn;
+  //  // Initialize batch receive WCs
+  //  connection->initialize_batched_recv(allocation_requests, sizeof(rdmalib::AllocationRequest));
+  //  rcv_buffer.connect(conn);
+  //}
 
   void Client::reload_queue()
   {
@@ -53,7 +53,8 @@ namespace executor {
 
   bool Client::active()
   {
-    return connection;
+    // Compiler complains for some reason
+    return connection.operator bool();
   }
   
   ActiveExecutor::~ActiveExecutor() {}
@@ -73,6 +74,9 @@ namespace executor {
         return std::make_tuple(Status::FINISHED, WEXITSTATUS(status));
       } else if (WIFSIGNALED(status)) {
         return std::make_tuple(Status::FINISHED_FAIL, WTERMSIG(status));
+      } else {
+        // Unknown problem
+        return std::make_tuple(Status::FINISHED_FAIL, -1);
       }
     }
   }
@@ -159,21 +163,19 @@ namespace executor {
 
     listener.join();
     rdma_poller.join();
+  
   }
 
   void Manager::listen()
   {
-    //std::unique_ptr<rdmalib::RDMAPassive> passive;
-    //passive.reset(new rdmalib::RDMAPassive("192.168.0.12", port++, 32, true));
     while(true) {
       // Connection initialization:
       // (1) Initialize receive WCs with the allocation request buffer
       auto conn = _state.poll_events(
-        [this](rdmalib::Connection & conn) {
-          _clients.emplace_back(&conn, _state.pd());
-        },
         false
       );
+      _clients.emplace_back(std::move(conn), _state.pd());
+      _state.accept(_clients.back().connection);
       spdlog::info("Connected new client id {}", _clients_active);
       atomic_thread_fence(std::memory_order_release);
       _clients_active++;
@@ -193,10 +195,12 @@ namespace executor {
           continue;
         auto wcs = client.connection->poll_wc(rdmalib::QueueType::RECV, false);
         if(std::get<1>(wcs)) {
-          spdlog::error("RECEIVED! {} wcs {} clients {} size {}", i,std::get<1>(wcs), _clients_active, _clients.size());
+          SPDLOG_DEBUG(
+            "Received at {}, work completions {}, clients active {}, clients datastructure size {}",
+            i, std::get<1>(wcs), _clients_active, _clients.size()
+          );
           for(int j = 0; j < std::get<1>(wcs); ++j) {
             auto wc = std::get<0>(wcs)[j];
-            spdlog::error("wc {} {}", wc.wr_id, ibv_wc_status_str(wc.status));
             if(wc.status != 0)
               continue;
             uint64_t id = wc.wr_id;
@@ -204,7 +208,6 @@ namespace executor {
             char * client_address = client.allocation_requests.data()[id].listen_address;
             int client_port = client.allocation_requests.data()[id].listen_port;
             if(cores > 0) {
-              spdlog::info("Client {} at {}:{} wants {} cores", i, client_address, client_port, cores);
               // FIXME: Docker
               client.executor.reset(
                 ProcessExecutor::spawn(
@@ -213,8 +216,8 @@ namespace executor {
                 )
               );
               spdlog::info(
-                "Client {} at {}:{} has executor with {} ID",
-                i, client_address, client_port, client.executor->id()
+                "Client {} at {}:{} has executor with {} ID and {} cores",
+                i, client_address, client_port, client.executor->id(), cores
               );
             } else {
               spdlog::info("Client {} disconnects", i);

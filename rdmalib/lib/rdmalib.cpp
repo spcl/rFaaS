@@ -194,14 +194,13 @@ namespace rdmalib {
     _cfg.conn_param.retry_count = 3; 
     _cfg.conn_param.rnr_retry_count = 3;
 
-    _connections.reserve(MAX_NUMBER_CONNECTIONS);
     if(initialize)
       this->allocate();
   }
 
   RDMAPassive::~RDMAPassive()
   {
-    ibv_dealloc_pd(this->_pd);
+    //ibv_dealloc_pd(this->_pd);
     rdma_destroy_ep(this->_listen_id);
     //ibv_dealloc_pd(this->_pd);
     //rdma_destroy_id(this->_listen_id);
@@ -226,7 +225,7 @@ namespace rdmalib {
     return this->_pd;
   }
 
-  Connection* RDMAPassive::poll_events(std::function<void(Connection&)> before_accept, bool share_cqs)
+  std::unique_ptr<Connection> RDMAPassive::poll_events(bool share_cqs)
   {
     rdma_cm_event* event;
     if(rdma_get_cm_event(this->_ec, &event)) {
@@ -239,29 +238,26 @@ namespace rdmalib {
     }
 
     // Now receive id for the communication
-    Connection connection{true};
-    connection._id = event->id;
+    std::unique_ptr<Connection> connection{new Connection{true}};
+    connection->_id = event->id;
     // destroys event
     rdma_ack_cm_event(event);
-    SPDLOG_DEBUG("CREATE QP {} {} {}", fmt::ptr(connection._id), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd));
+    SPDLOG_DEBUG("CREATE QP {} {} {}", fmt::ptr(connection->_id), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd));
     if(!share_cqs)
       _cfg.attr.send_cq = _cfg.attr.recv_cq = nullptr;
     SPDLOG_DEBUG("used cq for creating a qp {} {}", fmt::ptr(_cfg.attr.send_cq),fmt::ptr(_cfg.attr.recv_cq));
-    impl::expect_zero(rdma_create_qp(connection._id, _pd, &_cfg.attr));
-    SPDLOG_DEBUG("CREATE QP with qpn {}", connection._id->qp->qp_num);
-    connection._qp = connection._id->qp;
-    connection.initialize();
-    _connections.push_back(std::move(connection));
+    impl::expect_zero(rdma_create_qp(connection->_id, _pd, &_cfg.attr));
+    SPDLOG_DEBUG("CREATE QP with qpn {}", connection->_id->qp->qp_num);
+    connection->_qp = connection->_id->qp;
+    connection->initialize();
+    return connection;
+  }
 
-    rdmalib::Connection & conn = _connections.back();
-    if(before_accept)
-      before_accept(conn);
-    if(rdma_accept(conn._id, &_cfg.conn_param)) {
+  void RDMAPassive::accept(std::unique_ptr<Connection> & connection) {
+    if(rdma_accept(connection->_id, &_cfg.conn_param)) {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
-      return nullptr;
+      connection = nullptr;
     }
     SPDLOG_DEBUG("Accepted connection"); 
-
-    return &conn;
   }
 }

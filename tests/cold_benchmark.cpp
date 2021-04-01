@@ -35,10 +35,6 @@ int main(int argc, char ** argv)
   rfaas::servers & cfg = rfaas::servers::instance();
 
   rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size, opts.max_inline_data);
-
-  spdlog::info("Connecting to the executor manager at !");
-  executor.allocate(opts.flib, opts.cores, opts.input_size, opts.hot_timeout, false);
-
   rdmalib::Buffer<char> in(opts.input_size), out(opts.input_size);
   in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
   out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
@@ -47,34 +43,29 @@ int main(int argc, char ** argv)
     ((char*)in.data())[i] = 1;
   }
 
-  rdmalib::Benchmarker<1> benchmarker{opts.repetitions};
-  spdlog::info("Warmups begin");
-  for(int i = 0; i < opts.warmup_iters; ++i) {
-    SPDLOG_DEBUG("Submit warm {}", i);
-    executor.execute(opts.fname, in, out);
-  }
-  spdlog::info("Warmups completed");
-
-  // Start actual measurements
-  for(int i = 0; i < opts.repetitions;) {
-    benchmarker.start();
-    SPDLOG_DEBUG("Submit execution {}", i);
-    if(executor.execute(opts.fname, in, out)) {
-      SPDLOG_DEBUG("Finished execution");
-      benchmarker.end(0);
-      ++i;
+  rdmalib::Benchmarker<5> benchmarker{opts.repetitions};
+  spdlog::info("Measurements begin");
+  for(int i = 0; i < opts.repetitions;++i) {
+    SPDLOG_DEBUG("Begin iteration {}", i);
+    if(executor.allocate(opts.flib, opts.cores, opts.input_size, opts.hot_timeout, false, &benchmarker)) {
+      executor.execute(opts.fname, in, out);
+      // End of function execution
+      benchmarker.end(4);
+      executor.deallocate();
     } else {
-      continue;
+      benchmarker.remove_last();
+      spdlog::error("Allocation not succesfull");
     }
   }
+  spdlog::info("Measurements end {}", benchmarker._measurements.size());
+
   auto [median, avg] = benchmarker.summary();
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", opts.repetitions, avg, median);
+  benchmarker.export_csv(opts.out_file, {"connect", "submit", "spawn_connect", "initialize", "execute"});
 
   for(int i = 0; i < std::min(100, opts.input_size); ++i)
     printf("%d ", ((char*)out.data())[i]);
   printf("\n");
-
-  executor.deallocate();
 
   return 0;
 }

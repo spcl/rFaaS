@@ -73,21 +73,23 @@ namespace executor {
   struct Client
   {
     static constexpr int RECV_BUF_SIZE = 8;
-    rdmalib::Connection* connection;
+    std::unique_ptr<rdmalib::Connection> connection;
     rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
     rdmalib::RecvBuffer rcv_buffer;
     std::unique_ptr<ActiveExecutor> executor;
 
-    Client(rdmalib::Connection* conn, ibv_pd* pd);
+    Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd);
     void reload_queue();
-    void reinitialize(rdmalib::Connection* conn);
+    //void reinitialize(rdmalib::Connection* conn);
     void disable();
     bool active();
   };
 
   struct Manager
   {
-    static constexpr int MAX_CLIENTS_ACTIVE = 128;
+    // FIXME: we need a proper data structure that is thread-safe and scales
+    //static constexpr int MAX_CLIENTS_ACTIVE = 128;
+    static constexpr int MAX_CLIENTS_ACTIVE = 1024;
     std::mutex clients;
     std::vector<Client> _clients;
     std::atomic<int> _clients_active;

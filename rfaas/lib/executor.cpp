@@ -19,8 +19,8 @@
 
 namespace rfaas {
 
-  executor_state::executor_state(rdmalib::Connection* conn, int rcv_buf_size):
-    conn(conn),
+  executor_state::executor_state(std::unique_ptr<rdmalib::Connection> conn, int rcv_buf_size):
+    conn(std::move(conn)),
     _rcv_buffer(rcv_buf_size)
   {
 
@@ -29,6 +29,7 @@ namespace rfaas {
   executor::executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
     _state(address, port, rcv_buf_size + 1),
     _rcv_buffer(rcv_buf_size),
+    _execs_buf(MAX_REMOTE_WORKERS),
     _address(address),
     _port(port),
     _rcv_buf_size(rcv_buf_size),
@@ -36,10 +37,12 @@ namespace rfaas {
     _invoc_id(0),
     _max_inlined_msg(max_inlined_msg)
   {
+    _execs_buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
   }
 
   rdmalib::Buffer<char> executor::load_library(std::string path)
   {
+    _func_names.clear();
     // Load the shared library with functions code
     FILE* file = fopen(path.c_str(), "rb");
     fseek (file, 0 , SEEK_END);
@@ -101,11 +104,12 @@ namespace rfaas {
     if(_exec_manager) {
       _exec_manager->disconnect();
       _exec_manager.reset(nullptr);
+      _connections.clear();
     }
   }
 
-  void executor::allocate(std::string functions_path, int numcores, int max_input_size,
-      int hot_timeout, bool skip_manager)
+  bool executor::allocate(std::string functions_path, int numcores, int max_input_size,
+      int hot_timeout, bool skip_manager, rdmalib::Benchmarker<5> * benchmarker)
   {
     rdmalib::Buffer<char> functions = load_library(functions_path);
     if(!skip_manager) {
@@ -121,47 +125,60 @@ namespace rfaas {
           _max_inlined_msg
         )
       );
+      // Measure connection time
+      if(benchmarker)
+        benchmarker->start();
       bool ret = _exec_manager->connect();
+      if(benchmarker) {
+        benchmarker->end(0);
+        benchmarker->start();
+      }
       if(!ret)
-        return;
+        return false;
 
-      // FIXME: timeout
-      // FIXME: variable number of inputs
       _exec_manager->request() = {
         static_cast<int16_t>(hot_timeout),
+        // FIXME: timeout
         5,
         static_cast<int16_t>(numcores),
+        // FIXME: variable number of inputs
         1,
         max_input_size,
         functions.data_size(),
-        _port
+        _port,
+        ""
       };
       strcpy(_exec_manager->request().listen_address, _address.c_str());
       _exec_manager->submit();
+      // Measure submission time
+      if(benchmarker) {
+        benchmarker->end(1);
+        benchmarker->start();
+      }
     }
 
     SPDLOG_DEBUG("Allocating {} threads on a remote executor", numcores);
-    // FIXME: temporary fix of vector reallocation - return Connection object?
-    _state._connections.reserve(numcores);
     // Now receive the connections from executors
-    rdmalib::Buffer<rdmalib::BufferInformation> buf(numcores);
     uint32_t obj_size = sizeof(rdmalib::BufferInformation);
-    buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
 
     for(int i = 0; i < numcores; ++i) {
       this->_connections.emplace_back(
         _state.poll_events(
-          [this,&buf,obj_size,i](rdmalib::Connection& conn){
-            conn.post_recv(buf.sge(obj_size, i*obj_size), i);
-          },
           true
         ),
         _rcv_buf_size
       );
+      this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, i*obj_size), i);
+      _state.accept(this->_connections.back().conn);
       this->_connections.back().conn->post_send(functions);
       SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", i + 1, numcores);
       // FIXME: this should be in a function
-      this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn);
+      this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn.get());
+    }
+    // Measure process spawn time
+    if(benchmarker) {
+      benchmarker->end(2);
+      benchmarker->start();
     }
 
     // Now receive buffer information
@@ -174,7 +191,10 @@ namespace rfaas {
           "Received buffer details for thread, addr {}, rkey {}",
           buf.data()[id].r_addr, buf.data()[id].r_key
         );
-        _connections[id].remote_input = rdmalib::RemoteBuffer(buf.data()[id].r_addr, buf.data()[id].r_key);
+        _connections[id].remote_input = rdmalib::RemoteBuffer(
+          _execs_buf.data()[id].r_addr,
+          _execs_buf.data()[id].r_key
+        );
       }
       received += std::get<1>(wcs);
     }
@@ -184,7 +204,13 @@ namespace rfaas {
       auto wcs = this->_connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
       received += std::get<1>(wcs);
     }
+    // Measure initial configuration submission
+    if(benchmarker) {
+      benchmarker->end(3);
+      benchmarker->start();
+    }
     SPDLOG_DEBUG("Code submission for all threads is finished");
+    return true;
   }
 
 }

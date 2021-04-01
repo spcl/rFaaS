@@ -38,6 +38,11 @@ namespace rdmalib {
       return duration;
     }
 
+    void remove_last()
+    {
+      _measurements.pop_back();
+    }
+
     std::tuple<double, double> summary(int idx = 0)
     {
       // FIXME: reenable

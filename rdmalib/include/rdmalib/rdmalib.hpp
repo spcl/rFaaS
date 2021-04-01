@@ -44,20 +44,18 @@ namespace rdmalib {
   };
 
   struct RDMAPassive {
-    static constexpr int MAX_NUMBER_CONNECTIONS = 128;
     ConnectionConfiguration _cfg;
     Address _addr;
     rdma_event_channel * _ec;
     rdma_cm_id* _listen_id;
     ibv_pd* _pd;
-    std::vector<Connection> _connections;
 
     RDMAPassive(const std::string & ip, int port, int recv_buf = 1, bool initialize = true, int max_inline_data = 0);
     ~RDMAPassive();
     void allocate();
     ibv_pd* pd() const;
-    Connection* poll_events(std::function<void(Connection&)> before_accept = nullptr, bool share_cqs = false);
-
+    std::unique_ptr<Connection> poll_events(bool share_cqs = false);
+    void accept(std::unique_ptr<Connection> & connection);
   };
 }
 

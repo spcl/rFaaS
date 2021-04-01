@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <iterator>
 
+#include <rdmalib/benchmarker.hpp>
 #include <rdmalib/connection.hpp>
 #include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/buffer.hpp>
@@ -28,16 +29,18 @@ namespace rfaas {
   }
 
   struct executor_state {
-    rdmalib::Connection* conn;
+    std::unique_ptr<rdmalib::Connection> conn;
     rdmalib::RemoteBuffer remote_input;
     rdmalib::RecvBuffer _rcv_buffer;
-    executor_state(rdmalib::Connection*, int rcv_buf_size);
+    executor_state(std::unique_ptr<rdmalib::Connection>, int rcv_buf_size);
   };
 
   struct executor {
+    static constexpr int MAX_REMOTE_WORKERS = 64;
     // FIXME: 
     rdmalib::RDMAPassive _state;
     rdmalib::RecvBuffer _rcv_buffer;
+    rdmalib::Buffer<rdmalib::BufferInformation> _execs_buf;
     std::string _address;
     int _port;
     int _rcv_buf_size;
@@ -52,8 +55,8 @@ namespace rfaas {
     executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg);
 
     // Skipping managers is useful for benchmarking
-    void allocate(std::string functions_path, int numcores, int max_input_size, int hot_timeout,
-        bool skip_manager = false);
+    bool allocate(std::string functions_path, int numcores, int max_input_size, int hot_timeout,
+        bool skip_manager = false, rdmalib::Benchmarker<5> * benchmarker = nullptr);
     void deallocate();
     rdmalib::Buffer<char> load_library(std::string path);
 
