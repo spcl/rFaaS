@@ -1,13 +1,17 @@
 
+#include "rdmalib/rdmalib.hpp"
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/allocation.hpp>
 #include <rdmalib/connection.hpp>
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/util.hpp>
-#include <rfaas/executor.hpp>
 
-    // FIXME: same function as in server/functions.cpp - merge?
+#include <rfaas/connection.hpp>
+#include <rfaas/executor.hpp>
+#include <rfaas/resources.hpp>
+
+// FIXME: same function as in server/functions.cpp - merge?
 #include <sys/mman.h>
 #include <dlfcn.h>
 #include <elf.h>
@@ -25,6 +29,8 @@ namespace rfaas {
   executor::executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
     _state(address, port, rcv_buf_size + 1),
     _rcv_buffer(rcv_buf_size),
+    _address(address),
+    _port(port),
     _rcv_buf_size(rcv_buf_size),
     _executions(0),
     _invoc_id(0),
@@ -90,11 +96,49 @@ namespace rfaas {
     return functions;
   }
 
-  void executor::allocate(std::string functions_path, int numcores)
+  void executor::deallocate()
   {
-    // FIXME: here send cold allocations
+    if(_exec_manager) {
+      _exec_manager->disconnect();
+      _exec_manager.reset(nullptr);
+    }
+  }
 
+  void executor::allocate(std::string functions_path, int numcores, int max_input_size,
+      int hot_timeout, bool skip_manager)
+  {
     rdmalib::Buffer<char> functions = load_library(functions_path);
+    if(!skip_manager) {
+      // FIXME: handle more than one manager
+      servers & instance = servers::instance();
+      auto selected_servers = instance.select(numcores);
+
+      _exec_manager.reset(
+        new manager_connection(
+          instance.server(selected_servers[0]).address,
+          instance.server(selected_servers[0]).port,
+          _rcv_buf_size,
+          _max_inlined_msg
+        )
+      );
+      bool ret = _exec_manager->connect();
+      if(!ret)
+        return;
+
+      // FIXME: timeout
+      // FIXME: variable number of inputs
+      _exec_manager->request() = {
+        static_cast<int16_t>(hot_timeout),
+        5,
+        static_cast<int16_t>(numcores),
+        1,
+        max_input_size,
+        functions.data_size(),
+        _port
+      };
+      strcpy(_exec_manager->request().listen_address, _address.c_str());
+      _exec_manager->submit();
+    }
 
     SPDLOG_DEBUG("Allocating {} threads on a remote executor", numcores);
     // FIXME: temporary fix of vector reallocation - return Connection object?
@@ -103,9 +147,8 @@ namespace rfaas {
     rdmalib::Buffer<rdmalib::BufferInformation> buf(numcores);
     uint32_t obj_size = sizeof(rdmalib::BufferInformation);
     buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    // FIXME: shared receive queue here - batched receive
+
     for(int i = 0; i < numcores; ++i) {
-      // FIXME: single QP
       this->_connections.emplace_back(
         _state.poll_events(
           [this,&buf,obj_size,i](rdmalib::Connection& conn){
@@ -124,7 +167,6 @@ namespace rfaas {
     // Now receive buffer information
     int received = 0;
     while(received < numcores) {
-      // FIXME: single QP
       auto wcs = this->_connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true); 
       for(int i = 0; i < std::get<1>(wcs); ++i) {
         int id = std::get<0>(wcs)[i].wr_id;
@@ -137,7 +179,6 @@ namespace rfaas {
       received += std::get<1>(wcs);
     }
 
-    // FIXME: Ensure that function code has been submitted
     received = 0;
     while(received < numcores) {
       auto wcs = this->_connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);

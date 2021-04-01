@@ -15,7 +15,7 @@ namespace cold_benchmarker {
       ("warmup-iters", "Number of warm-up iterations", cxxopts::value<int>()->default_value("1"))
       ("fname", "Function name", cxxopts::value<std::string>())
       ("flib", "Functions library", cxxopts::value<std::string>())
-      ("f,file", "Server status", cxxopts::value<std::string>())
+      ("f,file", "Executor manager server status", cxxopts::value<std::string>())
       ("o,out-file", "Output with statistics", cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>())
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))

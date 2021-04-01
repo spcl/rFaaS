@@ -2,16 +2,21 @@
 #ifndef __RFAAS_EXECUTOR_HPP__
 #define __RFAAS_EXECUTOR_HPP__
 
-#include "rdmalib/buffer.hpp"
 #include <algorithm>
 #include <iterator>
+
 #include <rdmalib/connection.hpp>
 #include <rdmalib/recv_buffer.hpp>
+#include <rdmalib/buffer.hpp>
 #include <rdmalib/rdmalib.hpp>
+
+#include <rfaas/connection.hpp>
 
 #include <spdlog/spdlog.h>
 
 namespace rfaas {
+
+  struct servers;
 
   namespace impl {
 
@@ -33,15 +38,24 @@ namespace rfaas {
     // FIXME: 
     rdmalib::RDMAPassive _state;
     rdmalib::RecvBuffer _rcv_buffer;
+    std::string _address;
+    int _port;
     int _rcv_buf_size;
     int _executions;
     int _invoc_id;
     // FIXME: global settings
     int _max_inlined_msg;
     std::vector<executor_state> _connections;
+    std::unique_ptr<manager_connection> _exec_manager;
     std::vector<std::string> _func_names;
 
     executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg);
+
+    // Skipping managers is useful for benchmarking
+    void allocate(std::string functions_path, int numcores, int max_input_size, int hot_timeout,
+        bool skip_manager = false);
+    void deallocate();
+    rdmalib::Buffer<char> load_library(std::string path);
 
     // FIXME: irange for cores
     // FIXME: now only operates on buffers
@@ -155,9 +169,6 @@ namespace rfaas {
         _connections[i]._rcv_buffer._requests--;
       return correct;
     }
-
-    void allocate(std::string functions_path, int numcores);
-    rdmalib::Buffer<char> load_library(std::string path);
   };
 
 }
