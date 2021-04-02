@@ -66,6 +66,7 @@ int main(int argc, char ** argv)
   }
   auto [median, avg] = benchmarker.summary();
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", opts.repetitions, avg, median);
+  benchmarker.export_csv(opts.out_file, {"time"});
 
   int i = 0;
   for(rdmalib::Buffer<char> & buf : out) {
