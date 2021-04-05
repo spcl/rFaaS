@@ -17,10 +17,12 @@
 
 namespace executor {
 
-  Client::Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd):
+  Client::Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd, Accounting & _acc):
     connection(std::move(conn)),
+    allocation_requests(RECV_BUF_SIZE),
     rcv_buffer(RECV_BUF_SIZE),
-    allocation_requests(RECV_BUF_SIZE)
+    accounting(_acc),
+    allocation_time(0)
   {
     // Make the buffer accessible to clients
     allocation_requests.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
@@ -59,9 +61,13 @@ namespace executor {
   
   ActiveExecutor::~ActiveExecutor() {}
 
-  ProcessExecutor::ProcessExecutor(pid_t pid):
+  ProcessExecutor::ProcessExecutor(ProcessExecutor::time_t alloc_begin, pid_t pid):
     _pid(pid)
-  {}
+  {
+    _allocation_begin = alloc_begin;
+    // FIXME: remove after connection
+    _allocation_finished = _allocation_begin;
+  }
 
   std::tuple<ProcessExecutor::Status,int> ProcessExecutor::check() const
   {
@@ -86,7 +92,11 @@ namespace executor {
     return static_cast<int>(_pid);
   }
 
-  ProcessExecutor* ProcessExecutor::spawn(const rdmalib::AllocationRequest & request, const ExecutorSettings & exec)
+  ProcessExecutor* ProcessExecutor::spawn(
+    const rdmalib::AllocationRequest & request,
+    const ExecutorSettings & exec,
+    const executor::ManagerConnection & conn
+  )
   {
     // FIXME: doesn't work every well?
     //int rc = ibv_fork_init();
@@ -94,6 +104,7 @@ namespace executor {
     if(rc)
       exit(rc);
 
+    auto begin = std::chrono::high_resolution_clock::now();
     int mypid = fork();
     if(mypid < 0) {
       spdlog::error("Fork failed! {}", mypid);
@@ -113,6 +124,11 @@ namespace executor {
       std::string executor_recv_buf = std::to_string(exec.recv_buffer_size);
       std::string executor_max_inline = std::to_string(exec.max_inline_data);
 
+      std::string mgr_port = std::to_string(conn.port);
+      std::string mgr_secret = std::to_string(conn.secret);
+      std::string mgr_buf_addr = std::to_string(conn.r_addr);
+      std::string mgr_buf_rkey = std::to_string(conn.r_key);
+
       int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
       dup2(fd, 1);
       dup2(fd, 2);
@@ -129,6 +145,11 @@ namespace executor {
         "--max-inline-data", executor_max_inline.c_str(),
         "--func-size", client_func_size.c_str(),
         "--timeout", client_timeout.c_str(),
+        "--mgr-address", conn.addr.c_str(),
+        "--mgr-port", mgr_port.c_str(),
+        "--mgr-secret", mgr_secret.c_str(),
+        "--mgr-buf-addr", mgr_buf_addr.c_str(),
+        "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
         nullptr
       };
       int ret = execve(argv[0], const_cast<char**>(&argv[0]), nullptr);
@@ -141,18 +162,26 @@ namespace executor {
       close(fd);
       exit(0);
     }
-    return new ProcessExecutor{mypid};
+    return new ProcessExecutor{begin, mypid};
   }
 
   Manager::Manager(std::string addr, int port, std::string server_file, const ExecutorSettings & settings):
     _clients_active(0),
     _state(addr, port, 32, true),
     _status(addr, port),
-    _settings(settings)
+    _settings(settings),
+    _accounting_data(MAX_CLIENTS_ACTIVE),
+    _address(addr),
+    _port(port),
+    // FIXME: randomly generated
+    _secret(0x1234)
   {
     _clients.reserve(this->MAX_CLIENTS_ACTIVE);
     std::ofstream out(server_file);
     _status.serialize(out);
+
+    memset(_accounting_data.data(), 0, _accounting_data.data_size());
+    _accounting_data.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
   }
 
   void Manager::start()
@@ -162,8 +191,7 @@ namespace executor {
     std::thread rdma_poller(&Manager::poll_rdma, this);
 
     listener.join();
-    rdma_poller.join();
-  
+    rdma_poller.join(); 
   }
 
   void Manager::listen()
@@ -174,11 +202,24 @@ namespace executor {
       auto conn = _state.poll_events(
         false
       );
-      _clients.emplace_back(std::move(conn), _state.pd());
-      _state.accept(_clients.back().connection);
-      spdlog::info("Connected new client id {}", _clients_active);
-      atomic_thread_fence(std::memory_order_release);
-      _clients_active++;
+      if(conn->_private_data) {
+        if((conn->_private_data & 0xFFFF ) == this->_secret) {
+          int client = conn->_private_data >> 16;
+          spdlog::info("Connected executor for client {}", client);
+          _state.accept(conn);
+          _clients[client].executor->connection = std::move(conn);
+        } else {
+          spdlog::error("New connection's private data that we can't understand: {}", conn->_private_data);
+        }
+      }
+      // FIXME: users sending their ID 
+      else {
+        _clients.emplace_back(std::move(conn), _state.pd(), _accounting_data.data()[_clients_active]);
+        _state.accept(_clients.back().connection);
+        spdlog::info("Connected new client id {}", _clients_active);
+        atomic_thread_fence(std::memory_order_release);
+        _clients_active++;
+      }
     }
   }
 
@@ -207,12 +248,15 @@ namespace executor {
             int16_t cores = client.allocation_requests.data()[id].cores;
             char * client_address = client.allocation_requests.data()[id].listen_address;
             int client_port = client.allocation_requests.data()[id].listen_port;
+
             if(cores > 0) {
+              int secret = (i << 16) | (this->_secret & 0xFFFF);
               // FIXME: Docker
               client.executor.reset(
                 ProcessExecutor::spawn(
                   client.allocation_requests.data()[id],
-                  _settings
+                  _settings,
+                  {this->_address, this->_port, secret, 0, 0}
                 )
               );
               spdlog::info(
@@ -232,7 +276,16 @@ namespace executor {
           if(client.executor) {
             auto status = client.executor->check();
             if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
-              spdlog::info("Executor at client {} exited, status {}", i, std::get<1>(status));
+              auto now = std::chrono::high_resolution_clock::now();
+              client.allocation_time +=
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                  now - client.executor->_allocation_finished
+                ).count();
+              // FIXME: update global manager
+              spdlog::info(
+                "Executor at client {} exited, status {}, time allocated {} us",
+                i, std::get<1>(status), client.allocation_time
+              );
               client.executor.reset(nullptr);
             }
           }

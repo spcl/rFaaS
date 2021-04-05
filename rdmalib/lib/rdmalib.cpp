@@ -143,9 +143,14 @@ namespace rdmalib {
     //spdlog::info("{} {} {} {} {} {}", ret, errno, conn != nullptr, conn->verbs != nullptr, conn->pd != nullptr, conn->qp != nullptr);
   }
 
-  bool RDMAActive::connect()
+  bool RDMAActive::connect(uint32_t secret)
   {
     allocate();
+    if(secret) {
+      _cfg.conn_param.private_data = &secret;
+      _cfg.conn_param.private_data_len = sizeof(uint32_t);
+      SPDLOG_DEBUG("Setting connection secret {} of length {}", secret, sizeof(uint32_t));
+    }
     if(rdma_connect(_conn->_id, &_cfg.conn_param)) {
       spdlog::error("Connection unsuccesful, reason {} {}", errno, strerror(errno));
       return false;
@@ -157,7 +162,7 @@ namespace rdmalib {
 
   void RDMAActive::disconnect()
   {
-    SPDLOG_DEBUG("Disconnecting");
+    //SPDLOG_DEBUG("Disconnecting");
     impl::expect_zero(rdma_disconnect(_conn->_id));
     _conn.reset();
     _pd = nullptr;
@@ -242,6 +247,13 @@ namespace rdmalib {
     // Now receive id for the communication
     std::unique_ptr<Connection> connection{new Connection{true}};
     connection->_id = event->id;
+    if(event->param.conn.private_data_len != 0) {
+      uint32_t data = *reinterpret_cast<const uint32_t*>(event->param.conn.private_data);
+      connection->_private_data = data;
+      SPDLOG_DEBUG("Connection request with private data {}", data);
+    }
+    else
+      SPDLOG_DEBUG("Connection request with no private data");
     // destroys event
     rdma_ack_cm_event(event);
     SPDLOG_DEBUG("CREATE QP {} {} {}", fmt::ptr(connection->_id), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd));

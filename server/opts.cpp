@@ -62,6 +62,11 @@ namespace server {
       ("r,repetitions", "Repetitions to execute", cxxopts::value<int>()->default_value("1"))
       ("f,file", "Output server status.", cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
+      ("mgr-address", "Use selected address", cxxopts::value<std::string>())
+      ("mgr-port", "Use selected port", cxxopts::value<int>())
+      ("mgr-secret", "Use selected port", cxxopts::value<int>())
+      ("mgr-buf-addr", "Use selected port", cxxopts::value<int64_t>())
+      ("mgr-buf-rkey", "Use selected port", cxxopts::value<int32_t>())
     ;
     auto parsed_options = options.parse(argc, argv);
 
@@ -79,6 +84,12 @@ namespace server {
     result.max_inline_data = parsed_options["max-inline-data"].as<int>();
     result.func_size = parsed_options["func-size"].as<int>();
     result.timeout = parsed_options["timeout"].as<int>();
+
+    result.mgr_address = parsed_options["mgr-address"].as<std::string>();
+    result.mgr_port = parsed_options["mgr-port"].as<int>();
+    result.mgr_secret = parsed_options["mgr-secret"].as<int>();
+    result.accounting_buffer_addr = parsed_options["mgr-buf-addr"].as<int64_t>();
+    result.accounting_buffer_rkey = parsed_options["mgr-buf-rkey"].as<int32_t>();
 
     std::string polling_mgr = parsed_options["polling-mgr"].as<std::string>();
     if(polling_mgr == "server") {

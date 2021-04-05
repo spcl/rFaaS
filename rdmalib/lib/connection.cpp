@@ -18,6 +18,7 @@ namespace rdmalib {
     _qp(nullptr),
     _channel(nullptr),
     _req_count(0),
+    _private_data(0),
     _passive(passive)
   {
     inlining(false);
@@ -42,6 +43,7 @@ namespace rdmalib {
     _qp(obj._qp),
     _channel(obj._channel),
     _req_count(obj._req_count),
+    _private_data(obj._private_data),
     _passive(obj._passive),
     _send_flags(obj._send_flags)
   {

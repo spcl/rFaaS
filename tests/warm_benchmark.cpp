@@ -1,6 +1,7 @@
 
 #include <chrono>
 #include <thread>
+#include <fstream>
 
 #include <spdlog/spdlog.h>
 #include <cxxopts.hpp>
@@ -11,23 +12,9 @@
 #include <rdmalib/functions.hpp>
 
 #include <rfaas/executor.hpp>
+#include <rfaas/resources.hpp>
 
 #include "warm_benchmark.hpp"
-
-//bool poll_result(client::ServerConnection & client, int iter)
-//{
-//  auto wc = client.recv().poll(true);
-//  uint32_t val = ntohl(std::get<0>(wc)[0].imm_data) >> 6;
-//  if(val == 0)
-//    return true;
-//  else {
-//    if(val == 1)
-//      spdlog::error("Iter {}, Thread busy, cannot post work", iter);
-//    else
-//      spdlog::error("Iter {}, Unknown error {}", iter, val);
-//    return false;
-//  }
-//}
 
 int main(int argc, char ** argv)
 {
@@ -39,8 +26,14 @@ int main(int argc, char ** argv)
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
   spdlog::info("Executing serverless-rdma test warm_benchmarker!");
 
+  // Read connection details to the managers
+  std::ifstream in_cfg(opts.server_file);
+  rfaas::servers::deserialize(in_cfg);
+  in_cfg.close();
+  rfaas::servers & cfg = rfaas::servers::instance();
+
   rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size, opts.max_inline_data);
-  executor.allocate(opts.flib, opts.numcores, opts.input_size, -1, true);
+  executor.allocate(opts.flib, opts.numcores, opts.input_size, -1, false);
 
   // FIXME: move me to allocator
   rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
