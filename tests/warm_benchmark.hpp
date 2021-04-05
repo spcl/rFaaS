@@ -26,6 +26,7 @@ namespace warm_benchmarker {
     std::string fname;
     std::string flib;
     int input_size;
+    std::string server_file;
     std::string out_file;
     bool pin_threads;
     int recv_buf_size;
