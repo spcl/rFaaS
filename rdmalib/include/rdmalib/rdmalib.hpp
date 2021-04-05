@@ -37,7 +37,7 @@ namespace rdmalib {
     RDMAActive(const std::string & ip, int port, int recv_buf = 1, int max_inline_data = 0);
     ~RDMAActive();
     void allocate();
-    bool connect();
+    bool connect(uint32_t secret = 0);
     void disconnect();
     ibv_pd* pd() const;
     Connection & connection();

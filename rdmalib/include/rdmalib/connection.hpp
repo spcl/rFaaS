@@ -35,6 +35,7 @@ namespace rdmalib {
     ibv_qp* _qp; 
     ibv_comp_channel* _channel;
     int32_t _req_count;
+    int32_t _private_data;
     bool _passive;
     static const int _wc_size = 32; 
     // FIXME: associate this with RecvBuffer
