@@ -1,4 +1,5 @@
 
+#include <chrono>
 #include <atomic>
 #include <ostream>
 #include <sys/time.h>
@@ -21,13 +22,14 @@
 
 namespace server {
 
-  void Thread::work(int invoc_id, int func_id, uint32_t in_size)
+  Thread::timepoint_t Thread::work(int invoc_id, int func_id, uint32_t in_size)
   {
     // FIXME: load func ptr
     rdmalib::functions::Submission* header = reinterpret_cast<rdmalib::functions::Submission*>(rcv.ptr());
     auto ptr = _functions.function(func_id);
 
     SPDLOG_DEBUG("Thread {} begins work! Executing function {} with size {}", id, _functions._names[func_id], in_size);
+    auto start = std::chrono::high_resolution_clock::now();
     // Data to ignore header passed in the buffer
     uint32_t out_size = (*ptr)(rcv.data(), in_size, send.ptr());
     SPDLOG_DEBUG("Thread {} finished work!", id);
@@ -41,12 +43,77 @@ namespace server {
       (invoc_id << 16) | 0,
       out_size <= max_inline_data
     );
+    auto end = std::chrono::high_resolution_clock::now();
+    _accounting.execution_time += std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    return end;
   }
 
-  void Thread::hot()
+  void Thread::hot(uint32_t timeout)
   {
-    rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
+    //rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
     SPDLOG_DEBUG("Thread {} Begins hot polling", id);
+
+    auto start = std::chrono::high_resolution_clock::now();
+    int i = 0;
+    while(repetitions < max_repetitions) {
+
+      // if we block, we never handle the interruption
+      auto wcs = wc_buffer.poll();
+      if(std::get<1>(wcs)) {
+        for(int i = 0; i < std::get<1>(wcs); ++i) {
+
+          //server_processing_times.start();
+          ibv_wc* wc = &std::get<0>(wcs)[i];
+          if(wc->status) {
+            spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
+            continue;
+          }
+          int info = ntohl(wc->imm_data);
+          int func_id = info & invocation_mask;
+          int invoc_id = info >> 16;
+          SPDLOG_DEBUG(
+            "Thread {} Invoc id {} Execute func {} Repetition {}",
+            id, invoc_id, func_id, repetitions
+          );
+
+          // Measure hot polling time until we started execution
+          auto now = std::chrono::high_resolution_clock::now();
+          auto func_end = work(invoc_id, func_id, wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
+          uint32_t time_passed = std::chrono::duration_cast<std::chrono::microseconds>(now - start).count();
+          _accounting.hot_polling_time += time_passed;
+          i = 0;
+          start = func_end;
+
+          //sum += server_processing_times.end();
+          conn->poll_wc(rdmalib::QueueType::SEND, true);
+          repetitions += 1;
+        }
+        wc_buffer.refill();
+      }
+      ++i;
+
+      // FIXME: adjust period to the timeout
+      if(i == HOT_POLLING_VERIFICATION_PERIOD) {
+        auto now = std::chrono::high_resolution_clock::now();
+        uint32_t time_passed = std::chrono::duration_cast<std::chrono::microseconds>(now - start).count();
+        _accounting.hot_polling_time += time_passed;
+        if(_polling_state != PollingState::HOT_ALWAYS && time_passed >= timeout) {
+          _polling_state = PollingState::WARM;
+          // FIXME: can we miss an event here?
+          conn->notify_events();
+          SPDLOG_DEBUG("Switching to warm polling after {} us with no invocations", time_passed);
+          return;
+        }
+        i = 0;
+      }
+    }
+  }
+
+  void Thread::warm()
+  {
+    //rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
+    // FIXME: this should be automatic
+    SPDLOG_DEBUG("Thread {} Begins warm polling", id);
 
     while(repetitions < max_repetitions) {
 
@@ -55,7 +122,7 @@ namespace server {
       if(std::get<1>(wcs)) {
         for(int i = 0; i < std::get<1>(wcs); ++i) {
 
-          server_processing_times.start();
+          //server_processing_times.start();
           ibv_wc* wc = &std::get<0>(wcs)[i];
           if(wc->status) {
             spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
@@ -71,54 +138,23 @@ namespace server {
 
           work(invoc_id, func_id, wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
 
-          sum += server_processing_times.end();
+          //sum += server_processing_times.end();
           conn->poll_wc(rdmalib::QueueType::SEND, true);
           repetitions += 1;
         }
         wc_buffer.refill();
+        if(_polling_state != PollingState::WARM_ALWAYS) {
+          SPDLOG_DEBUG("Switching to hot polling after invocation!");
+          _polling_state = PollingState::HOT;
+          return;
+        }
       }
-    }
-  }
 
-  void Thread::warm()
-  {
-    rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
-    // FIXME: this should be automatic
-    SPDLOG_DEBUG("Thread {} Begins warm polling", id);
-
-    while(repetitions < max_repetitions) {
-
+      // Do waiting after a single polling - avoid missing an events that
+      // arrived before we called notify_events
       auto cq = conn->wait_events();
       conn->ack_events(cq, 1);
       conn->notify_events();
-
-      // if we block, we never handle the interruption
-      auto wcs = wc_buffer.poll();
-      if(std::get<1>(wcs)) {
-        for(int i = 0; i < std::get<1>(wcs); ++i) {
-
-          server_processing_times.start();
-          ibv_wc* wc = &std::get<0>(wcs)[i];
-          if(wc->status) {
-            spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
-            continue;
-          }
-          int info = ntohl(wc->imm_data);
-          int func_id = info & invocation_mask;
-          int invoc_id = info >> 16;
-          SPDLOG_DEBUG(
-            "Thread {} Invoc id {} Execute func {} Repetition {}",
-            id, invoc_id, func_id, repetitions
-          );
-
-          work(invoc_id, func_id, wc->byte_len);
-
-          sum += server_processing_times.end();
-          conn->poll_wc(rdmalib::QueueType::SEND, true);
-          repetitions += 1;
-        }
-        wc_buffer.refill();
-      }
     }
   }
 
@@ -138,7 +174,14 @@ namespace server {
 
     // Request notification before connecting - avoid missing a WC!
     // Do it only when starting from a warm directly
-    if(timeout == 0)
+    if(timeout == -1) {
+      _polling_state = PollingState::HOT_ALWAYS;
+    } else if(timeout == 0) {
+      _polling_state = PollingState::WARM_ALWAYS;
+    } else {
+      _polling_state = PollingState::HOT;
+    }
+    if(_polling_state == PollingState::WARM_ALWAYS || _polling_state == PollingState::WARM)
       conn->notify_events();
 
     if(!active.connect())
@@ -166,14 +209,17 @@ namespace server {
     SPDLOG_DEBUG("Thread {} Received functions library of size {}", id, std::get<0>(wcs)[0].byte_len);
 
     spdlog::info("Thread {} begins work with timeout {}", id, timeout);
-    if(timeout == -1) {
-      hot();
-    } else if(timeout == 0) {
-      warm();
-    } else {
-      //FIXME: here implement switching
+
+    while(repetitions < max_repetitions) {
+      if(_polling_state == PollingState::HOT || _polling_state == PollingState::HOT_ALWAYS)
+        hot(timeout);
+      else
+        warm();
     }
-    spdlog::info("Thread {} finished work", id);
+    spdlog::info(
+      "Thread {} finished work, spent {} us hot polling and {} us executing.",
+      id, _accounting.hot_polling_time, _accounting.execution_time
+    );
   }
 
   FastExecutors::FastExecutors(std::string client_addr, int port,

@@ -3,6 +3,7 @@
 #define __SERVER_FASTEXECUTORS_HPP__
 
 #include "rdmalib/rdmalib.hpp"
+#include <chrono>
 #include <vector>
 #include <thread>
 #include <atomic>
@@ -21,8 +22,25 @@ namespace rdmalib {
 
 namespace server {
 
+  struct Accounting {
+    uint32_t allocation_time;
+    uint32_t hot_polling_time;
+    uint32_t execution_time; 
+  };
+
+  enum class PollingState {
+    HOT = 0,
+    HOT_ALWAYS,
+    WARM,
+    WARM_ALWAYS
+  };
+
   // FIXME: is not movable or copyable at the moment
   struct Thread {
+
+    typedef std::chrono::high_resolution_clock clock_t;
+    typedef std::chrono::time_point<std::chrono::high_resolution_clock> timepoint_t;
+
     constexpr static int invocation_mask = 0x0000FFFF;
     Functions _functions;
     std::string addr;
@@ -34,6 +52,9 @@ namespace server {
     rdmalib::Buffer<char> send, rcv;
     rdmalib::RecvBuffer wc_buffer;
     rdmalib::Connection* conn;
+    Accounting _accounting;
+    constexpr static int HOT_POLLING_VERIFICATION_PERIOD = 10;
+    PollingState _polling_state;
 
     Thread(std::string addr, int port, int id, int functions_size,
         int buf_size, int recv_buffer_size, int max_inline_data):
@@ -49,12 +70,13 @@ namespace server {
       rcv(buf_size, rdmalib::functions::Submission::DATA_HEADER_SIZE),
       // +1 to handle batching of functions work completions + initial code submission
       wc_buffer(recv_buffer_size + 1),
-      conn(nullptr)
+      conn(nullptr),
+      _accounting({0,0,0})
     {
     }
 
-    void work(int invoc_id, int func_id, uint32_t in_size);
-    void hot();
+    timepoint_t work(int invoc_id, int func_id, uint32_t in_size);
+    void hot(uint32_t hot_timeout);
     void warm();
     void thread_work(int timeout);
   };
