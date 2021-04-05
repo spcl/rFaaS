@@ -44,7 +44,7 @@ namespace server {
       out_size <= max_inline_data
     );
     auto end = std::chrono::high_resolution_clock::now();
-    _accounting.execution_time += std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    _accounting.execution_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
     return end;
   }
 
@@ -79,7 +79,7 @@ namespace server {
           // Measure hot polling time until we started execution
           auto now = std::chrono::high_resolution_clock::now();
           auto func_end = work(invoc_id, func_id, wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
-          uint32_t time_passed = std::chrono::duration_cast<std::chrono::microseconds>(now - start).count();
+          uint32_t time_passed = std::chrono::duration_cast<std::chrono::nanoseconds>(now - start).count();
           _accounting.hot_polling_time += time_passed;
           i = 0;
           start = func_end;
@@ -95,7 +95,7 @@ namespace server {
       // FIXME: adjust period to the timeout
       if(i == HOT_POLLING_VERIFICATION_PERIOD) {
         auto now = std::chrono::high_resolution_clock::now();
-        uint32_t time_passed = std::chrono::duration_cast<std::chrono::microseconds>(now - start).count();
+        uint32_t time_passed = std::chrono::duration_cast<std::chrono::nanoseconds>(now - start).count();
         _accounting.hot_polling_time += time_passed;
         if(_polling_state != PollingState::HOT_ALWAYS && time_passed >= timeout) {
           _polling_state = PollingState::WARM;
@@ -104,6 +104,7 @@ namespace server {
           SPDLOG_DEBUG("Switching to warm polling after {} us with no invocations", time_passed);
           return;
         }
+        start = now;
         i = 0;
       }
     }
@@ -217,8 +218,8 @@ namespace server {
         warm();
     }
     spdlog::info(
-      "Thread {} finished work, spent {} us hot polling and {} us executing.",
-      id, _accounting.hot_polling_time, _accounting.execution_time
+      "Thread {} finished work, spent {} us hot polling and {} us computation, {} executions.",
+      id, _accounting.hot_polling_time / 1000.0, _accounting.execution_time / 1000.0, repetitions
     );
   }
 
