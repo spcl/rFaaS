@@ -21,7 +21,7 @@ namespace server {
     std::vector<std::string> _names;
     std::vector<void*> _functions;
 
-    typedef void (*FuncType)(void*, uint32_t, void*);
+    typedef uint32_t (*FuncType)(void*, uint32_t, void*);
 
     Functions(size_t size);
     ~Functions();

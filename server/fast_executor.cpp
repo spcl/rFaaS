@@ -29,17 +29,17 @@ namespace server {
 
     SPDLOG_DEBUG("Thread {} begins work! Executing function {} with size {}", id, _functions._names[func_id], in_size);
     // Data to ignore header passed in the buffer
-    (*ptr)(rcv.data(), in_size, send.ptr());
+    uint32_t out_size = (*ptr)(rcv.data(), in_size, send.ptr());
     SPDLOG_DEBUG("Thread {} finished work!", id);
 
     // Send back: the value of immediate write
     // first 16 bytes - invocation id
     // second 16 bytes - return value (0 on no error)
     conn->post_write(
-      send,
+      send.sge(out_size, 0),
       {header->r_address, header->r_key},
       (invoc_id << 16) | 0,
-      send.bytes() <= max_inline_data
+      out_size <= max_inline_data
     );
   }
 
@@ -69,7 +69,7 @@ namespace server {
             id, invoc_id, func_id, repetitions
           );
 
-          work(invoc_id, func_id, wc->byte_len);
+          work(invoc_id, func_id, wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
 
           sum += server_processing_times.end();
           conn->poll_wc(rdmalib::QueueType::SEND, true);
