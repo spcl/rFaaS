@@ -15,6 +15,7 @@
 #include <rdmalib/functions.hpp>
 
 #include "functions.hpp"
+#include "common.hpp"
 
 namespace rdmalib {
   struct RecvBuffer;
@@ -23,7 +24,6 @@ namespace rdmalib {
 namespace server {
 
   struct Accounting {
-    uint32_t allocation_time;
     uint32_t hot_polling_time;
     uint32_t execution_time; 
   };
@@ -55,9 +55,11 @@ namespace server {
     Accounting _accounting;
     constexpr static int HOT_POLLING_VERIFICATION_PERIOD = 10;
     PollingState _polling_state;
+    const executor::ManagerConnection & _mgr_conn;
 
     Thread(std::string addr, int port, int id, int functions_size,
-        int buf_size, int recv_buffer_size, int max_inline_data):
+        int buf_size, int recv_buffer_size, int max_inline_data,
+        const executor::ManagerConnection & mgr_conn):
       _functions(functions_size),
       addr(addr),
       port(port),
@@ -71,7 +73,8 @@ namespace server {
       // +1 to handle batching of functions work completions + initial code submission
       wc_buffer(recv_buffer_size + 1),
       conn(nullptr),
-      _accounting({0,0,0})
+      _accounting({0,0}),
+      _mgr_conn(mgr_conn)
     {
     }
 
@@ -90,6 +93,7 @@ namespace server {
     int _max_repetitions;
     int _warmup_iters;
     int _pin_threads;
+    //const ManagerConnection & _mgr_conn;
 
     FastExecutors(
       std::string client_addr, int port,
@@ -98,7 +102,8 @@ namespace server {
       int msg_size,
       int recv_buf_size,
       int max_inline_data,
-      int pin_threads
+      int pin_threads,
+      const executor::ManagerConnection & mgr_conn
     );
     ~FastExecutors();
 

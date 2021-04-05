@@ -35,7 +35,19 @@ int main(int argc, char ** argv)
     opts.func_size, opts.msg_size, opts.recv_buffer_size, opts.max_inline_data,
     opts.timeout
   );
+  spdlog::info(
+    "My manager runs at {}:{}, its secret is {}, the accounting buffer is at {} with rkey {}",
+    opts.mgr_address, opts.mgr_port, opts.mgr_secret,
+    opts.accounting_buffer_addr, opts.accounting_buffer_rkey
+  );
 
+  executor::ManagerConnection mgr{
+    opts.mgr_address,
+    opts.mgr_port,
+    opts.mgr_secret,
+    opts.accounting_buffer_addr,
+    opts.accounting_buffer_rkey
+  };
   server::FastExecutors executor(
     opts.address, opts.port,
     opts.func_size,
@@ -43,7 +55,8 @@ int main(int argc, char ** argv)
     opts.msg_size,
     opts.recv_buffer_size,
     opts.max_inline_data,
-    opts.pin_threads
+    opts.pin_threads,
+    mgr
   );
 
   executor.allocate_threads(opts.timeout, opts.repetitions + opts.warmup_iters);

@@ -160,6 +160,12 @@ namespace server {
 
   void Thread::thread_work(int timeout)
   {
+    rdmalib::RDMAActive mgr_connection(_mgr_conn.addr, _mgr_conn.port, wc_buffer._rcv_buf_size, max_inline_data);
+    mgr_connection.allocate();
+    if(!mgr_connection.connect(_mgr_conn.secret))
+      return;
+    spdlog::info("Thread {} Established connection to the manager!", id);
+
     // FIXME: why rdmaactive needs rcv_buf_size?
     rdmalib::RDMAActive active(addr, port, wc_buffer._rcv_buf_size, max_inline_data);
     rdmalib::Buffer<char> func_buffer(_functions.memory(), _functions.size());
@@ -220,6 +226,8 @@ namespace server {
       "Thread {} finished work, spent {} us hot polling and {} us executing.",
       id, _accounting.hot_polling_time, _accounting.execution_time
     );
+    // FIXME: revert after manager starts to detect disconnection events
+    //mgr_connection.disconnect();
   }
 
   FastExecutors::FastExecutors(std::string client_addr, int port,
@@ -228,17 +236,22 @@ namespace server {
       int msg_size,
       int recv_buf_size,
       int max_inline_data,
-      int pin_threads
+      int pin_threads,
+      const executor::ManagerConnection & mgr_conn
   ):
     _closing(false),
     _numcores(numcores),
     _max_repetitions(0),
     _pin_threads(pin_threads)
+    //_mgr_conn(mgr_conn)
   {
     // Reserve place to ensure that no reallocations happen
     _threads_data.reserve(numcores);
     for(int i = 0; i < numcores; ++i)
-      _threads_data.emplace_back(client_addr, port, i, func_size, msg_size, recv_buf_size, max_inline_data);
+      _threads_data.emplace_back(
+        client_addr, port, i, func_size, msg_size,
+        recv_buf_size, max_inline_data, mgr_conn
+      );
   }
 
   FastExecutors::~FastExecutors()
