@@ -64,7 +64,8 @@ namespace rdmalib {
   {
     // Size of Queue Pair
     // Maximum requests in send queue
-    _cfg.attr.cap.max_send_wr = 20;
+    // FIXME: configurable -> parallel workers
+    _cfg.attr.cap.max_send_wr = 40;
     // Maximum requests in receive queue
     _cfg.attr.cap.max_recv_wr = recv_buf;
     // Maximal number of scatter-gather requests in a work request in send queue
@@ -181,7 +182,8 @@ namespace rdmalib {
     _pd(nullptr)
   {
     // Size of Queue Pair
-    _cfg.attr.cap.max_send_wr = 20;
+    // FIXME: configurable -> parallel workers
+    _cfg.attr.cap.max_send_wr = 40;
     _cfg.attr.cap.max_recv_wr = recv_buf;
     _cfg.attr.cap.max_send_sge = 5;
     _cfg.attr.cap.max_recv_sge = 5;
