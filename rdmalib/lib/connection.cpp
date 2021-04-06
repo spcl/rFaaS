@@ -267,6 +267,31 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
+  int32_t Connection::post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add)
+  {
+    ibv_send_wr wr, *bad;
+    memset(&wr, 0, sizeof(wr));
+    wr.wr_id = _req_count++;
+    wr.next = nullptr;
+    wr.sg_list = elems.array();
+    wr.num_sge = elems.size();
+    wr.opcode = IBV_WR_ATOMIC_FETCH_AND_ADD;
+    wr.send_flags = IBV_SEND_SIGNALED;
+    wr.wr.atomic.remote_addr = rbuf.addr;
+    wr.wr.atomic.rkey = rbuf.rkey;
+    wr.wr.atomic.compare_add = add;
+
+    int ret = ibv_post_send(_qp, &wr, &bad);
+    if(ret) {
+      spdlog::error("Post write unsuccesful, reason {} {}", errno, strerror(errno));
+      return -1;
+    }
+    SPDLOG_DEBUG(
+        "Post atomic fadd succesfull id: {}, remote addr {}, remote rkey {}, val {}", wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, wr.wr.atomic.compare_add
+    );
+    return _req_count - 1;
+  }
+
   std::tuple<ibv_wc*, int> Connection::poll_wc(QueueType type, bool blocking, int count)
   {
     int ret = 0;

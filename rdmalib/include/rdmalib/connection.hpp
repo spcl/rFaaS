@@ -68,6 +68,7 @@ namespace rdmalib {
     int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, bool force_inline = false);
     int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, uint32_t immediate, bool force_inline = false);
     int32_t post_cas(ScatterGatherElement && elems, const RemoteBuffer & buf, uint64_t compare, uint64_t swap);
+    int32_t post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add);
 
     // Register to be notified about all events, including unsolicited ones
     void notify_events();
