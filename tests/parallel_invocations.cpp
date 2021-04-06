@@ -32,7 +32,7 @@ int main(int argc, char ** argv)
   rfaas::servers & cfg = rfaas::servers::instance();
 
   rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size, opts.max_inline_data);
-  executor.allocate(opts.flib, opts.numcores, opts.input_size, -1, false);
+  executor.allocate(opts.flib, opts.numcores, opts.input_size, opts.hot_timeout, false);
 
   // FIXME: move me to allocator
   std::vector<rdmalib::Buffer<char>> in;

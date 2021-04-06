@@ -25,6 +25,7 @@ namespace warm_benchmarker {
       ("warmup-iters", "Number of warm-up iterations", cxxopts::value<int>()->default_value("1"))
       ("max-inline-data", "Maximum size of inlined message", cxxopts::value<int>()->default_value("0"))
       ("pin-threads", "Pin worker threads to CPU cores.", cxxopts::value<bool>()->default_value("false"))
+      ("hot-timeout", "Hot timeout.", cxxopts::value<int>())
     ;
     auto parsed_options = options.parse(argc, argv);
     Options result;
@@ -35,6 +36,7 @@ namespace warm_benchmarker {
     result.fname = parsed_options["name"].as<std::string>();
     result.flib = parsed_options["functions"].as<std::string>();
     result.input_size = parsed_options["size"].as<int>();
+    result.hot_timeout = parsed_options["hot-timeout"].as<int>();
     result.out_file = parsed_options["out-file"].as<std::string>();
     result.server_file = parsed_options["file"].as<std::string>();
     result.pin_threads = parsed_options["pin-threads"].as<bool>();

@@ -23,6 +23,7 @@ namespace parallel_invocations {
     int repetitions;
     int warmup_iters;
     int numcores;
+    int hot_timeout;
     std::string fname;
     std::string flib;
     int input_size;

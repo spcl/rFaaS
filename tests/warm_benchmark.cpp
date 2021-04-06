@@ -33,7 +33,7 @@ int main(int argc, char ** argv)
   rfaas::servers & cfg = rfaas::servers::instance();
 
   rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size, opts.max_inline_data);
-  executor.allocate(opts.flib, opts.numcores, opts.input_size, -1, false);
+  executor.allocate(opts.flib, opts.numcores, opts.input_size, opts.hot_timeout, false);
 
   // FIXME: move me to allocator
   rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
@@ -67,6 +67,7 @@ int main(int argc, char ** argv)
   auto [median, avg] = benchmarker.summary();
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", opts.repetitions, avg, median);
   benchmarker.export_csv(opts.out_file, {"time"});
+  executor.deallocate();
 
   for(int i = 0; i < std::min(100, opts.input_size); ++i)
     printf("%d ", ((char*)out.data())[i]);
