@@ -275,11 +275,13 @@ namespace executor {
               );
             } else {
               spdlog::info("Client {} disconnects", i);
-              auto now = std::chrono::high_resolution_clock::now();
-              client.allocation_time +=
-                std::chrono::duration_cast<std::chrono::microseconds>(
-                  now - client.executor->_allocation_finished
-                ).count();
+              if(client.executor) {
+                auto now = std::chrono::high_resolution_clock::now();
+                client.allocation_time +=
+                  std::chrono::duration_cast<std::chrono::microseconds>(
+                    now - client.executor->_allocation_finished
+                  ).count();
+              }
               client.disable(i, _accounting_data.data()[i]);
               --_clients_active;
               break;
