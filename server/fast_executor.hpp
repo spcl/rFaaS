@@ -79,7 +79,6 @@ namespace server {
     )
     {
       if(force || hot_polling_time > BILLING_GRANULARITY) {
-        spdlog::error("Send {}", hot_polling_time);
         mgr_connection->post_atomic_fadd(
           _accounting_buf,
           { _mgr_conn.r_addr, _mgr_conn.r_key},

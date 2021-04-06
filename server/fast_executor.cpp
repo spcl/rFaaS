@@ -235,10 +235,6 @@ namespace server {
       "Thread {} finished work, spent {} us hot polling and {} us computation, {} executions.",
       id, _accounting.total_hot_polling_time / 1000.0, _accounting.total_execution_time / 1000.0, repetitions
     );
-    spdlog::info(
-      "Thread {} finished work, spent {} us hot polling and {} us computation, {} executions.",
-      id, _accounting_buf.data()[0] / 1000.0, _accounting_buf.data()[1], repetitions
-    );
     // FIXME: revert after manager starts to detect disconnection events
     //mgr_connection.disconnect();
   }

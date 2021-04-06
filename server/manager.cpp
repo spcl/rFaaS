@@ -44,9 +44,16 @@ namespace executor {
     rcv_buffer.refill();
   }
 
-  void Client::disable()
+  void Client::disable(int id, Accounting & acc)
   {
     rdma_disconnect(connection->_id);
+    // FIXME: kill executor
+    spdlog::info(
+      "Client {} exited, time allocated {} us, polling {} us, execution {} us",
+      id, allocation_time,
+      acc.hot_polling_time,
+      acc.execution_time
+    );
     // SEGFAULT?
     //ibv_dereg_mr(allocation_requests._mr);
     connection->close();
@@ -61,7 +68,8 @@ namespace executor {
   
   ActiveExecutor::~ActiveExecutor() {}
 
-  ProcessExecutor::ProcessExecutor(ProcessExecutor::time_t alloc_begin, pid_t pid):
+  ProcessExecutor::ProcessExecutor(int cores, ProcessExecutor::time_t alloc_begin, pid_t pid):
+    ActiveExecutor(cores),
     _pid(pid)
   {
     _allocation_begin = alloc_begin;
@@ -162,7 +170,7 @@ namespace executor {
       close(fd);
       exit(0);
     }
-    return new ProcessExecutor{begin, mypid};
+    return new ProcessExecutor{request.cores, begin, mypid};
   }
 
   Manager::Manager(std::string addr, int port, std::string server_file, const ExecutorSettings & settings):
@@ -207,7 +215,8 @@ namespace executor {
           int client = conn->_private_data >> 16;
           spdlog::info("Connected executor for client {}", client);
           _state.accept(conn);
-          _clients[client].executor->connection = std::move(conn);
+          int pos = _clients[client].executor->connections_len++;
+          _clients[client].executor->connections[pos] = std::move(conn);
         } else {
           spdlog::error("New connection's private data that we can't understand: {}", conn->_private_data);
         }
@@ -266,7 +275,12 @@ namespace executor {
               );
             } else {
               spdlog::info("Client {} disconnects", i);
-              client.disable();
+              auto now = std::chrono::high_resolution_clock::now();
+              client.allocation_time +=
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                  now - client.executor->_allocation_finished
+                ).count();
+              client.disable(i, _accounting_data.data()[i]);
               --_clients_active;
               break;
             }

@@ -57,7 +57,13 @@ namespace executor {
     };
     typedef std::chrono::high_resolution_clock::time_point time_t;
     time_t _allocation_begin, _allocation_finished;
-    std::unique_ptr<rdmalib::Connection> connection;
+    std::unique_ptr<rdmalib::Connection>* connections;
+    int connections_len;
+
+    ActiveExecutor(int cores):
+      connections(new std::unique_ptr<rdmalib::Connection>[cores]),
+      connections_len(0)
+    {}
 
     virtual ~ActiveExecutor();
     virtual int id() const = 0;
@@ -68,7 +74,7 @@ namespace executor {
   {
     pid_t _pid;
 
-    ProcessExecutor(time_t alloc_begin, pid_t pid);
+    ProcessExecutor(int cores, time_t alloc_begin, pid_t pid);
 
     // FIXME: kill active executor
     //~ProcessExecutor();
@@ -99,7 +105,7 @@ namespace executor {
     Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd, Accounting & _acc);
     void reload_queue();
     //void reinitialize(rdmalib::Connection* conn);
-    void disable();
+    void disable(int, Accounting & acc);
     bool active();
   };
 
