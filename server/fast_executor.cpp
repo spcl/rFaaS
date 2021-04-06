@@ -154,10 +154,13 @@ namespace server {
 
       // Do waiting after a single polling - avoid missing an events that
       // arrived before we called notify_events
-      auto cq = conn->wait_events();
-      conn->ack_events(cq, 1);
-      conn->notify_events();
+      if(repetitions < max_repetitions) {
+        auto cq = conn->wait_events();
+        conn->ack_events(cq, 1);
+        conn->notify_events();
+      }
     }
+    SPDLOG_DEBUG("Thread {} Stopped warm polling", id);
   }
 
   void Thread::thread_work(int timeout)
@@ -220,6 +223,7 @@ namespace server {
 
     spdlog::info("Thread {} begins work with timeout {}", id, timeout);
 
+    // FIXME: catch interrupt handler here
     while(repetitions < max_repetitions) {
       if(_polling_state == PollingState::HOT || _polling_state == PollingState::HOT_ALWAYS)
         hot(timeout);
