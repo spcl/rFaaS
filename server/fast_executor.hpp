@@ -16,6 +16,9 @@
 
 #include "functions.hpp"
 #include "common.hpp"
+#include <spdlog/spdlog.h>
+
+using namespace std::chrono_literals;
 
 namespace rdmalib {
   struct RecvBuffer;
@@ -24,8 +27,69 @@ namespace rdmalib {
 namespace server {
 
   struct Accounting {
-    uint32_t hot_polling_time;
-    uint32_t execution_time; 
+    typedef std::chrono::high_resolution_clock clock_t;
+    typedef std::chrono::time_point<std::chrono::high_resolution_clock> timepoint_t;
+    static constexpr int BILLING_GRANULARITY = std::chrono::duration_cast<std::chrono::nanoseconds>(1s).count();
+
+    uint64_t total_hot_polling_time;
+    uint64_t total_execution_time; 
+    uint64_t hot_polling_time;
+    uint64_t execution_time; 
+
+    inline void update_execution_time(timepoint_t start, timepoint_t end)
+    {
+      auto diff = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+      execution_time += diff;
+      total_execution_time += diff;
+    }
+
+    inline void send_updated_execution(
+      rdmalib::Connection* mgr_connection, rdmalib::Buffer<uint64_t> & _accounting_buf,
+      const executor::ManagerConnection & _mgr_conn,
+      bool force = false,
+      bool wait = true
+    )
+    {
+      if(force || execution_time > BILLING_GRANULARITY) {
+        mgr_connection->post_atomic_fadd(
+          _accounting_buf,
+          { _mgr_conn.r_addr + 8, _mgr_conn.r_key},
+          execution_time
+        ); 
+        if(wait)
+          mgr_connection->poll_wc(rdmalib::QueueType::SEND, true);
+        execution_time = 0;
+      }
+    }
+
+    inline uint32_t update_polling_time(timepoint_t start, timepoint_t end)
+    {
+      uint32_t time_passed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+      hot_polling_time += time_passed;
+      total_hot_polling_time += time_passed;
+
+      return time_passed;
+    }
+
+    inline void send_updated_polling(
+      rdmalib::Connection* mgr_connection, rdmalib::Buffer<uint64_t> & _accounting_buf,
+      const executor::ManagerConnection & _mgr_conn,
+      bool force = false,
+      bool wait = true
+    )
+    {
+      if(force || hot_polling_time > BILLING_GRANULARITY) {
+        spdlog::error("Send {}", hot_polling_time);
+        mgr_connection->post_atomic_fadd(
+          _accounting_buf,
+          { _mgr_conn.r_addr, _mgr_conn.r_key},
+          hot_polling_time
+        ); 
+        if(wait)
+          mgr_connection->poll_wc(rdmalib::QueueType::SEND, true);
+        hot_polling_time = 0;
+      }
+    }
   };
 
   enum class PollingState {
@@ -38,8 +102,6 @@ namespace server {
   // FIXME: is not movable or copyable at the moment
   struct Thread {
 
-    typedef std::chrono::high_resolution_clock clock_t;
-    typedef std::chrono::time_point<std::chrono::high_resolution_clock> timepoint_t;
 
     constexpr static int invocation_mask = 0x0000FFFF;
     Functions _functions;
@@ -52,10 +114,13 @@ namespace server {
     rdmalib::Buffer<char> send, rcv;
     rdmalib::RecvBuffer wc_buffer;
     rdmalib::Connection* conn;
-    Accounting _accounting;
-    constexpr static int HOT_POLLING_VERIFICATION_PERIOD = 10;
-    PollingState _polling_state;
+    rdmalib::Connection* _mgr_connection;
     const executor::ManagerConnection & _mgr_conn;
+    Accounting _accounting;
+    rdmalib::Buffer<uint64_t> _accounting_buf;
+    // FIXME: Adjust to billing granularity
+    constexpr static int HOT_POLLING_VERIFICATION_PERIOD = 10000;
+    PollingState _polling_state;
 
     Thread(std::string addr, int port, int id, int functions_size,
         int buf_size, int recv_buffer_size, int max_inline_data,
@@ -73,12 +138,13 @@ namespace server {
       // +1 to handle batching of functions work completions + initial code submission
       wc_buffer(recv_buffer_size + 1),
       conn(nullptr),
-      _accounting({0,0}),
-      _mgr_conn(mgr_conn)
+      _mgr_conn(mgr_conn),
+      _accounting({0,0,0,0}),
+      _accounting_buf(1)
     {
     }
 
-    timepoint_t work(int invoc_id, int func_id, uint32_t in_size);
+    Accounting::timepoint_t work(int invoc_id, int func_id, uint32_t in_size);
     void hot(uint32_t hot_timeout);
     void warm();
     void thread_work(int timeout);

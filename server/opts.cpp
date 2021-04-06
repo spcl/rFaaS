@@ -65,8 +65,8 @@ namespace server {
       ("mgr-address", "Use selected address", cxxopts::value<std::string>())
       ("mgr-port", "Use selected port", cxxopts::value<int>())
       ("mgr-secret", "Use selected port", cxxopts::value<int>())
-      ("mgr-buf-addr", "Use selected port", cxxopts::value<int64_t>())
-      ("mgr-buf-rkey", "Use selected port", cxxopts::value<int32_t>())
+      ("mgr-buf-addr", "Use selected port", cxxopts::value<uint64_t>())
+      ("mgr-buf-rkey", "Use selected port", cxxopts::value<uint32_t>())
     ;
     auto parsed_options = options.parse(argc, argv);
 
@@ -88,8 +88,8 @@ namespace server {
     result.mgr_address = parsed_options["mgr-address"].as<std::string>();
     result.mgr_port = parsed_options["mgr-port"].as<int>();
     result.mgr_secret = parsed_options["mgr-secret"].as<int>();
-    result.accounting_buffer_addr = parsed_options["mgr-buf-addr"].as<int64_t>();
-    result.accounting_buffer_rkey = parsed_options["mgr-buf-rkey"].as<int32_t>();
+    result.accounting_buffer_addr = parsed_options["mgr-buf-addr"].as<uint64_t>();
+    result.accounting_buffer_rkey = parsed_options["mgr-buf-rkey"].as<uint32_t>();
 
     std::string polling_mgr = parsed_options["polling-mgr"].as<std::string>();
     if(polling_mgr == "server") {

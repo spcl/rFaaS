@@ -24,8 +24,8 @@ namespace executor {
 
   // FIXME: Memory
   struct Accounting {
-    uint32_t hot_polling_time;
-    uint32_t execution_time; 
+    volatile uint64_t hot_polling_time;
+    volatile uint64_t execution_time; 
   };
 
   struct ExecutorSettings

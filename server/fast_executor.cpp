@@ -22,7 +22,7 @@
 
 namespace server {
 
-  Thread::timepoint_t Thread::work(int invoc_id, int func_id, uint32_t in_size)
+  Accounting::timepoint_t Thread::work(int invoc_id, int func_id, uint32_t in_size)
   {
     // FIXME: load func ptr
     rdmalib::functions::Submission* header = reinterpret_cast<rdmalib::functions::Submission*>(rcv.ptr());
@@ -44,7 +44,8 @@ namespace server {
       out_size <= max_inline_data
     );
     auto end = std::chrono::high_resolution_clock::now();
-    _accounting.execution_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+    _accounting.update_execution_time(start, end);
+    _accounting.send_updated_execution(_mgr_connection, _accounting_buf, _mgr_conn);
     return end;
   }
 
@@ -79,8 +80,7 @@ namespace server {
           // Measure hot polling time until we started execution
           auto now = std::chrono::high_resolution_clock::now();
           auto func_end = work(invoc_id, func_id, wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
-          uint32_t time_passed = std::chrono::duration_cast<std::chrono::nanoseconds>(now - start).count();
-          _accounting.hot_polling_time += time_passed;
+          _accounting.update_polling_time(start, now);
           i = 0;
           start = func_end;
 
@@ -95,8 +95,10 @@ namespace server {
       // FIXME: adjust period to the timeout
       if(i == HOT_POLLING_VERIFICATION_PERIOD) {
         auto now = std::chrono::high_resolution_clock::now();
-        uint32_t time_passed = std::chrono::duration_cast<std::chrono::nanoseconds>(now - start).count();
-        _accounting.hot_polling_time += time_passed;
+        auto time_passed = _accounting.update_polling_time(start, now);
+        _accounting.send_updated_polling(_mgr_connection, _accounting_buf, _mgr_conn);
+        start = now;
+
         if(_polling_state != PollingState::HOT_ALWAYS && time_passed >= timeout) {
           _polling_state = PollingState::WARM;
           // FIXME: can we miss an event here?
@@ -104,7 +106,6 @@ namespace server {
           SPDLOG_DEBUG("Switching to warm polling after {} us with no invocations", time_passed);
           return;
         }
-        start = now;
         i = 0;
       }
     }
@@ -163,6 +164,8 @@ namespace server {
   {
     rdmalib::RDMAActive mgr_connection(_mgr_conn.addr, _mgr_conn.port, wc_buffer._rcv_buf_size, max_inline_data);
     mgr_connection.allocate();
+    this->_mgr_connection = &mgr_connection.connection();
+    _accounting_buf.register_memory(mgr_connection.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
     if(!mgr_connection.connect(_mgr_conn.secret))
       return;
     spdlog::info("Thread {} Established connection to the manager!", id);
@@ -223,9 +226,18 @@ namespace server {
       else
         warm();
     }
+
+    // Submit final accounting information
+    _accounting.send_updated_execution(_mgr_connection, _accounting_buf, _mgr_conn, true, false);
+    _accounting.send_updated_polling(_mgr_connection, _accounting_buf, _mgr_conn, true, false);
+    mgr_connection.connection().poll_wc(rdmalib::QueueType::SEND, true, 2);
     spdlog::info(
       "Thread {} finished work, spent {} us hot polling and {} us computation, {} executions.",
-      id, _accounting.hot_polling_time / 1000.0, _accounting.execution_time / 1000.0, repetitions
+      id, _accounting.total_hot_polling_time / 1000.0, _accounting.total_execution_time / 1000.0, repetitions
+    );
+    spdlog::info(
+      "Thread {} finished work, spent {} us hot polling and {} us computation, {} executions.",
+      id, _accounting_buf.data()[0] / 1000.0, _accounting_buf.data()[1], repetitions
     );
     // FIXME: revert after manager starts to detect disconnection events
     //mgr_connection.disconnect();

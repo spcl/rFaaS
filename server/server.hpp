@@ -56,8 +56,8 @@ namespace server {
     std::string mgr_address;
     int mgr_port;
     int mgr_secret;
-    int64_t accounting_buffer_addr;
-    int32_t accounting_buffer_rkey;
+    uint64_t accounting_buffer_addr;
+    uint32_t accounting_buffer_rkey;
   };
 
   Options opts(int argc, char ** argv);

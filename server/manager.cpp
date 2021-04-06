@@ -251,12 +251,13 @@ namespace executor {
 
             if(cores > 0) {
               int secret = (i << 16) | (this->_secret & 0xFFFF);
+              uint64_t addr = _accounting_data.address() + sizeof(Accounting)*i;
               // FIXME: Docker
               client.executor.reset(
                 ProcessExecutor::spawn(
                   client.allocation_requests.data()[id],
                   _settings,
-                  {this->_address, this->_port, secret, 0, 0}
+                  {this->_address, this->_port, secret, addr, _accounting_data.rkey()}
                 )
               );
               spdlog::info(
@@ -283,8 +284,10 @@ namespace executor {
                 ).count();
               // FIXME: update global manager
               spdlog::info(
-                "Executor at client {} exited, status {}, time allocated {} us",
-                i, std::get<1>(status), client.allocation_time
+                "Executor at client {} exited, status {}, time allocated {} us, polling {} us, execution {} us",
+                i, std::get<1>(status), client.allocation_time,
+                _accounting_data.data()[i].hot_polling_time,
+                _accounting_data.data()[i].execution_time
               );
               client.executor.reset(nullptr);
             }

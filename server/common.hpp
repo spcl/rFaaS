@@ -11,8 +11,8 @@ namespace executor {
     std::string addr;
     int port;
     int secret;
-    int64_t r_addr;
-    int32_t r_key;
+    uint64_t r_addr;
+    uint32_t r_key;
   };
 
 }
