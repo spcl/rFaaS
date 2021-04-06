@@ -11,6 +11,7 @@
 #include <rdmalib/functions.hpp>
 
 #include <rfaas/executor.hpp>
+#include <rfaas/resources.hpp>
 
 #include "parallel_invocations.hpp"
 
@@ -25,8 +26,13 @@ int main(int argc, char ** argv)
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
   spdlog::info("Executing serverless-rdma test parallel invocations!");
 
+  std::ifstream in_cfg(opts.server_file);
+  rfaas::servers::deserialize(in_cfg);
+  in_cfg.close();
+  rfaas::servers & cfg = rfaas::servers::instance();
+
   rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size, opts.max_inline_data);
-  executor.allocate(opts.flib, opts.numcores, opts.input_size, -1, true);
+  executor.allocate(opts.flib, opts.numcores, opts.input_size, -1, false);
 
   // FIXME: move me to allocator
   std::vector<rdmalib::Buffer<char>> in;
@@ -67,6 +73,7 @@ int main(int argc, char ** argv)
   auto [median, avg] = benchmarker.summary();
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", opts.repetitions, avg, median);
   benchmarker.export_csv(opts.out_file, {"time"});
+  executor.deallocate();
 
   int i = 0;
   for(rdmalib::Buffer<char> & buf : out) {

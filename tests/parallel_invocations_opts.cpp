@@ -19,7 +19,7 @@ namespace parallel_invocations {
       ("name", "Function name", cxxopts::value<std::string>())
       ("functions", "Functions library", cxxopts::value<std::string>())
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
-      ("f,file", "Server status", cxxopts::value<std::string>())
+      ("f,file", "Executor manager server status", cxxopts::value<std::string>())
       ("o,out-file", "Output with statistics", cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
       ("warmup-iters", "Number of warm-up iterations", cxxopts::value<int>()->default_value("1"))
@@ -35,6 +35,7 @@ namespace parallel_invocations {
     result.fname = parsed_options["name"].as<std::string>();
     result.flib = parsed_options["functions"].as<std::string>();
     result.input_size = parsed_options["size"].as<int>();
+    result.server_file = parsed_options["file"].as<std::string>();
     result.out_file = parsed_options["out-file"].as<std::string>();
     result.pin_threads = parsed_options["pin-threads"].as<bool>();
     result.max_inline_data = parsed_options["max-inline-data"].as<int>();
