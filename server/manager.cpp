@@ -48,6 +48,7 @@ namespace executor {
   {
     rdma_disconnect(connection->_id);
     // FIXME: kill executor
+    executor.reset();
     spdlog::info(
       "Client {} exited, time allocated {} us, polling {} us, execution {} us",
       id, allocation_time,
@@ -67,7 +68,10 @@ namespace executor {
     return connection.operator bool();
   }
   
-  ActiveExecutor::~ActiveExecutor() {}
+  ActiveExecutor::~ActiveExecutor()
+  {
+    delete[] connections; 
+  }
 
   ProcessExecutor::ProcessExecutor(int cores, ProcessExecutor::time_t alloc_begin, pid_t pid):
     ActiveExecutor(cores),
@@ -142,13 +146,14 @@ namespace executor {
       dup2(fd, 1);
       dup2(fd, 2);
       const char * argv[] = {
-        "bin/executor",
+        "executor",
         "-a", request.listen_address,
         "-p", client_port.c_str(),
         "--polling-mgr", "thread",
         "-r", executor_repetitions.c_str(),
         "-x", executor_recv_buf.c_str(),
         "-s", client_in_size.c_str(),
+        "--pin-threads", "true",
         "--fast", client_cores.c_str(),
         "--warmup-iters", executor_warmups.c_str(),
         "--max-inline-data", executor_max_inline.c_str(),
@@ -161,7 +166,7 @@ namespace executor {
         "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
         nullptr
       };
-      int ret = execve(argv[0], const_cast<char**>(&argv[0]), nullptr);
+      int ret = execvp(argv[0], const_cast<char**>(&argv[0]));
       spdlog::info("Child fork stopped work on PID {}", mypid);
       if(ret == -1) {
         spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
