@@ -78,8 +78,9 @@ namespace rdmalib {
     _cfg.attr.qp_type = IBV_QPT_RC;
     _cfg.attr.sq_sig_all = 1;
 
-    _cfg.conn_param.responder_resources = 5;
-    _cfg.conn_param.initiator_depth =  5;
+    // FIXME: make dependent on the number of parallel workers
+    _cfg.conn_param.responder_resources = 32;
+    _cfg.conn_param.initiator_depth =  32;
     _cfg.conn_param.retry_count = 3;
     _cfg.conn_param.rnr_retry_count = 3;
   }
@@ -196,8 +197,9 @@ namespace rdmalib {
     _cfg.attr.qp_type = IBV_QPT_RC;
     _cfg.attr.sq_sig_all = 1;
 
-    _cfg.conn_param.responder_resources = 5;
-    _cfg.conn_param.initiator_depth = 5;
+    // FIXME: make dependent on the number of parallel workers
+    _cfg.conn_param.responder_resources = 32;
+    _cfg.conn_param.initiator_depth = 32;
     _cfg.conn_param.retry_count = 3; 
     _cfg.conn_param.rnr_retry_count = 3;
 
