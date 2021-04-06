@@ -56,8 +56,10 @@ namespace server {
           { _mgr_conn.r_addr + 8, _mgr_conn.r_key},
           execution_time
         ); 
+        //spdlog::error("Send exec {}", execution_time);
         if(wait)
           mgr_connection->poll_wc(rdmalib::QueueType::SEND, true);
+        //spdlog::error("Send exec {} done", execution_time);
         execution_time = 0;
       }
     }
@@ -79,13 +81,18 @@ namespace server {
     )
     {
       if(force || hot_polling_time > BILLING_GRANULARITY) {
+        // Can happen when we didn't got into polling and were stopped right after execution
+        if(hot_polling_time == 0)
+          return;
         mgr_connection->post_atomic_fadd(
           _accounting_buf,
           { _mgr_conn.r_addr, _mgr_conn.r_key},
           hot_polling_time
         ); 
+        //spdlog::error("Send poll {}", hot_polling_time);
         if(wait)
           mgr_connection->poll_wc(rdmalib::QueueType::SEND, true);
+        //spdlog::error("Send poll {} done", hot_polling_time);
         hot_polling_time = 0;
       }
     }

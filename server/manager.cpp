@@ -54,6 +54,7 @@ namespace executor {
       acc.hot_polling_time,
       acc.execution_time
     );
+    acc.hot_polling_time = acc.execution_time = 0;
     // SEGFAULT?
     //ibv_dereg_mr(allocation_requests._mr);
     connection->close();

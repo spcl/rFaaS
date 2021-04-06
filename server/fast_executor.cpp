@@ -236,8 +236,8 @@ namespace server {
     _accounting.send_updated_polling(_mgr_connection, _accounting_buf, _mgr_conn, true, false);
     mgr_connection.connection().poll_wc(rdmalib::QueueType::SEND, true, 2);
     spdlog::info(
-      "Thread {} finished work, spent {} us hot polling and {} us computation, {} executions.",
-      id, _accounting.total_hot_polling_time / 1000.0, _accounting.total_execution_time / 1000.0, repetitions
+      "Thread {} finished work, spent {} ns hot polling and {} ns computation, {} executions.",
+      id, _accounting.total_hot_polling_time , _accounting.total_execution_time, repetitions
     );
     // FIXME: revert after manager starts to detect disconnection events
     //mgr_connection.disconnect();

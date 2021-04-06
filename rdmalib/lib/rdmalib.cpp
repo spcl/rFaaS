@@ -79,8 +79,8 @@ namespace rdmalib {
     _cfg.attr.sq_sig_all = 1;
 
     // FIXME: make dependent on the number of parallel workers
-    _cfg.conn_param.responder_resources = 32;
-    _cfg.conn_param.initiator_depth =  32;
+    _cfg.conn_param.responder_resources = 4;
+    _cfg.conn_param.initiator_depth =  4;
     _cfg.conn_param.retry_count = 3;
     _cfg.conn_param.rnr_retry_count = 3;
   }
@@ -152,6 +152,7 @@ namespace rdmalib {
       _cfg.conn_param.private_data_len = sizeof(uint32_t);
       SPDLOG_DEBUG("Setting connection secret {} of length {}", secret, sizeof(uint32_t));
     }
+    spdlog::error("{} {}", fmt::ptr(_cfg.conn_param.private_data), _cfg.conn_param.private_data_len);
     if(rdma_connect(_conn->_id, &_cfg.conn_param)) {
       spdlog::error("Connection unsuccesful, reason {} {}", errno, strerror(errno));
       return false;
@@ -198,8 +199,8 @@ namespace rdmalib {
     _cfg.attr.sq_sig_all = 1;
 
     // FIXME: make dependent on the number of parallel workers
-    _cfg.conn_param.responder_resources = 32;
-    _cfg.conn_param.initiator_depth = 32;
+    _cfg.conn_param.responder_resources = 4;
+    _cfg.conn_param.initiator_depth = 4;
     _cfg.conn_param.retry_count = 3; 
     _cfg.conn_param.rnr_retry_count = 3;
 
