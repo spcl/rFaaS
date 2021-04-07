@@ -35,7 +35,7 @@ namespace rdmalib {
     {
       auto wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);
       if(std::get<1>(wc))
-        spdlog::info("Polled reqs {}, left {}", std::get<1>(wc), _requests);
+        SPDLOG_DEBUG("Polled reqs {}, left {}", std::get<1>(wc), _requests);
       _requests -= std::get<1>(wc);
       return wc;
     }
@@ -43,7 +43,7 @@ namespace rdmalib {
     inline bool refill()
     {
       if(_requests < _refill_threshold) {
-        spdlog::error("Post {} requests to buffer at conn {}", _rcv_buf_size - _requests, fmt::ptr(_conn->_qp));
+        SPDLOG_DEBUG("Post {} requests to buffer at QP {}", _rcv_buf_size - _requests, fmt::ptr(_conn->_qp));
         this->_conn->post_batched_empty_recv(_rcv_buf_size - _requests);
         //this->_conn->post_recv({}, -1, _rcv_buf_size - _requests);
         _requests = _rcv_buf_size;

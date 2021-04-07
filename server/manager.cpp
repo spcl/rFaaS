@@ -56,7 +56,6 @@ namespace executor {
     // First, we check if the child is still alive
     int status;
     waitpid(executor->id(), &status, WUNTRACED);
-    spdlog::info("Should be dead?");
 
     //auto status = executor->check();
     //spdlog::info("executor {} {}", executor->id(), std::get<0>(status) == ActiveExecutor::Status::RUNNING);
@@ -140,11 +139,6 @@ namespace executor {
     const executor::ManagerConnection & conn
   )
   {
-    // FIXME: doesn't work every well?
-    //int rc = ibv_fork_init();
-    //int rc = 0;
-    //if(rc)
-    //  exit(rc);
 
     auto begin = std::chrono::high_resolution_clock::now();
     //spdlog::info("Child fork begins work on PID {} req {}", mypid, fmt::ptr(&request));
@@ -268,13 +262,13 @@ namespace executor {
         false
       );
       if(conn == nullptr){
-        printf("failed event\n");
+        spdlog::error("Failed connection creation");
         continue;
       }
       if(conn->_private_data) {
         if((conn->_private_data & 0xFFFF ) == this->_secret) {
           int client = conn->_private_data >> 16;
-          spdlog::info("Executor for client {}", client);
+          SPDLOG_DEBUG("Executor for client {}", client);
           _state.accept(conn);
           // FIXME: check it exists
 
@@ -311,7 +305,7 @@ namespace executor {
 
         _q2.enqueue(std::make_pair(pos, std::move(client)));    
 
-        printf("send to another thread\n");
+        SPDLOG_DEBUG("send to another thread\n");
        // {
     //      std::lock_guard<std::mutex> lock{clients};
     //      _clients.insert(std::make_pair(pos, std::move(client)));
@@ -328,38 +322,26 @@ namespace executor {
   {
     // FIXME: sleep when there are no clients
     bool active_clients = true;
-    int print=0;
     while(active_clients) {
-      print++;
       {
         std::pair<int, std::unique_ptr<rdmalib::Connection> > *p1 = _q1.peek();
         if(p1){
-          printf("get q1\n"); fflush(stdout);
           int client = p1->first;
-          spdlog::info("Connected executor for client {}", client);
+          SPDLOG_DEBUG("Connected executor for client {}", client);
           int pos = _clients.find(client)->second.executor->connections_len++;
           _clients.find(client)->second.executor->connections[pos] = std::move(p1->second); 
         _q1.pop();
         }; 
         std::pair<int,Client>* p2 = _q2.peek();
         if(p2){
-	   printf("get q2\n"); fflush(stdout);
-
            int pos = p2->first;
           _clients.insert(std::make_pair(p2->first, std::move(p2->second)));
-          spdlog::info("Connected new client id {}", pos);
-        _q2.pop();
+          SPDLOG_DEBUG("Connected new client id {}", pos);
+          _q2.pop();
         };  
       }
 
       atomic_thread_fence(std::memory_order_acquire);
-      //s
-      //if(print == 100000000) {
-      //  print = 0;
-      //    spdlog::info("Polling on {} clients", _clients.size());
-      //  if(_clients.size())
-      //    spdlog::info("Polling on {} clients, first {}", _clients.size(), _clients.begin()->second.rcv_buffer._requests);
-      //}
       std::vector<std::map<int, Client>::iterator> removals;
       for(auto it = _clients.begin(); it != _clients.end(); ++it) {
 
@@ -453,8 +435,6 @@ namespace executor {
         }
       }
       if(removals.size()) {
-        printf("try to delete\n"); fflush(stdout);
-    //    std::lock_guard<std::mutex> lock{clients};
         for(auto it : removals) {
           spdlog::info("Remove client id {}", it->first);
           _clients.erase(it);

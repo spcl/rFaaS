@@ -285,12 +285,12 @@ namespace server {
     //  wakeup();
     //}
     // make sure we join before destructing
-    spdlog::info("Wait on {} threads", _threads.size());
+    SPDLOG_DEBUG("Wait on {} threads", _threads.size());
     for(auto & thread : _threads)
       // Might have been closed earlier
       if(thread.joinable())
         thread.join();
-    spdlog::info("Wait on {} threads", _threads.size());
+    SPDLOG_DEBUG("Finished wait on {} threads", _threads.size());
 
     for(auto & thread : _threads_data)
       spdlog::info("Thread {} Repetitions {} Avg time {}",

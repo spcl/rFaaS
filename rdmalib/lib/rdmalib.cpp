@@ -65,7 +65,7 @@ namespace rdmalib {
     // Size of Queue Pair
     // Maximum requests in send queue
     // FIXME: configurable -> parallel workers
-    _cfg.attr.cap.max_send_wr = 150;
+    _cfg.attr.cap.max_send_wr = 40;
     // Maximum requests in receive queue
     _cfg.attr.cap.max_recv_wr = recv_buf;
     // Maximal number of scatter-gather requests in a work request in send queue
@@ -82,14 +82,14 @@ namespace rdmalib {
     _cfg.conn_param.responder_resources = 4;
     _cfg.conn_param.initiator_depth =  4;
     _cfg.conn_param.retry_count = 3;
-    _cfg.conn_param.rnr_retry_count = 6;
-    spdlog::info("Create RDMAActive");
+    _cfg.conn_param.rnr_retry_count = 3;
+    SPDLOG_DEBUG("Create RDMAActive");
   }
 
   RDMAActive::~RDMAActive()
   {
     //ibv_dealloc_pd(this->_pd);
-    spdlog::info("Destroy RDMAActive");
+    SPDLOG_DEBUG("Destroy RDMAActive");
   }
 
   void RDMAActive::allocate()
@@ -102,14 +102,11 @@ namespace rdmalib {
       _pd = _conn->_id->pd;
       _conn->_qp = _conn->_id->qp;
 
-      struct ibv_qp_attr attr;
-      struct ibv_qp_init_attr init_attr;
-      impl::expect_zero(ibv_query_qp(_conn->_qp, &attr, IBV_QP_DEST_QPN, &init_attr ));
-
-      //spdlog::info("Created active connection + QP {} {}", fmt::ptr(_conn->_id), fmt::ptr(_conn->_id->qp));
-      spdlog::info("Created active connection id {} qp {} send {} recv {}", fmt::ptr(_conn->_id), fmt::ptr(_conn->_id->qp), fmt::ptr(_conn->_id->qp->send_cq), fmt::ptr(_conn->_id->qp->recv_cq));
-      spdlog::info("Local QPN {}, remote QPN {} ",_conn->_qp->qp_num, attr.dest_qp_num);
-
+      //struct ibv_qp_attr attr;
+      //struct ibv_qp_init_attr init_attr;
+      //impl::expect_zero(ibv_query_qp(_conn->_qp, &attr, IBV_QP_DEST_QPN, &init_attr ));
+      //SPDLOG_DEBUG("Created active connection id {} qp {} send {} recv {}", fmt::ptr(_conn->_id), fmt::ptr(_conn->_id->qp), fmt::ptr(_conn->_id->qp->send_cq), fmt::ptr(_conn->_id->qp->recv_cq));
+      //SPDLOG_DEBUG("Local QPN {}, remote QPN {} ",_conn->_qp->qp_num, attr.dest_qp_num);
     }
 
     // An attempt to bind the active client to a specifi device.
@@ -170,13 +167,10 @@ namespace rdmalib {
       spdlog::info("Connection succesful to {}:{}, on device {}", _addr._port, _addr._port, ibv_get_device_name(this->_conn->_id->verbs->device));
     }
 
-      struct ibv_qp_attr attr;
-      struct ibv_qp_init_attr init_attr;
-      impl::expect_zero(ibv_query_qp(_conn->_qp, &attr, IBV_QP_DEST_QPN, &init_attr ));
-      spdlog::info("Local QPN {}, remote QPN {} ",_conn->_qp->qp_num, attr.dest_qp_num);
-
-  
- 
+    //struct ibv_qp_attr attr;
+    //struct ibv_qp_init_attr init_attr;
+    //impl::expect_zero(ibv_query_qp(_conn->_qp, &attr, IBV_QP_DEST_QPN, &init_attr ));
+    //SPDLOG_DEBUG("Local QPN {}, remote QPN {} ",_conn->_qp->qp_num, attr.dest_qp_num);
 
     return true;
   }
@@ -185,8 +179,8 @@ namespace rdmalib {
   {
     //SPDLOG_DEBUG("Disconnecting");
     impl::expect_zero(rdma_disconnect(_conn->_id));
-    //_conn.reset();
-    //_pd = nullptr;
+    _conn.reset();
+    _pd = nullptr;
     //rdma_destroy_qp(_conn._id);
     //_conn._qp = nullptr;
   }
@@ -209,7 +203,7 @@ namespace rdmalib {
   {
     // Size of Queue Pair
     // FIXME: configurable -> parallel workers
-    _cfg.attr.cap.max_send_wr = 150;
+    _cfg.attr.cap.max_send_wr = 40;
     _cfg.attr.cap.max_recv_wr = recv_buf;
     _cfg.attr.cap.max_send_sge = 5;
     _cfg.attr.cap.max_recv_sge = 5;
@@ -285,7 +279,11 @@ namespace rdmalib {
     impl::expect_zero(rdma_create_qp(connection->_id, _pd, &_cfg.attr));
     SPDLOG_DEBUG("CREATE QP with qpn {}", connection->_id->qp->qp_num);
     connection->_qp = connection->_id->qp;
-    spdlog::info("Created passive connection id {} qpnum {} qp {} send {} recv {}", fmt::ptr(connection->_id), connection->_qp->qp_num, fmt::ptr(connection->_id->qp), fmt::ptr(connection->_id->qp->send_cq), fmt::ptr(connection->_id->qp->recv_cq));
+    SPDLOG_DEBUG(
+      "Created passive connection id {} qpnum {} qp {} send {} recv {}",
+      fmt::ptr(connection->_id), connection->_qp->qp_num, fmt::ptr(connection->_id->qp),
+      fmt::ptr(connection->_id->qp->send_cq), fmt::ptr(connection->_id->qp->recv_cq)
+    );
     connection->initialize();
     return connection;
   }
@@ -295,7 +293,6 @@ namespace rdmalib {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
       connection = nullptr;
     }
-    spdlog::info("Accepted {}", fmt::ptr(connection->_qp));
-    SPDLOG_DEBUG("Accepted connection"); 
+    SPDLOG_DEBUG("Accepted {}", fmt::ptr(connection->_qp));
   }
 }
