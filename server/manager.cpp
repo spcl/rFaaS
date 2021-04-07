@@ -17,14 +17,18 @@
 
 namespace executor {
 
-  Client::Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd, Accounting & _acc):
+  Client::Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd): //, Accounting & _acc):
     connection(std::move(conn)),
     allocation_requests(RECV_BUF_SIZE),
     rcv_buffer(RECV_BUF_SIZE),
-    accounting(_acc),
+    accounting(1),
+    //accounting(_acc),
     allocation_time(0),
     _active(false)
   {
+    // Make the buffer accessible to clients
+    memset(accounting.data(), 0, accounting.data_size());
+    accounting.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
     // Make the buffer accessible to clients
     allocation_requests.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     // Initialize batch receive WCs
@@ -45,7 +49,7 @@ namespace executor {
     rcv_buffer.refill();
   }
 
-  void Client::disable(int id, Accounting & acc)
+  void Client::disable(int id)
   {
     rdma_disconnect(connection->_id);
     //kill(executor->id(), SIGKILL);
@@ -53,6 +57,7 @@ namespace executor {
     int status;
     waitpid(executor->id(), &status, WUNTRACED);
     spdlog::info("Should be dead?");
+
     //auto status = executor->check();
     //spdlog::info("executor {} {}", executor->id(), std::get<0>(status) == ActiveExecutor::Status::RUNNING);
     //if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
@@ -74,10 +79,10 @@ namespace executor {
     spdlog::info(
       "Client {} exited, time allocated {} us, polling {} us, execution {} us",
       id, allocation_time,
-      acc.hot_polling_time,
-      acc.execution_time
+      accounting.data()[0].hot_polling_time,
+      accounting.data()[0].execution_time
     );
-    acc.hot_polling_time = acc.execution_time = 0;
+    //acc.hot_polling_time = acc.execution_time = 0;
     // SEGFAULT?
     //ibv_dereg_mr(allocation_requests._mr);
     connection->close();
@@ -137,40 +142,63 @@ namespace executor {
   {
     // FIXME: doesn't work every well?
     //int rc = ibv_fork_init();
-    int rc = 0;
-    if(rc)
-      exit(rc);
+    //int rc = 0;
+    //if(rc)
+    //  exit(rc);
 
     auto begin = std::chrono::high_resolution_clock::now();
+    //spdlog::info("Child fork begins work on PID {} req {}", mypid, fmt::ptr(&request));
+    std::string client_addr{request.listen_address};
+    std::string client_port = std::to_string(request.listen_port);
+    //spdlog::error("Child fork begins work on PID {} req {}", mypid, fmt::ptr(&request));
+    std::string client_in_size = std::to_string(request.input_buf_size);
+    std::string client_func_size = std::to_string(request.func_buf_size);
+    std::string client_cores = std::to_string(request.cores);
+    std::string client_timeout = std::to_string(request.hot_timeout);
+    //spdlog::error("Child fork begins work on PID {}", mypid);
+    std::string executor_repetitions = std::to_string(exec.repetitions);
+    std::string executor_warmups = std::to_string(exec.warmup_iters);
+    std::string executor_recv_buf = std::to_string(exec.recv_buffer_size);
+    std::string executor_max_inline = std::to_string(exec.max_inline_data);
+
+    std::string mgr_port = std::to_string(conn.port);
+    std::string mgr_secret = std::to_string(conn.secret);
+    std::string mgr_buf_addr = std::to_string(conn.r_addr);
+    std::string mgr_buf_rkey = std::to_string(conn.r_key);
+
     int mypid = fork();
     if(mypid < 0) {
       spdlog::error("Fork failed! {}", mypid);
     }
     if(mypid == 0) {
       mypid = getpid();
-      spdlog::info("Child fork begins work on PID {}", mypid);
+      //spdlog::info("Child fork begins work on PID {} req {}", mypid, fmt::ptr(&request));
       auto out_file = ("executor_" + std::to_string(mypid));
-      std::string client_port = std::to_string(request.listen_port);
-      std::string client_in_size = std::to_string(request.input_buf_size);
-      std::string client_func_size = std::to_string(request.func_buf_size);
-      std::string client_cores = std::to_string(request.cores);
-      std::string client_timeout = std::to_string(request.hot_timeout);
-      std::string executor_repetitions = std::to_string(exec.repetitions);
-      std::string executor_warmups = std::to_string(exec.warmup_iters);
-      std::string executor_recv_buf = std::to_string(exec.recv_buffer_size);
-      std::string executor_max_inline = std::to_string(exec.max_inline_data);
+      //spdlog::info("Child fork begins work on PID {} req {}", mypid, fmt::ptr(&request));
+      //std::string client_port = std::to_string(request.listen_port);
+      //spdlog::error("Child fork begins work on PID {} req {}", mypid, fmt::ptr(&request));
+      //std::string client_in_size = std::to_string(request.input_buf_size);
+      //std::string client_func_size = std::to_string(request.func_buf_size);
+      //std::string client_cores = std::to_string(request.cores);
+      //std::string client_timeout = std::to_string(request.hot_timeout);
+      //spdlog::error("Child fork begins work on PID {}", mypid);
+      //std::string executor_repetitions = std::to_string(exec.repetitions);
+      //std::string executor_warmups = std::to_string(exec.warmup_iters);
+      //std::string executor_recv_buf = std::to_string(exec.recv_buffer_size);
+      //std::string executor_max_inline = std::to_string(exec.max_inline_data);
 
-      std::string mgr_port = std::to_string(conn.port);
-      std::string mgr_secret = std::to_string(conn.secret);
-      std::string mgr_buf_addr = std::to_string(conn.r_addr);
-      std::string mgr_buf_rkey = std::to_string(conn.r_key);
+      //std::string mgr_port = std::to_string(conn.port);
+      //std::string mgr_secret = std::to_string(conn.secret);
+      //std::string mgr_buf_addr = std::to_string(conn.r_addr);
+      //std::string mgr_buf_rkey = std::to_string(conn.r_key);
 
+      spdlog::error("Child fork begins work on PID {}", mypid);
       int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
       dup2(fd, 1);
       dup2(fd, 2);
       const char * argv[] = {
         "executor",
-        "-a", request.listen_address,
+        "-a", client_addr.c_str(),
         "-p", client_port.c_str(),
         "--polling-mgr", "thread",
         "-r", executor_repetitions.c_str(),
@@ -208,7 +236,7 @@ namespace executor {
     _state(addr, port, 32, true),
     _status(addr, port),
     _settings(settings),
-    _accounting_data(MAX_CLIENTS_ACTIVE),
+    //_accounting_data(MAX_CLIENTS_ACTIVE),
     _address(addr),
     _port(port),
     // FIXME: randomly generated
@@ -219,8 +247,6 @@ namespace executor {
     std::ofstream out(server_file);
     _status.serialize(out);
 
-    memset(_accounting_data.data(), 0, _accounting_data.data_size());
-    _accounting_data.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
   }
 
   void Manager::start()
@@ -279,7 +305,7 @@ namespace executor {
         //_clients_active++;
         //int pos = _clients.size();
         int pos = _ids++;
-        Client client{std::move(conn), _state.pd(), _accounting_data.data()[pos]};
+        Client client{std::move(conn), _state.pd()};//, _accounting_data.data()[pos]};
         client._active = true;
         _state.accept(client.connection);
 
@@ -302,8 +328,9 @@ namespace executor {
   {
     // FIXME: sleep when there are no clients
     bool active_clients = true;
+    int print=0;
     while(active_clients) {
-
+      print++;
       {
         std::pair<int, std::unique_ptr<rdmalib::Connection> > *p1 = _q1.peek();
         if(p1){
@@ -326,7 +353,13 @@ namespace executor {
       }
 
       atomic_thread_fence(std::memory_order_acquire);
-
+      //s
+      //if(print == 100000000) {
+      //  print = 0;
+      //    spdlog::info("Polling on {} clients", _clients.size());
+      //  if(_clients.size())
+      //    spdlog::info("Polling on {} clients, first {}", _clients.size(), _clients.begin()->second.rcv_buffer._requests);
+      //}
       std::vector<std::map<int, Client>::iterator> removals;
       for(auto it = _clients.begin(); it != _clients.end(); ++it) {
 
@@ -360,21 +393,24 @@ namespace executor {
                 client.allocation_requests.data()[id].hot_timeout
               );
               int secret = (i << 16) | (this->_secret & 0xFFFF);
-              uint64_t addr = _accounting_data.address() + sizeof(Accounting)*i;
+              uint64_t addr = client.accounting.address(); //+ sizeof(Accounting)*i;
               // FIXME: Docker
+              auto now = std::chrono::high_resolution_clock::now();
               client.executor.reset(
                 ProcessExecutor::spawn(
                   client.allocation_requests.data()[id],
                   _settings,
-                  {this->_address, this->_port, secret, addr, _accounting_data.rkey()}
+                  {this->_address, this->_port, secret, addr, client.accounting.rkey()}
                 )
               );
+              auto end = std::chrono::high_resolution_clock::now();
               spdlog::info(
-                "Client {} at {}:{} has executor with {} ID and {} cores",
-                i, client_address, client_port, client.executor->id(), cores
+                "Client {} at {}:{} has executor with {} ID and {} cores, time {} us",
+                i, client_address, client_port, client.executor->id(), cores,
+                std::chrono::duration_cast<std::chrono::microseconds>(end-now).count()
               );
             } else {
-              spdlog::info("Client {} disconnects", i);
+              spdlog::error("Client {} disconnects", i);
               if(client.executor) {
                 auto now = std::chrono::high_resolution_clock::now();
                 client.allocation_time +=
@@ -382,11 +418,14 @@ namespace executor {
                     now - client.executor->_allocation_finished
                   ).count();
               }
-              client.disable(i, _accounting_data.data()[i]);
+              //client.disable(i, _accounting_data.data()[i]);
+              client.disable(i);
               removals.push_back(it);
               break;
             }
           }
+          //if(client.connection)
+          //  client.connection->poll_wc(rdmalib::QueueType::SEND, false);
         }
         if(client.active()) {
           client.rcv_buffer.refill();
@@ -402,10 +441,13 @@ namespace executor {
               spdlog::info(
                 "Executor at client {} exited, status {}, time allocated {} us, polling {} us, execution {} us",
                 i, std::get<1>(status), client.allocation_time,
-                _accounting_data.data()[i].hot_polling_time,
-                _accounting_data.data()[i].execution_time
+                client.accounting.data()[i].hot_polling_time,
+                client.accounting.data()[i].execution_time
+                //_accounting_data.data()[i].hot_polling_time,
+                //_accounting_data.data()[i].execution_time
               );
               client.executor.reset(nullptr);
+              spdlog::info("Finished cleanup");
             }
           }
         }

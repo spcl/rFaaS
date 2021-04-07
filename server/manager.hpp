@@ -103,14 +103,17 @@ namespace executor {
     rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
     rdmalib::RecvBuffer rcv_buffer;
     std::unique_ptr<ActiveExecutor> executor;
-    Accounting & accounting;
+    //Accounting & accounting;
+    rdmalib::Buffer<Accounting> accounting;
     uint32_t allocation_time;
     bool _active;
 
-    Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd, Accounting & _acc);
+    //Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd, Accounting & _acc);
+    Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd);
     void reload_queue();
     //void reinitialize(rdmalib::Connection* conn);
-    void disable(int, Accounting & acc);
+    //void disable(int, Accounting & acc);
+    void disable(int);
     bool active();
   };
 
@@ -132,7 +135,7 @@ namespace executor {
     rdmalib::RDMAPassive _state;
     rdmalib::server::ServerStatus _status;
     ExecutorSettings _settings;
-    rdmalib::Buffer<Accounting> _accounting_data;
+    //rdmalib::Buffer<Accounting> _accounting_data;
     std::string _address;
     int _port;
     int _secret;
