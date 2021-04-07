@@ -17,6 +17,11 @@
 
 int main(int argc, char ** argv)
 {
+  int rc = 0;//ibv_fork_init();
+   
+  if(rc)
+      exit(rc);
+
   auto opts = executor::opts(argc, argv);
   if(opts.verbose)
     spdlog::set_level(spdlog::level::debug);
