@@ -186,7 +186,7 @@ namespace executor {
       //std::string mgr_buf_addr = std::to_string(conn.r_addr);
       //std::string mgr_buf_rkey = std::to_string(conn.r_key);
 
-      spdlog::error("Child fork begins work on PID {}", mypid);
+      spdlog::info("Child fork begins work on PID {}", mypid);
       int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
       dup2(fd, 1);
       dup2(fd, 2);
@@ -212,7 +212,6 @@ namespace executor {
         nullptr
       };
       int ret = execvp(argv[0], const_cast<char**>(&argv[0]));
-      spdlog::info("Child fork stopped work on PID {}", mypid);
       if(ret == -1) {
         spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
         close(fd);
@@ -392,7 +391,7 @@ namespace executor {
                 std::chrono::duration_cast<std::chrono::microseconds>(end-now).count()
               );
             } else {
-              spdlog::error("Client {} disconnects", i);
+              spdlog::info("Client {} disconnects", i);
               if(client.executor) {
                 auto now = std::chrono::high_resolution_clock::now();
                 client.allocation_time +=
