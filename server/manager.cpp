@@ -32,7 +32,6 @@ namespace executor {
     rcv_buffer.connect(connection.get());
   }
 
-
   //void Client::reinitialize(rdmalib::Connection* conn)
   //{
   //  connection = conn;
@@ -205,6 +204,7 @@ namespace executor {
 
   Manager::Manager(std::string addr, int port, std::string server_file, const ExecutorSettings & settings):
     //_clients_active(0),
+    _q1(100), _q2(100),
     _state(addr, port, 32, true),
     _status(addr, port),
     _settings(settings),
@@ -241,14 +241,23 @@ namespace executor {
       auto conn = _state.poll_events(
         false
       );
+      if(conn == nullptr){
+        printf("failed event\n");
+        continue;
+      }
       if(conn->_private_data) {
         if((conn->_private_data & 0xFFFF ) == this->_secret) {
           int client = conn->_private_data >> 16;
-          spdlog::info("Connected executor for client {}", client);
+         // spdlog::info("Connected executor for client {}", client);
           _state.accept(conn);
           // FIXME: check it exists
-          int pos = _clients.find(client)->second.executor->connections_len++;
-          _clients.find(client)->second.executor->connections[pos] = std::move(conn);//connections_len++;
+
+          _q1.enqueue(std::make_pair( client, std::move(conn) ));    
+
+          //int pos = _clients.find(client)->second.executor->connections_len++;
+          //_clients.find(client)->second.executor->connections[pos] = std::move(conn); 
+
+
           //_clients[client].executor->connections[pos] = std::move(conn);
 
           //if(_clients[client].executor->connections_len == _clients[client].executor->cores) {
@@ -273,12 +282,15 @@ namespace executor {
         Client client{std::move(conn), _state.pd(), _accounting_data.data()[pos]};
         client._active = true;
         _state.accept(client.connection);
-        {
-          std::lock_guard<std::mutex> lock{clients};
-          _clients.insert(std::make_pair(pos, std::move(client)));
-        }
+        _q2.enqueue(std::make_pair(pos, std::move(client)));    
+
+       // {
+    //      std::lock_guard<std::mutex> lock{clients};
+    //      _clients.insert(std::make_pair(pos, std::move(client)));
+    //    }
+
         atomic_thread_fence(std::memory_order_release);
-        spdlog::info("Connected new client id {}", pos);
+       // spdlog::info("Connected new client id {}", pos);
         //spdlog::info("Connected new client poll id {}", _clients_active);
       }
     }
@@ -291,6 +303,25 @@ namespace executor {
     while(active_clients) {
 
       atomic_thread_fence(std::memory_order_acquire);
+      {
+        std::pair<int, std::unique_ptr<rdmalib::Connection> > *p1 = _q1.peek();
+        if(p1){
+          int client = p1->first;
+          spdlog::info("Connected executor for client {}", client);
+          int pos = _clients.find(client)->second.executor->connections_len++;
+          _clients.find(client)->second.executor->connections[pos] = std::move(p1->second); 
+        }; 
+        _q1.pop();
+        std::pair<int,Client>* p2 = _q2.peek();
+        if(p2){
+           int pos = p2->first;
+          _clients.insert(std::make_pair(p2->first, std::move(p2->second)));
+          spdlog::info("Connected new client id {}", pos);
+        };  
+        _q2.pop();
+      }
+
+
       std::vector<std::map<int, Client>::iterator> removals;
       for(auto it = _clients.begin(); it != _clients.end(); ++it) {
         Client & client = it->second;
@@ -363,7 +394,7 @@ namespace executor {
         }
       }
       if(removals.size()) {
-        std::lock_guard<std::mutex> lock{clients};
+    //    std::lock_guard<std::mutex> lock{clients};
         for(auto it : removals) {
           SPDLOG_DEBUG("Remove client id {}", it->first);
           _clients.erase(it);

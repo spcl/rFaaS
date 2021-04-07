@@ -16,6 +16,7 @@
 #include <rdmalib/recv_buffer.hpp>
 
 #include "common.hpp"
+#include "readerwriterqueue.h"
 
 namespace rdmalib {
   struct AllocationRequest;
@@ -119,6 +120,9 @@ namespace executor {
     //static constexpr int MAX_CLIENTS_ACTIVE = 128;
     static constexpr int MAX_EXECUTORS_ACTIVE = 8;
     static constexpr int MAX_CLIENTS_ACTIVE = 1024;
+    moodycamel::ReaderWriterQueue<std::pair<int, std::unique_ptr<rdmalib::Connection>>> _q1;
+    moodycamel::ReaderWriterQueue<std::pair<int,Client>> _q2;
+
     std::mutex clients;
     std::map<int, Client> _clients;
     int _ids;
