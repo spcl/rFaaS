@@ -164,7 +164,7 @@ namespace rdmalib {
       spdlog::error("Connection unsuccesful, reason {} {}", errno, strerror(errno));
       return false;
     } else {
-      spdlog::info("Connection succesful to {}:{}, on device {}", _addr._port, _addr._port, ibv_get_device_name(this->_conn->_id->verbs->device));
+      spdlog::debug("Connection succesful to {}:{}, on device {}", _addr._port, _addr._port, ibv_get_device_name(this->_conn->_id->verbs->device));
     }
 
     //struct ibv_qp_attr attr;

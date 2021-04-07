@@ -174,6 +174,7 @@ namespace rfaas {
       this->_connections.back().conn->post_send(functions);
       SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", i + 1, numcores);
       // FIXME: this should be in a function
+      // FIXME: here it won't work if rcv_bufer_size < numcores
       this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn.get());
     }
     // Measure process spawn time
