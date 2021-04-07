@@ -1,7 +1,7 @@
 
 #include <chrono>
 #include <spdlog/spdlog.h>
-
+#include <thread> 
 #include <rdmalib/connection.hpp>
 #include <rdmalib/util.hpp>
 
@@ -86,6 +86,7 @@ namespace rdmalib {
 
   void Connection::close()
   {
+    spdlog::info("Close called for {} ", fmt::ptr(this));
     if(_id) {
       spdlog::info("Close connection {} {}", fmt::ptr(_id), fmt::ptr(_id->qp));
       // When the connection is allocated on active side
@@ -94,19 +95,18 @@ namespace rdmalib {
         spdlog::info("Close connection destroy ep {} {}", fmt::ptr(_id), fmt::ptr(_id->qp));
         rdma_destroy_ep(_id);
         //rdma_destroy_qp(_id);
-        spdlog::info("Close connection destroyed qp {}", fmt::ptr(_id));
+        spdlog::info("Close connection destroyed qp {}", fmt::ptr(_id->qp));
         //rdma_destroy_id(_id);
         spdlog::info("Close connection destroyed ep {}", fmt::ptr(_id));
       }
       // When the connection is allocated on passive side
       // We allocated QP and we need to free an ID
       else {
-      spdlog::info("Close connection qp {}", fmt::ptr(_id->qp));
+      spdlog::info("Close passive connection qp {}", fmt::ptr(_id->qp));
         rdma_destroy_qp(_id);
-      spdlog::info("Close connection id {}", fmt::ptr(_id->qp));
+      spdlog::info("Close passive connection id {}", fmt::ptr(_id));
         rdma_destroy_id(_id);
       }
-      spdlog::info("Close connection {}", fmt::ptr(_id));
       _id = nullptr;
     }
   }
@@ -126,7 +126,7 @@ namespace rdmalib {
     wr.num_sge = elems.size();
     wr.opcode = IBV_WR_SEND;
     wr.send_flags = force_inline ? IBV_SEND_SIGNALED | IBV_SEND_INLINE : _send_flags;
-
+    SPDLOG_DEBUG("post send to local Local QPN {}",_qp->qp_num);
     int ret = ibv_post_send(_qp, &wr, &bad);
     if(ret) {
       spdlog::error("Post send unsuccesful, reason {} {}, sges_count {}, wr_id {}, wr.send_flags {}",
@@ -147,6 +147,8 @@ namespace rdmalib {
     int loops = count / _rbatch;
     int reminder = count % _rbatch;
     SPDLOG_DEBUG("Batch {} {}", loops, reminder);
+      spdlog::info("post recv to local Local QPN {}",_qp->qp_num);
+
 
     int ret = 0;
     spdlog::error("Post {} {} requests to buffer at conn {}", loops, reminder , fmt::ptr(_qp));
@@ -170,12 +172,13 @@ namespace rdmalib {
       while(begin) {
         if(begin->num_sge > 0) {
           SPDLOG_DEBUG("Batched receive num_sge {} sge[0].ptr {} sge[0].length {}", begin->num_sge, begin->sg_list[0].addr, begin->sg_list[0].length);
-        } else
+        } else { 
           SPDLOG_DEBUG("Batched receive num_sge {}", begin->num_sge);
+	}
         begin = begin->next;
       }
       ret = ibv_post_recv(_qp, _batch_wrs, &bad);
-      SPDLOG_DEBUG("Batched receive ret {} bad {} ", ret, fmt::ptr(bad));
+      spdlog::info("Batched receive ret {} bad {} ", ret, fmt::ptr(bad));
       _batch_wrs[reminder-1].next= &(_batch_wrs[reminder]);
     }
 
@@ -197,6 +200,8 @@ namespace rdmalib {
     wr.next = nullptr;
     wr.sg_list = elem.array();
     wr.num_sge = elem.size();
+    SPDLOG_DEBUG("post recv to local Local QPN {}",_qp->qp_num);
+
 
     int ret;
     for(int i = 0; i < count; ++i) {

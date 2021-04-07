@@ -248,7 +248,7 @@ namespace executor {
       if(conn->_private_data) {
         if((conn->_private_data & 0xFFFF ) == this->_secret) {
           int client = conn->_private_data >> 16;
-         // spdlog::info("Connected executor for client {}", client);
+          spdlog::info("Executor for client {}", client);
           _state.accept(conn);
           // FIXME: check it exists
 
@@ -282,8 +282,10 @@ namespace executor {
         Client client{std::move(conn), _state.pd(), _accounting_data.data()[pos]};
         client._active = true;
         _state.accept(client.connection);
+
         _q2.enqueue(std::make_pair(pos, std::move(client)));    
 
+        printf("send to another thread\n");
        // {
     //      std::lock_guard<std::mutex> lock{clients};
     //      _clients.insert(std::make_pair(pos, std::move(client)));
@@ -302,10 +304,10 @@ namespace executor {
     bool active_clients = true;
     while(active_clients) {
 
-      atomic_thread_fence(std::memory_order_acquire);
       {
         std::pair<int, std::unique_ptr<rdmalib::Connection> > *p1 = _q1.peek();
         if(p1){
+          printf("get q1\n"); fflush(stdout);
           int client = p1->first;
           spdlog::info("Connected executor for client {}", client);
           int pos = _clients.find(client)->second.executor->connections_len++;
@@ -314,6 +316,8 @@ namespace executor {
         _q1.pop();
         std::pair<int,Client>* p2 = _q2.peek();
         if(p2){
+	   printf("get q2\n"); fflush(stdout);
+
            int pos = p2->first;
           _clients.insert(std::make_pair(p2->first, std::move(p2->second)));
           spdlog::info("Connected new client id {}", pos);
@@ -321,9 +325,11 @@ namespace executor {
         _q2.pop();
       }
 
+      atomic_thread_fence(std::memory_order_acquire);
 
       std::vector<std::map<int, Client>::iterator> removals;
       for(auto it = _clients.begin(); it != _clients.end(); ++it) {
+
         Client & client = it->second;
         int i = it->first;
         auto wcs = client.rcv_buffer.poll(false);
@@ -333,6 +339,7 @@ namespace executor {
             i, std::get<1>(wcs)
           );
           for(int j = 0; j < std::get<1>(wcs); ++j) {
+
             auto wc = std::get<0>(wcs)[j];
             if(wc.status != 0)
               continue;
@@ -394,9 +401,10 @@ namespace executor {
         }
       }
       if(removals.size()) {
+        printf("try to delete\n"); fflush(stdout);
     //    std::lock_guard<std::mutex> lock{clients};
         for(auto it : removals) {
-          SPDLOG_DEBUG("Remove client id {}", it->first);
+          spdlog::info("Remove client id {}", it->first);
           _clients.erase(it);
         }
       }

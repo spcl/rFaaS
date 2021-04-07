@@ -101,8 +101,15 @@ namespace rdmalib {
       impl::expect_zero(rdma_create_qp(_conn->_id, _pd, &_cfg.attr));
       _pd = _conn->_id->pd;
       _conn->_qp = _conn->_id->qp;
+
+      struct ibv_qp_attr attr;
+      struct ibv_qp_init_attr init_attr;
+      impl::expect_zero(ibv_query_qp(_conn->_qp, &attr, IBV_QP_DEST_QPN, &init_attr ));
+
       //spdlog::info("Created active connection + QP {} {}", fmt::ptr(_conn->_id), fmt::ptr(_conn->_id->qp));
       spdlog::info("Created active connection id {} qp {} send {} recv {}", fmt::ptr(_conn->_id), fmt::ptr(_conn->_id->qp), fmt::ptr(_conn->_id->qp->send_cq), fmt::ptr(_conn->_id->qp->recv_cq));
+      spdlog::info("Local QPN {}, remote QPN {} ",_conn->_qp->qp_num, attr.dest_qp_num);
+
     }
 
     // An attempt to bind the active client to a specifi device.
@@ -162,6 +169,15 @@ namespace rdmalib {
     } else {
       spdlog::info("Connection succesful to {}:{}, on device {}", _addr._port, _addr._port, ibv_get_device_name(this->_conn->_id->verbs->device));
     }
+
+      struct ibv_qp_attr attr;
+      struct ibv_qp_init_attr init_attr;
+      impl::expect_zero(ibv_query_qp(_conn->_qp, &attr, IBV_QP_DEST_QPN, &init_attr ));
+      spdlog::info("Local QPN {}, remote QPN {} ",_conn->_qp->qp_num, attr.dest_qp_num);
+
+  
+ 
+
     return true;
   }
 
