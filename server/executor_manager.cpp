@@ -17,10 +17,11 @@
 
 int main(int argc, char ** argv)
 {
-  int rc = 0;//ibv_fork_init();
-   
-  if(rc)
-      exit(rc);
+  int rc = ibv_fork_init();
+  if(rc) {
+    spdlog::error("ibv_fork_init failed, cannot continue! Error code {}", rc);
+    exit(rc);
+  }
 
   auto opts = executor::opts(argc, argv);
   if(opts.verbose)
