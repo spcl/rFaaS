@@ -75,6 +75,10 @@ namespace rdmalib { namespace impl {
   
   Buffer::~Buffer()
   {
+    SPDLOG_DEBUG(
+      "Deallocate {} bytes, mr {}, ptr {}",
+      _bytes, fmt::ptr(_mr), fmt::ptr(_ptr)
+    );
     if(_mr)
       ibv_dereg_mr(_mr);
     if(_own_memory)
