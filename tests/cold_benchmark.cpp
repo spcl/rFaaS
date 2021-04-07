@@ -36,19 +36,34 @@ int main(int argc, char ** argv)
   rfaas::servers & cfg = rfaas::servers::instance();
 
   rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size, opts.max_inline_data);
-  rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
-  in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
-  out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-  memset(in.data(), 0, opts.input_size);
-  for(int i = 0; i < opts.input_size; ++i) {
-    ((char*)in.data())[i] = 1;
+  //rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
+  //in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
+  //out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+  //memset(in.data(), 0, opts.input_size);
+  //for(int i = 0; i < opts.input_size; ++i) {
+  //  ((char*)in.data())[i] = 1;
+  //}
+  std::vector<rdmalib::Buffer<char>> in;
+  std::vector<rdmalib::Buffer<char>> out;
+  for(int i = 0; i < opts.cores; ++i) {
+    in.emplace_back(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE);
+    in.back().register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
+    memset(in.back().data(), 0, opts.input_size);
+    for(int i = 0; i < opts.input_size; ++i) {
+      ((char*)in.back().data())[i] = 1;
+    }
+  }
+  for(int i = 0; i < opts.cores; ++i) {
+    out.emplace_back(opts.input_size);
+    out.back().register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    memset(out.back().data(), 0, opts.input_size);
   }
 
   rdmalib::Benchmarker<5> benchmarker{opts.repetitions};
   spdlog::info("Measurements begin");
   auto start = std::chrono::high_resolution_clock::now();
   for(int i = 0; i < opts.repetitions;++i) {
-    SPDLOG_DEBUG("Begin iteration {}", i);
+    spdlog::info("Begin iteration {}", i);
     if(executor.allocate(opts.flib, opts.cores, opts.input_size, opts.hot_timeout, false, &benchmarker)) {
       executor.execute(opts.fname, in, out);
       // End of function execution
@@ -66,9 +81,13 @@ int main(int argc, char ** argv)
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", opts.repetitions, avg, median);
   benchmarker.export_csv(opts.out_file, {"connect", "submit", "spawn_connect", "initialize", "execute"});
 
-  for(int i = 0; i < std::min(100, opts.input_size); ++i)
-    printf("%d ", ((char*)out.data())[i]);
-  printf("\n");
+  int i = 0;
+  for(rdmalib::Buffer<char> & buf : out) {
+    printf("%d ", i++);
+    for(int i = 0; i < std::min(10, opts.input_size); ++i)
+      printf("%d ", ((char*)buf.data())[i]);
+    printf("\n");
+  }
 
   return 0;
 }
