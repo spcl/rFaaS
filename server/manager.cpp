@@ -312,8 +312,8 @@ namespace executor {
           spdlog::info("Connected executor for client {}", client);
           int pos = _clients.find(client)->second.executor->connections_len++;
           _clients.find(client)->second.executor->connections[pos] = std::move(p1->second); 
-        }; 
         _q1.pop();
+        }; 
         std::pair<int,Client>* p2 = _q2.peek();
         if(p2){
 	   printf("get q2\n"); fflush(stdout);
@@ -321,8 +321,8 @@ namespace executor {
            int pos = p2->first;
           _clients.insert(std::make_pair(p2->first, std::move(p2->second)));
           spdlog::info("Connected new client id {}", pos);
-        };  
         _q2.pop();
+        };  
       }
 
       atomic_thread_fence(std::memory_order_acquire);
