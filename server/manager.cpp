@@ -349,6 +349,16 @@ namespace executor {
             int client_port = client.allocation_requests.data()[id].listen_port;
 
             if(cores > 0) {
+              spdlog::info(
+                "Client {} requests executor with {} threads, it should connect to {}:{},"
+                "it should have buffer of size {}, func buffer {}, and hot timeout {}",
+                i, client.allocation_requests.data()[id].cores,
+                client.allocation_requests.data()[id].listen_address,
+                client.allocation_requests.data()[id].listen_port,
+                client.allocation_requests.data()[id].input_buf_size,
+                client.allocation_requests.data()[id].func_buf_size,
+                client.allocation_requests.data()[id].hot_timeout
+              );
               int secret = (i << 16) | (this->_secret & 0xFFFF);
               uint64_t addr = _accounting_data.address() + sizeof(Accounting)*i;
               // FIXME: Docker
