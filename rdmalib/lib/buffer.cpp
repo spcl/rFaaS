@@ -136,7 +136,7 @@ namespace rdmalib { namespace impl {
     return this->_ptr;
   }
 
-  ScatterGatherElement Buffer::sge(uint32_t size, uint32_t offset)
+  ScatterGatherElement Buffer::sge(uint32_t size, uint32_t offset) const
   {
     return {address() + offset, size, lkey()};
   }

@@ -53,7 +53,7 @@ namespace rdmalib {
     Connection& operator=(const Connection&) = delete;
     Connection(Connection&&);
 
-    void initialize_batched_recv(const ScatterGatherElement & sge, size_t offset);
+    void initialize_batched_recv(const rdmalib::impl::Buffer & sge, size_t offset);
     void inlining(bool enable);
     void initialize();
     void close();

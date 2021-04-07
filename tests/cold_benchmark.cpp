@@ -46,6 +46,7 @@ int main(int argc, char ** argv)
 
   rdmalib::Benchmarker<5> benchmarker{opts.repetitions};
   spdlog::info("Measurements begin");
+  auto start = std::chrono::high_resolution_clock::now();
   for(int i = 0; i < opts.repetitions;++i) {
     SPDLOG_DEBUG("Begin iteration {}", i);
     if(executor.allocate(opts.flib, opts.cores, opts.input_size, opts.hot_timeout, false, &benchmarker)) {
@@ -58,7 +59,8 @@ int main(int argc, char ** argv)
       spdlog::error("Allocation not succesfull");
     }
   }
-  spdlog::info("Measurements end {}", benchmarker._measurements.size());
+  auto end = std::chrono::high_resolution_clock::now();
+  spdlog::info("Measurements end {} {}", benchmarker._measurements.size(), std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
 
   auto [median, avg] = benchmarker.summary();
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", opts.repetitions, avg, median);

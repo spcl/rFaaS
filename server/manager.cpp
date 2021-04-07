@@ -22,7 +22,8 @@ namespace executor {
     allocation_requests(RECV_BUF_SIZE),
     rcv_buffer(RECV_BUF_SIZE),
     accounting(_acc),
-    allocation_time(0)
+    allocation_time(0),
+    _active(false)
   {
     // Make the buffer accessible to clients
     allocation_requests.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
@@ -30,6 +31,7 @@ namespace executor {
     connection->initialize_batched_recv(allocation_requests, sizeof(rdmalib::AllocationRequest));
     rcv_buffer.connect(connection.get());
   }
+
 
   //void Client::reinitialize(rdmalib::Connection* conn)
   //{
@@ -47,7 +49,28 @@ namespace executor {
   void Client::disable(int id, Accounting & acc)
   {
     rdma_disconnect(connection->_id);
-    // FIXME: kill executor
+    //kill(executor->id(), SIGKILL);
+    // First, we check if the child is still alive
+    int status;
+    waitpid(executor->id(), &status, WUNTRACED);
+    spdlog::info("Should be dead?");
+    //auto status = executor->check();
+    //spdlog::info("executor {} {}", executor->id(), std::get<0>(status) == ActiveExecutor::Status::RUNNING);
+    //if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
+    //  if(std::get<0>(status) != ActiveExecutor::Status::FINISHED)
+    //    spdlog::info(
+    //      "Executor at client {} exited, status {}",
+    //      id, std::get<1>(status)
+    //    );
+    //  else
+    //    spdlog::error(
+    //      "Executor at client {} failed, status {}",
+    //      id, std::get<1>(status)
+    //    );
+    //} else {
+    //  // FIXME: kill executor
+
+    //}
     executor.reset();
     spdlog::info(
       "Client {} exited, time allocated {} us, polling {} us, execution {} us",
@@ -60,12 +83,14 @@ namespace executor {
     //ibv_dereg_mr(allocation_requests._mr);
     connection->close();
     connection = nullptr;
+    _active=false;
   }
 
   bool Client::active()
   {
     // Compiler complains for some reason
-    return connection.operator bool();
+    //return connection.operator bool();
+    return _active;
   }
   
   ActiveExecutor::~ActiveExecutor()
@@ -126,7 +151,6 @@ namespace executor {
       mypid = getpid();
       spdlog::info("Child fork begins work on PID {}", mypid);
       auto out_file = ("executor_" + std::to_string(mypid));
-      // FIXME: number of input buffers
       std::string client_port = std::to_string(request.listen_port);
       std::string client_in_size = std::to_string(request.input_buf_size);
       std::string client_func_size = std::to_string(request.func_buf_size);
@@ -180,7 +204,7 @@ namespace executor {
   }
 
   Manager::Manager(std::string addr, int port, std::string server_file, const ExecutorSettings & settings):
-    _clients_active(0),
+    //_clients_active(0),
     _state(addr, port, 32, true),
     _status(addr, port),
     _settings(settings),
@@ -188,9 +212,10 @@ namespace executor {
     _address(addr),
     _port(port),
     // FIXME: randomly generated
-    _secret(0x1234)
+    _secret(0x1234),
+    _ids(0)
   {
-    _clients.reserve(this->MAX_CLIENTS_ACTIVE);
+    //_clients.reserve(this->MAX_CLIENTS_ACTIVE);
     std::ofstream out(server_file);
     _status.serialize(out);
 
@@ -221,19 +246,40 @@ namespace executor {
           int client = conn->_private_data >> 16;
           spdlog::info("Connected executor for client {}", client);
           _state.accept(conn);
-          int pos = _clients[client].executor->connections_len++;
-          _clients[client].executor->connections[pos] = std::move(conn);
+          // FIXME: check it exists
+          int pos = _clients.find(client)->second.executor->connections_len++;
+          _clients.find(client)->second.executor->connections[pos] = std::move(conn);//connections_len++;
+          //_clients[client].executor->connections[pos] = std::move(conn);
+
+          //if(_clients[client].executor->connections_len == _clients[client].executor->cores) {
+            // FIXME: alloc time
+          //}
         } else {
           spdlog::error("New connection's private data that we can't understand: {}", conn->_private_data);
         }
       }
       // FIXME: users sending their ID 
       else {
-        _clients.emplace_back(std::move(conn), _state.pd(), _accounting_data.data()[_clients_active]);
-        _state.accept(_clients.back().connection);
-        spdlog::info("Connected new client id {}", _clients_active);
+        //_clients.emplace_back(std::move(conn), _state.pd(), _accounting_data.data()[_clients_active]);
+        //_state.accept(_clients.back().connection);
+        //spdlog::info("Connected new client id {}", _clients_active);
+        ////_clients.back().connection->poll_wc(rdmalib::QueueType::RECV, true);
+        //_clients.back()._active = true;
+        //spdlog::info("Connected new client poll id {}", _clients_active);
+        //atomic_thread_fence(std::memory_order_release);
+        //_clients_active++;
+        //int pos = _clients.size();
+        int pos = _ids++;
+        Client client{std::move(conn), _state.pd(), _accounting_data.data()[pos]};
+        client._active = true;
+        _state.accept(client.connection);
+        {
+          std::lock_guard<std::mutex> lock{clients};
+          _clients.insert(std::make_pair(pos, std::move(client)));
+        }
         atomic_thread_fence(std::memory_order_release);
-        _clients_active++;
+        spdlog::info("Connected new client id {}", pos);
+        //spdlog::info("Connected new client poll id {}", _clients_active);
       }
     }
   }
@@ -243,17 +289,17 @@ namespace executor {
     // FIXME: sleep when there are no clients
     bool active_clients = true;
     while(active_clients) {
-      // FIXME: not safe? memory fance
+
       atomic_thread_fence(std::memory_order_acquire);
-      for(int i = 0; i < _clients.size(); ++i) {
-        Client & client = _clients[i];
-        if(!client.active())
-          continue;
-        auto wcs = client.connection->poll_wc(rdmalib::QueueType::RECV, false);
+      std::vector<std::map<int, Client>::iterator> removals;
+      for(auto it = _clients.begin(); it != _clients.end(); ++it) {
+        Client & client = it->second;
+        int i = it->first;
+        auto wcs = client.rcv_buffer.poll(false);
         if(std::get<1>(wcs)) {
           SPDLOG_DEBUG(
-            "Received at {}, work completions {}, clients active {}, clients datastructure size {}",
-            i, std::get<1>(wcs), _clients_active, _clients.size()
+            "Received at {}, work completions {}",
+            i, std::get<1>(wcs)
           );
           for(int j = 0; j < std::get<1>(wcs); ++j) {
             auto wc = std::get<0>(wcs)[j];
@@ -289,7 +335,7 @@ namespace executor {
                   ).count();
               }
               client.disable(i, _accounting_data.data()[i]);
-              --_clients_active;
+              removals.push_back(it);
               break;
             }
           }
@@ -316,7 +362,96 @@ namespace executor {
           }
         }
       }
+      if(removals.size()) {
+        std::lock_guard<std::mutex> lock{clients};
+        for(auto it : removals) {
+          SPDLOG_DEBUG("Remove client id {}", it->first);
+          _clients.erase(it);
+        }
+      }
     }
   }
+
+  //void Manager::poll_rdma()
+  //{
+  //  // FIXME: sleep when there are no clients
+  //  bool active_clients = true;
+  //  while(active_clients) {
+  //    // FIXME: not safe? memory fance
+  //    atomic_thread_fence(std::memory_order_acquire);
+  //    for(int i = 0; i < _clients.size(); ++i) {
+  //      Client & client = _clients[i];
+  //      if(!client.active())
+  //        continue;
+  //      //auto wcs = client.connection->poll_wc(rdmalib::QueueType::RECV, false);
+  //      auto wcs = client.rcv_buffer.poll(false);
+  //      if(std::get<1>(wcs)) {
+  //        SPDLOG_DEBUG(
+  //          "Received at {}, work completions {}, clients active {}, clients datastructure size {}",
+  //          i, std::get<1>(wcs), _clients_active, _clients.size()
+  //        );
+  //        for(int j = 0; j < std::get<1>(wcs); ++j) {
+  //          auto wc = std::get<0>(wcs)[j];
+  //          if(wc.status != 0)
+  //            continue;
+  //          uint64_t id = wc.wr_id;
+  //          int16_t cores = client.allocation_requests.data()[id].cores;
+  //          char * client_address = client.allocation_requests.data()[id].listen_address;
+  //          int client_port = client.allocation_requests.data()[id].listen_port;
+
+  //          if(cores > 0) {
+  //            int secret = (i << 16) | (this->_secret & 0xFFFF);
+  //            uint64_t addr = _accounting_data.address() + sizeof(Accounting)*i;
+  //            // FIXME: Docker
+  //            client.executor.reset(
+  //              ProcessExecutor::spawn(
+  //                client.allocation_requests.data()[id],
+  //                _settings,
+  //                {this->_address, this->_port, secret, addr, _accounting_data.rkey()}
+  //              )
+  //            );
+  //            spdlog::info(
+  //              "Client {} at {}:{} has executor with {} ID and {} cores",
+  //              i, client_address, client_port, client.executor->id(), cores
+  //            );
+  //          } else {
+  //            spdlog::info("Client {} disconnects", i);
+  //            if(client.executor) {
+  //              auto now = std::chrono::high_resolution_clock::now();
+  //              client.allocation_time +=
+  //                std::chrono::duration_cast<std::chrono::microseconds>(
+  //                  now - client.executor->_allocation_finished
+  //                ).count();
+  //            }
+  //            client.disable(i, _accounting_data.data()[i]);
+  //            --_clients_active;
+  //            break;
+  //          }
+  //        }
+  //      }
+  //      if(client.active()) {
+  //        client.rcv_buffer.refill();
+  //        if(client.executor) {
+  //          auto status = client.executor->check();
+  //          if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
+  //            auto now = std::chrono::high_resolution_clock::now();
+  //            client.allocation_time +=
+  //              std::chrono::duration_cast<std::chrono::microseconds>(
+  //                now - client.executor->_allocation_finished
+  //              ).count();
+  //            // FIXME: update global manager
+  //            spdlog::info(
+  //              "Executor at client {} exited, status {}, time allocated {} us, polling {} us, execution {} us",
+  //              i, std::get<1>(status), client.allocation_time,
+  //              _accounting_data.data()[i].hot_polling_time,
+  //              _accounting_data.data()[i].execution_time
+  //            );
+  //            client.executor.reset(nullptr);
+  //          }
+  //        }
+  //      }
+  //    }
+  //  }
+  //}
 
 }

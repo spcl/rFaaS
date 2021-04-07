@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <vector>
 #include <mutex>
+#include <map>
 
 #include <rdmalib/connection.hpp>
 #include <rdmalib/rdmalib.hpp>
@@ -59,10 +60,12 @@ namespace executor {
     time_t _allocation_begin, _allocation_finished;
     std::unique_ptr<rdmalib::Connection>* connections;
     int connections_len;
+    int cores;
 
     ActiveExecutor(int cores):
       connections(new std::unique_ptr<rdmalib::Connection>[cores]),
-      connections_len(0)
+      connections_len(0),
+      cores(cores)
     {}
 
     virtual ~ActiveExecutor();
@@ -101,6 +104,7 @@ namespace executor {
     std::unique_ptr<ActiveExecutor> executor;
     Accounting & accounting;
     uint32_t allocation_time;
+    bool _active;
 
     Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd, Accounting & _acc);
     void reload_queue();
@@ -116,8 +120,11 @@ namespace executor {
     static constexpr int MAX_EXECUTORS_ACTIVE = 8;
     static constexpr int MAX_CLIENTS_ACTIVE = 1024;
     std::mutex clients;
-    std::vector<Client> _clients;
-    std::atomic<int> _clients_active;
+    std::map<int, Client> _clients;
+    int _ids;
+
+    //std::vector<Client> _clients;
+    //std::atomic<int> _clients_active;
     rdmalib::RDMAPassive _state;
     rdmalib::server::ServerStatus _status;
     ExecutorSettings _settings;

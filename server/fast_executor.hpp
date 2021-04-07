@@ -29,7 +29,7 @@ namespace server {
   struct Accounting {
     typedef std::chrono::high_resolution_clock clock_t;
     typedef std::chrono::time_point<std::chrono::high_resolution_clock> timepoint_t;
-    static constexpr int BILLING_GRANULARITY = std::chrono::duration_cast<std::chrono::nanoseconds>(1s).count();
+    static constexpr long int BILLING_GRANULARITY = std::chrono::duration_cast<std::chrono::nanoseconds>(1s).count();
 
     uint64_t total_hot_polling_time;
     uint64_t total_execution_time; 

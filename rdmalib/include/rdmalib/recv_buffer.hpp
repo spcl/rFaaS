@@ -6,6 +6,8 @@
 
 #include <rdmalib/connection.hpp>
 
+#include <spdlog/spdlog.h>
+
 namespace rdmalib {
 
   struct RecvBuffer {
@@ -32,6 +34,8 @@ namespace rdmalib {
     inline std::tuple<ibv_wc*,int> poll(bool blocking = false)
     {
       auto wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);
+      if(std::get<1>(wc))
+        spdlog::info("Polled reqs {}, left {}", std::get<1>(wc), _requests);
       _requests -= std::get<1>(wc);
       return wc;
     }
@@ -39,6 +43,7 @@ namespace rdmalib {
     inline bool refill()
     {
       if(_requests < _refill_threshold) {
+        spdlog::error("Post {} requests to buffer at conn {}", _rcv_buf_size - _requests, fmt::ptr(_conn->_qp));
         this->_conn->post_batched_empty_recv(_rcv_buf_size - _requests);
         //this->_conn->post_recv({}, -1, _rcv_buf_size - _requests);
         _requests = _rcv_buf_size;

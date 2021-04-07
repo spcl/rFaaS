@@ -44,7 +44,7 @@ namespace rdmalib {
       void register_memory(ibv_pd *pd, int access);
       uint32_t lkey() const;
       uint32_t rkey() const;
-      ScatterGatherElement sge(uint32_t size, uint32_t offset);
+      ScatterGatherElement sge(uint32_t size, uint32_t offset) const;
     };
 
   }

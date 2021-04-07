@@ -60,12 +60,12 @@ namespace rdmalib {
     _batch_wrs[_rbatch-1].next = NULL;
   }
 
-  void Connection::initialize_batched_recv(const ScatterGatherElement & sge, size_t offset)
+  void Connection::initialize_batched_recv(const rdmalib::impl::Buffer & buf, size_t offset)
   {
     for(int i = 0; i < _rbatch; i++){
-      _rwc_sges[i] = sge;
-      for(auto & sg : _rwc_sges[i]._sges)
-        sg.addr += i*offset;
+      _rwc_sges[i] = buf.sge(offset, i*offset);
+      //for(auto & sg : _rwc_sges[i]._sges)
+      //sg.addr += i*offset;
       _batch_wrs[i].sg_list = _rwc_sges[i].array();
       _batch_wrs[i].num_sge = _rwc_sges[i].size();
     }
@@ -87,16 +87,26 @@ namespace rdmalib {
   void Connection::close()
   {
     if(_id) {
+      spdlog::info("Close connection {} {}", fmt::ptr(_id), fmt::ptr(_id->qp));
       // When the connection is allocated on active side
       // We allocated ep, and that's the only thing we need to do
-      if(!_passive)
+      if(!_passive) {
+        spdlog::info("Close connection destroy ep {} {}", fmt::ptr(_id), fmt::ptr(_id->qp));
         rdma_destroy_ep(_id);
+        //rdma_destroy_qp(_id);
+        spdlog::info("Close connection destroyed qp {}", fmt::ptr(_id));
+        //rdma_destroy_id(_id);
+        spdlog::info("Close connection destroyed ep {}", fmt::ptr(_id));
+      }
       // When the connection is allocated on passive side
       // We allocated QP and we need to free an ID
       else {
+      spdlog::info("Close connection qp {}", fmt::ptr(_id->qp));
         rdma_destroy_qp(_id);
+      spdlog::info("Close connection id {}", fmt::ptr(_id->qp));
         rdma_destroy_id(_id);
       }
+      spdlog::info("Close connection {}", fmt::ptr(_id));
       _id = nullptr;
     }
   }
@@ -139,7 +149,16 @@ namespace rdmalib {
     SPDLOG_DEBUG("Batch {} {}", loops, reminder);
 
     int ret = 0;
+    spdlog::error("Post {} {} requests to buffer at conn {}", loops, reminder , fmt::ptr(_qp));
     for(int i = 0; i < loops; ++i) {
+      auto begin = &_batch_wrs[0];
+      while(begin) {
+        if(begin->num_sge > 0) {
+          SPDLOG_DEBUG("Batched receive num_sge {} sge[0].ptr {} sge[0].length {}", begin->num_sge, begin->sg_list[0].addr, begin->sg_list[0].length);
+        } else
+          SPDLOG_DEBUG("Batched receive num_sge {}", begin->num_sge);
+        begin = begin->next;
+      }
       ret = ibv_post_recv(_qp, &_batch_wrs[0], &bad);
       if(ret)
         break;
@@ -147,7 +166,16 @@ namespace rdmalib {
 
     if(ret == 0 && reminder > 0){
       _batch_wrs[reminder-1].next=NULL;
+      auto begin = &_batch_wrs[0];
+      while(begin) {
+        if(begin->num_sge > 0) {
+          SPDLOG_DEBUG("Batched receive num_sge {} sge[0].ptr {} sge[0].length {}", begin->num_sge, begin->sg_list[0].addr, begin->sg_list[0].length);
+        } else
+          SPDLOG_DEBUG("Batched receive num_sge {}", begin->num_sge);
+        begin = begin->next;
+      }
       ret = ibv_post_recv(_qp, _batch_wrs, &bad);
+      SPDLOG_DEBUG("Batched receive ret {} bad {} ", ret, fmt::ptr(bad));
       _batch_wrs[reminder-1].next= &(_batch_wrs[reminder]);
     }
 
