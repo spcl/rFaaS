@@ -49,7 +49,7 @@ namespace rdmalib { namespace impl {
   Buffer::Buffer(uint32_t size, uint32_t byte_size, uint32_t header):
     _size(size),
     _header(header),
-    _bytes((size + header) * byte_size),
+    _bytes(size * byte_size + header),
     _byte_size(byte_size),
     _mr(nullptr),
     _own_memory(true)

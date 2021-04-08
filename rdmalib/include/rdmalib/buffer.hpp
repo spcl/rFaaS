@@ -99,7 +99,8 @@ namespace rdmalib {
 
     T* data() const
     {
-      return static_cast<T*>(this->_ptr) + this->_header;
+      // void pointer arithmetic is not allowed
+      return reinterpret_cast<T*>(static_cast<char*>(this->_ptr) + this->_header);
     }
   };
 
