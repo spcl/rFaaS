@@ -60,6 +60,57 @@ namespace rfaas {
     void deallocate();
     rdmalib::Buffer<char> load_library(std::string path);
 
+    template<typename T>
+    bool async(std::string fname, const rdmalib::Buffer<T> & in, rdmalib::Buffer<T> & out)
+    {
+      auto it = std::find(_func_names.begin(), _func_names.end(), fname);
+      if(it == _func_names.end()) {
+        spdlog::error("Function {} not found in the deployed library!", fname);
+        return false;
+      }
+      int func_idx = std::distance(_func_names.begin(), it);
+
+      // FIXME: here get a future for async
+      char* data = static_cast<char*>(in.ptr());
+      // TODO: we assume here uintptr_t is 8 bytes
+      *reinterpret_cast<uint64_t*>(data) = out.address();
+      *reinterpret_cast<uint32_t*>(data + 8) = out.rkey();
+
+      int invoc_id = this->_invoc_id++;
+      SPDLOG_DEBUG(
+        "Invoke function {} with invocation id {}, submission id {}",
+        func_idx, invoc_id, (invoc_id << 16) | func_idx
+      );
+      _connections[0].conn->post_write(
+        in,
+        _connections[0].remote_input,
+        (invoc_id << 16) | func_idx,
+        in.bytes() <= _max_inlined_msg
+      );
+      _connections[0]._rcv_buffer.refill();
+      return true;
+    }
+
+    bool block()
+    {
+      _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
+
+      auto wc = _connections[0]._rcv_buffer.poll(true);
+      uint32_t val = ntohl(std::get<0>(wc)[0].imm_data);
+      int return_val = val & 0x0000FFFF;
+      int finished_invoc_id = val >> 16;
+      if(return_val == 0) {
+        SPDLOG_DEBUG("Finished invocation {} succesfully", finished_invoc_id);
+        return true;
+      } else {
+        if(val == 1)
+          spdlog::error("Invocation: {}, Thread busy, cannot post work", finished_invoc_id);
+        else
+          spdlog::error("Invocation: {}, Unknown error {}", finished_invoc_id, val);
+        return false;
+      }
+    }
+
     // FIXME: irange for cores
     // FIXME: now only operates on buffers
     //template<class... Args>
