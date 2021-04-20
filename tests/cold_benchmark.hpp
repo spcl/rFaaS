@@ -30,6 +30,7 @@ namespace cold_benchmarker {
     std::string flib;
     int input_size;
     std::string out_file;
+    int pause;
     bool pin_threads;
     int recv_buf_size;
     int max_inline_data;

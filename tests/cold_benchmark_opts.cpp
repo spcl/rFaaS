@@ -23,6 +23,7 @@ namespace cold_benchmarker {
       ("recv-buf-size", "Size of recv buffer", cxxopts::value<int>()->default_value("1"))
       ("c,cores", "Number of cores", cxxopts::value<int>())
       ("hot-timeout", "Polling timeout", cxxopts::value<int>())
+      ("pause", "Pause between iterations [ms]", cxxopts::value<int>()->default_value("0"))
     ;
     auto parsed_options = options.parse(argc, argv);
 
@@ -41,6 +42,7 @@ namespace cold_benchmarker {
     result.recv_buf_size = parsed_options["recv-buf-size"].as<int>();
     result.verbose = parsed_options["verbose"].as<bool>();
     result.hot_timeout = parsed_options["hot-timeout"].as<int>();
+    result.pause = parsed_options["pause"].as<int>();
 
     return result;
   }  

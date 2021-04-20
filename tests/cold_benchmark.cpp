@@ -73,9 +73,13 @@ int main(int argc, char ** argv)
       benchmarker.remove_last();
       spdlog::error("Allocation not succesfull");
     }
+    if(opts.pause > 0) {
+      spdlog::info("Sleep between iterations");
+      std::this_thread::sleep_for(std::chrono::milliseconds(opts.pause));
+    }
   }
   auto end = std::chrono::high_resolution_clock::now();
-  spdlog::info("Measurements end {} {}", benchmarker._measurements.size(), std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+  spdlog::info("Measurements end repetitions {} time {} ms", benchmarker._measurements.size(), std::chrono::duration_cast<std::chrono::microseconds>(end-start).count() / 1000.0);
 
   auto [median, avg] = benchmarker.summary();
   spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", opts.repetitions, avg, median);
