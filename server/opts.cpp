@@ -12,7 +12,7 @@ namespace executor {
     options.add_options()
       ("a,address", "Use selected address.", cxxopts::value<std::string>())
       ("p,port", "Use selected port.", cxxopts::value<int>()->default_value("0"))
-      ("pin-threads", "Pin worker threads to CPU cores.", cxxopts::value<bool>()->default_value("false"))
+      ("pin-threads", "Pin worker threads to CPU cores", cxxopts::value<int>()->default_value("-1"))
       ("use-docker", "Allocate executors in a Docker container.", cxxopts::value<bool>()->default_value("false"))
       ("f,file", "Output server status.", cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
@@ -28,7 +28,7 @@ namespace executor {
     result.port = parsed_options["port"].as<int>();
     result.server_file = parsed_options["file"].as<std::string>();
     result.verbose = parsed_options["verbose"].as<bool>();
-    result.pin_threads = parsed_options["pin-threads"].as<bool>();
+    result.exec.pin_threads = parsed_options["pin-threads"].as<int>();
     result.exec.use_docker = parsed_options["use-docker"].as<bool>();
     result.exec.repetitions = parsed_options["repetitions"].as<int>();
     result.exec.warmup_iters = parsed_options["warmup-iters"].as<int>();
@@ -53,7 +53,7 @@ namespace server {
       ("polling-mgr", "Polling manager: server, thread, server-notify", cxxopts::value<std::string>()->default_value("server"))
       ("polling-type", "Polling type: wc (work completions), dram", cxxopts::value<std::string>()->default_value("wc"))
       ("warmup-iters", "Number of warm-up iterations", cxxopts::value<int>()->default_value("1"))
-      ("pin-threads", "Pin worker threads to CPU cores", cxxopts::value<bool>()->default_value("false"))
+      ("pin-threads", "Pin worker threads to CPU cores", cxxopts::value<int>()->default_value("-1"))
       ("max-inline-data", "Maximum size of inlined message", cxxopts::value<int>()->default_value("0"))
       ("x,requests", "Size of recv buffer", cxxopts::value<int>()->default_value("32"))
       ("func-size", "Size of functions library", cxxopts::value<int>())
@@ -80,7 +80,7 @@ namespace server {
     result.repetitions = parsed_options["repetitions"].as<int>();
     result.warmup_iters = parsed_options["warmup-iters"].as<int>();
     result.verbose = parsed_options["verbose"].as<bool>();
-    result.pin_threads = parsed_options["pin-threads"].as<bool>();
+    result.pin_threads = parsed_options["pin-threads"].as<int>();
     result.max_inline_data = parsed_options["max-inline-data"].as<int>();
     result.func_size = parsed_options["func-size"].as<int>();
     result.timeout = parsed_options["timeout"].as<int>();

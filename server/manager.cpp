@@ -52,10 +52,13 @@ namespace executor {
   void Client::disable(int id)
   {
     rdma_disconnect(connection->_id);
-    //kill(executor->id(), SIGKILL);
     // First, we check if the child is still alive
     int status;
+    auto b= std::chrono::high_resolution_clock::now();
+    kill(executor->id(), SIGKILL);
     waitpid(executor->id(), &status, WUNTRACED);
+    auto e= std::chrono::high_resolution_clock::now();
+    spdlog::info("Waited for child {} ms", std::chrono::duration_cast<std::chrono::milliseconds>(e-b).count());
 
     //auto status = executor->check();
     //spdlog::info("executor {} {}", executor->id(), std::get<0>(status) == ActiveExecutor::Status::RUNNING);
@@ -139,7 +142,7 @@ namespace executor {
     const executor::ManagerConnection & conn
   )
   {
-
+    static int counter = 0;
     auto begin = std::chrono::high_resolution_clock::now();
     //spdlog::info("Child fork begins work on PID {} req {}", mypid, fmt::ptr(&request));
     std::string client_addr{request.listen_address};
@@ -154,6 +157,12 @@ namespace executor {
     std::string executor_warmups = std::to_string(exec.warmup_iters);
     std::string executor_recv_buf = std::to_string(exec.recv_buffer_size);
     std::string executor_max_inline = std::to_string(exec.max_inline_data);
+    std::string executor_pin_threads;
+    if(exec.pin_threads >= 0)
+      executor_pin_threads = std::to_string(0);//counter++);
+    else
+      executor_pin_threads = std::to_string(exec.pin_threads);
+    bool use_docker = exec.use_docker;
 
     std::string mgr_port = std::to_string(conn.port);
     std::string mgr_secret = std::to_string(conn.secret);
@@ -166,60 +175,114 @@ namespace executor {
     }
     if(mypid == 0) {
       mypid = getpid();
-      //spdlog::info("Child fork begins work on PID {} req {}", mypid, fmt::ptr(&request));
       auto out_file = ("executor_" + std::to_string(mypid));
-      //spdlog::info("Child fork begins work on PID {} req {}", mypid, fmt::ptr(&request));
-      //std::string client_port = std::to_string(request.listen_port);
-      //spdlog::error("Child fork begins work on PID {} req {}", mypid, fmt::ptr(&request));
-      //std::string client_in_size = std::to_string(request.input_buf_size);
-      //std::string client_func_size = std::to_string(request.func_buf_size);
-      //std::string client_cores = std::to_string(request.cores);
-      //std::string client_timeout = std::to_string(request.hot_timeout);
-      //spdlog::error("Child fork begins work on PID {}", mypid);
-      //std::string executor_repetitions = std::to_string(exec.repetitions);
-      //std::string executor_warmups = std::to_string(exec.warmup_iters);
-      //std::string executor_recv_buf = std::to_string(exec.recv_buffer_size);
-      //std::string executor_max_inline = std::to_string(exec.max_inline_data);
 
-      //std::string mgr_port = std::to_string(conn.port);
-      //std::string mgr_secret = std::to_string(conn.secret);
-      //std::string mgr_buf_addr = std::to_string(conn.r_addr);
-      //std::string mgr_buf_rkey = std::to_string(conn.r_key);
-
-      spdlog::info("Child fork begins work on PID {}", mypid);
+      spdlog::info("Child fork begins work on PID {}, using Docker? {}", mypid, use_docker);
       int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
       dup2(fd, 1);
       dup2(fd, 2);
-      const char * argv[] = {
-        "executor",
-        "-a", client_addr.c_str(),
-        "-p", client_port.c_str(),
-        "--polling-mgr", "thread",
-        "-r", executor_repetitions.c_str(),
-        "-x", executor_recv_buf.c_str(),
-        "-s", client_in_size.c_str(),
-        "--pin-threads", "true",
-        "--fast", client_cores.c_str(),
-        "--warmup-iters", executor_warmups.c_str(),
-        "--max-inline-data", executor_max_inline.c_str(),
-        "--func-size", client_func_size.c_str(),
-        "--timeout", client_timeout.c_str(),
-        "--mgr-address", conn.addr.c_str(),
-        "--mgr-port", mgr_port.c_str(),
-        "--mgr-secret", mgr_secret.c_str(),
-        "--mgr-buf-addr", mgr_buf_addr.c_str(),
-        "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
-        nullptr
-      };
-      int ret = execvp(argv[0], const_cast<char**>(&argv[0]));
-      if(ret == -1) {
-        spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
-        close(fd);
-        exit(1);
+      if(!use_docker) {
+        const char * argv[] = {
+          "executor",
+          "-a", client_addr.c_str(),
+          "-p", client_port.c_str(),
+          "--polling-mgr", "thread",
+          "-r", executor_repetitions.c_str(),
+          "-x", executor_recv_buf.c_str(),
+          "-s", client_in_size.c_str(),
+          "--pin-threads", executor_pin_threads.c_str(),
+          "--fast", client_cores.c_str(),
+          "--warmup-iters", executor_warmups.c_str(),
+          "--max-inline-data", executor_max_inline.c_str(),
+          "--func-size", client_func_size.c_str(),
+          "--timeout", client_timeout.c_str(),
+          "--mgr-address", conn.addr.c_str(),
+          "--mgr-port", mgr_port.c_str(),
+          "--mgr-secret", mgr_secret.c_str(),
+          "--mgr-buf-addr", mgr_buf_addr.c_str(),
+          "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
+          nullptr
+        };
+        int ret = execvp(argv[0], const_cast<char**>(&argv[0]));
+        if(ret == -1) {
+          spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
+          close(fd);
+          exit(1);
+        }
+      } else {
+        //const char * argv[] = {
+        //  "docker_rdma_sriov", "run",
+        //  "--rm",
+        //  "--net=mynet", "-i", //"-it",
+        //  // FIXME: make configurable
+        //  "--ip=148.187.105.220",
+        //  // FIXME: make configurable
+        //  "--volume", "/users/mcopik/projects/rdma/repo/build_repo2:/opt",
+        //  // FIXME: make configurable
+        //  "rdma-test",
+        //  "/opt/bin/executor",
+        //  "-a", client_addr.c_str(),
+        //  "-p", client_port.c_str(),
+        //  "--polling-mgr", "thread",
+        //  "-r", executor_repetitions.c_str(),
+        //  "-x", executor_recv_buf.c_str(),
+        //  "-s", client_in_size.c_str(),
+        //  "--pin-threads", "true",
+        //  "--fast", client_cores.c_str(),
+        //  "--warmup-iters", executor_warmups.c_str(),
+        //  "--max-inline-data", executor_max_inline.c_str(),
+        //  "--func-size", client_func_size.c_str(),
+        //  "--timeout", client_timeout.c_str(),
+        //  "--mgr-address", conn.addr.c_str(),
+        //  "--mgr-port", mgr_port.c_str(),
+        //  "--mgr-secret", mgr_secret.c_str(),
+        //  "--mgr-buf-addr", mgr_buf_addr.c_str(),
+        //  "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
+        //  nullptr
+        //};
+        const char * argv[] = {
+          "docker_rdma_sriov", "run",
+          "--rm",
+          "--net=mynet", "-i", //"-it",
+          // FIXME: make configurable
+          "--ip=148.187.105.250",
+          // FIXME: make configurable
+          "--volume", "/users/mcopik/projects/rdma/repo/build_repo2:/opt",
+          // FIXME: make configurable
+          "rdma-test",
+          "/opt/bin/executor",
+          "-a", client_addr.c_str(),
+          "-p", client_port.c_str(),
+          "--polling-mgr", "thread",
+          "-r", executor_repetitions.c_str(),
+          "-x", executor_recv_buf.c_str(),
+          "-s", client_in_size.c_str(),
+          "--pin-threads", executor_pin_threads.c_str(),
+          "--fast", client_cores.c_str(),
+          "--warmup-iters", executor_warmups.c_str(),
+          "--max-inline-data", executor_max_inline.c_str(),
+          "--func-size", client_func_size.c_str(),
+          "--timeout", client_timeout.c_str(),
+          "--mgr-address", conn.addr.c_str(),
+          "--mgr-port", mgr_port.c_str(),
+          "--mgr-secret", mgr_secret.c_str(),
+          "--mgr-buf-addr", mgr_buf_addr.c_str(),
+          "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
+          nullptr
+        };
+        int ret = execvp(argv[0], const_cast<char**>(&argv[0]));
+        if(ret == -1) {
+          spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
+          close(fd);
+          exit(1);
+        }
+
       }
-      close(fd);
+      //close(fd);
       exit(0);
     }
+    if(counter == 36)
+      counter = 0;
     return new ProcessExecutor{request.cores, begin, mypid};
   }
 
@@ -411,25 +474,25 @@ namespace executor {
         if(client.active()) {
           client.rcv_buffer.refill();
           if(client.executor) {
-            auto status = client.executor->check();
-            if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
-              auto now = std::chrono::high_resolution_clock::now();
-              client.allocation_time +=
-                std::chrono::duration_cast<std::chrono::microseconds>(
-                  now - client.executor->_allocation_finished
-                ).count();
-              // FIXME: update global manager
-              spdlog::info(
-                "Executor at client {} exited, status {}, time allocated {} us, polling {} us, execution {} us",
-                i, std::get<1>(status), client.allocation_time,
-                client.accounting.data()[i].hot_polling_time,
-                client.accounting.data()[i].execution_time
-                //_accounting_data.data()[i].hot_polling_time,
-                //_accounting_data.data()[i].execution_time
-              );
-              client.executor.reset(nullptr);
-              spdlog::info("Finished cleanup");
-            }
+            //auto status = client.executor->check();
+            //if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
+            //  auto now = std::chrono::high_resolution_clock::now();
+            //  client.allocation_time +=
+            //    std::chrono::duration_cast<std::chrono::microseconds>(
+            //      now - client.executor->_allocation_finished
+            //    ).count();
+            //  // FIXME: update global manager
+            //  spdlog::info(
+            //    "Executor at client {} exited, status {}, time allocated {} us, polling {} us, execution {} us",
+            //    i, std::get<1>(status), client.allocation_time,
+            //    client.accounting.data()[i].hot_polling_time,
+            //    client.accounting.data()[i].execution_time
+            //    //_accounting_data.data()[i].hot_polling_time,
+            //    //_accounting_data.data()[i].execution_time
+            //  );
+            //  client.executor.reset(nullptr);
+            //  spdlog::info("Finished cleanup");
+            //}
           }
         }
       }

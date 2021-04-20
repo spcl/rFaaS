@@ -20,6 +20,8 @@
 #include "server.hpp"
 #include "fast_executor.hpp"
 
+#include <sched.h>
+
 namespace server {
 
   Accounting::timepoint_t Thread::work(int invoc_id, int func_id, uint32_t in_size)
@@ -46,6 +48,8 @@ namespace server {
     auto end = std::chrono::high_resolution_clock::now();
     _accounting.update_execution_time(start, end);
     _accounting.send_updated_execution(_mgr_connection, _accounting_buf, _mgr_conn);
+    int cpu = sched_getcpu();
+    spdlog::info("Execution + sent took {} us on {} CPU", std::chrono::duration_cast<std::chrono::microseconds>(end-start).count(), cpu);
     return end;
   }
 
@@ -312,7 +316,8 @@ namespace server {
         timeout
       );
       // FIXME: make sure that native handle is actually from pthreads
-      if(pin_threads) {
+      if(pin_threads != -1) {
+        spdlog::info("Pin thread to core {}", pin_threads);
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
         CPU_SET(pin_threads++, &cpuset);

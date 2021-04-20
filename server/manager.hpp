@@ -37,12 +37,13 @@ namespace executor {
     int warmup_iters;
     int recv_buffer_size;
     int max_inline_data;
+    int pin_threads;
   };
 
   struct Options {
     std::string address;
     int port;
-    bool pin_threads;
+    //bool pin_threads;
     std::string server_file;
     bool verbose;
     // Passed to the scheduled executor

@@ -45,7 +45,7 @@ namespace server {
     int msg_size;
     int repetitions;
     int warmup_iters;
-    bool pin_threads;
+    int pin_threads;
     int max_inline_data;
     int func_size;
     int timeout;
