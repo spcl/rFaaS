@@ -48,8 +48,8 @@ namespace server {
     auto end = std::chrono::high_resolution_clock::now();
     _accounting.update_execution_time(start, end);
     _accounting.send_updated_execution(_mgr_connection, _accounting_buf, _mgr_conn);
-    int cpu = sched_getcpu();
-    spdlog::info("Execution + sent took {} us on {} CPU", std::chrono::duration_cast<std::chrono::microseconds>(end-start).count(), cpu);
+    //int cpu = sched_getcpu();
+    //spdlog::info("Execution + sent took {} us on {} CPU", std::chrono::duration_cast<std::chrono::microseconds>(end-start).count(), cpu);
     return end;
   }
 
