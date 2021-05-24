@@ -150,6 +150,7 @@ target_link_libraries(rfaaslib PUBLIC PkgConfig::ibverbs)
 target_link_libraries(rfaaslib PRIVATE spdlog::spdlog)
 target_link_libraries(rfaaslib PRIVATE cereal)
 target_link_libraries(rfaaslib PUBLIC dl)
+target_link_libraries(rfaaslib PUBLIC Threads::Threads)
 
 ###
 # Warm/hot benchmarker
@@ -157,8 +158,9 @@ target_link_libraries(rfaaslib PUBLIC dl)
 add_executable(warm_benchmarker tests/warm_benchmark.cpp tests/warm_benchmark_opts.cpp)
 add_executable(parallel_invocations tests/parallel_invocations.cpp tests/parallel_invocations_opts.cpp)
 add_executable(cold_benchmarker tests/cold_benchmark.cpp tests/cold_benchmark_opts.cpp)
+add_executable(cpp_interface tests/cpp_interface.cpp tests/warm_benchmark_opts.cpp)
 #set(tests_targets "warm_benchmarker" "cold_benchmarker")
-set(tests_targets "warm_benchmarker" "cold_benchmarker" "parallel_invocations")
+set(tests_targets "warm_benchmarker" "cold_benchmarker" "parallel_invocations" "cpp_interface")
 foreach(target ${tests_targets})
   add_dependencies(${target} cxxopts::cxxopts)
   add_dependencies(${target} rdmalib)
