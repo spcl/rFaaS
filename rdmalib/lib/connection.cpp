@@ -349,9 +349,9 @@ namespace rdmalib {
     return std::make_tuple(wcs, ret);
   }
 
-  void Connection::notify_events()
+  void Connection::notify_events(bool only_solicited)
   {
-    impl::expect_zero(ibv_req_notify_cq(_qp->recv_cq, 0));
+    impl::expect_zero(ibv_req_notify_cq(_qp->recv_cq, only_solicited));
   }
 
   ibv_cq* Connection::wait_events()

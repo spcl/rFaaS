@@ -71,7 +71,7 @@ namespace rdmalib {
     int32_t post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add);
 
     // Register to be notified about all events, including unsolicited ones
-    void notify_events();
+    void notify_events(bool only_solicited = false);
     ibv_cq* wait_events();
     void ack_events(ibv_cq* cq, int len);
   private:
