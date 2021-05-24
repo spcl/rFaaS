@@ -109,7 +109,8 @@ namespace server {
   struct Thread {
 
 
-    constexpr static int invocation_mask = 0x0000FFFF;
+    constexpr static int invocation_mask = 0x00007FFF;
+    constexpr static int solicited_mask = 0x00008000;
     Functions _functions;
     std::string addr;
     int port;
@@ -150,7 +151,7 @@ namespace server {
     {
     }
 
-    Accounting::timepoint_t work(int invoc_id, int func_id, uint32_t in_size);
+    Accounting::timepoint_t work(int invoc_id, int func_id, bool solicited, uint32_t in_size);
     void hot(uint32_t hot_timeout);
     void warm();
     void thread_work(int timeout);

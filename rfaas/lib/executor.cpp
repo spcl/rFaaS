@@ -115,14 +115,14 @@ namespace rfaas {
   void executor::poll_queue()
   {
     spdlog::info("Background thread starts waiting for events");
-    _connections[0].conn->notify_events(false);
+    _connections[0].conn->notify_events(true);
     // Wait for event
     // Ask for next events
     // Check if no one is polling
     // Check data
     while(_connections.size()) {
       auto cq = _connections[0].conn->wait_events();
-      _connections[0].conn->notify_events(false);
+      _connections[0].conn->notify_events(true);
       _connections[0].conn->ack_events(cq, 1);
       if(!_active_polling) {
         auto wc = _connections[0]._rcv_buffer.poll(false);
@@ -132,17 +132,11 @@ namespace rfaas {
           int finished_invoc_id = val >> 16;
           auto it = _futures.find(finished_invoc_id);
           // if it == end -> we have a bug, should never appear
-          spdlog::info("Future for id {}", finished_invoc_id);
+          //spdlog::info("Future for id {}", finished_invoc_id);
           (*it).second.set_value(return_val);
           // FIXME: handle error
-          //++events;
-          //spdlog::info("Caught events {}", finished_invoc_id);
         }
-      } else {
-        //spdlog::info("Skipping event because warm polling is active");
-        //events += 2;
       }
-      //spdlog::info("Caught events2 {}", _connections.size());
     }
     spdlog::info("Background thread stops waiting for events");
   }

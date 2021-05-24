@@ -85,19 +85,17 @@ namespace rfaas {
       *reinterpret_cast<uint32_t*>(data + 8) = out.rkey();
 
       int invoc_id = this->_invoc_id++;
+      uint32_t submission_id = (invoc_id << 16) | (1 << 15) | func_idx;
       SPDLOG_DEBUG(
         "Invoke function {} with invocation id {}, submission id {}",
-        func_idx, invoc_id, (invoc_id << 16) | func_idx
-      );
-      spdlog::info(
-        "Invoke function {} with invocation id {}, submission id {}",
-        func_idx, invoc_id, (invoc_id << 16) | func_idx
+        func_idx, invoc_id, submission_id
       );
       _connections[0].conn->post_write(
         in,
         _connections[0].remote_input,
-        (invoc_id << 16) | func_idx,
-        in.bytes() <= _max_inlined_msg
+        submission_id,
+        in.bytes() <= _max_inlined_msg,
+        true
       );
       _futures[invoc_id] = std::move(std::promise<int>{});
       _connections[0]._rcv_buffer.refill();
@@ -171,10 +169,10 @@ namespace rfaas {
           if(finished_invoc_id == invoc_id) {
             found_result = true;
             return_value = return_val;
-            spdlog::info("Result for id {}", finished_invoc_id);
+            //spdlog::info("Result for id {}", finished_invoc_id);
           } else {
             auto it = _futures.find(finished_invoc_id);
-            spdlog::info("Poll Future for id {}", finished_invoc_id);
+            //spdlog::info("Poll Future for id {}", finished_invoc_id);
             // if it == end -> we have a bug, should never appear
             (*it).second.set_value(return_val);
           }
@@ -191,26 +189,12 @@ namespace rfaas {
             int return_val = val & 0x0000FFFF;
             int finished_invoc_id = val >> 16;
             auto it = _futures.find(finished_invoc_id);
-            spdlog::info("Poll Future for id {}", finished_invoc_id);
+            //spdlog::info("Poll Future for id {}", finished_invoc_id);
             // if it == end -> we have a bug, should never appear
             (*it).second.set_value(return_val);
           }
         }
-        //val = ntohl(std::get<0>(wc)[0].imm_data);
-        //finished_invoc_id = val >> 16;
-        //if(finished_invoc_id == invoc_id) {
-        //  _active_polling = false;
-        //  found_result = true;
-        //  auto wc = _connections[0]._rcv_buffer.poll(false);
-        //  // Catch very unlikely interleaving
-        //  if(std::get<0>(wc)) {
-        //    // set future
-        //  }
-        //} else {
-        //  // set future
-        //}
       }
-      //int return_val = val & 0x0000FFFF;
       if(return_value == 0) {
         SPDLOG_DEBUG("Finished invocation {} succesfully", invoc_id);
         return true;

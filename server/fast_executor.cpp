@@ -24,13 +24,15 @@
 
 namespace server {
 
-  Accounting::timepoint_t Thread::work(int invoc_id, int func_id, uint32_t in_size)
+  Accounting::timepoint_t Thread::work(int invoc_id, int func_id, bool solicited, uint32_t in_size)
   {
     // FIXME: load func ptr
     rdmalib::functions::Submission* header = reinterpret_cast<rdmalib::functions::Submission*>(rcv.ptr());
     auto ptr = _functions.function(func_id);
 
-    SPDLOG_DEBUG("Thread {} begins work! Executing function {} with size {}", id, _functions._names[func_id], in_size);
+    SPDLOG_DEBUG("Thread {} begins work! Executing function {} with size {}, invoc id {}, solicited reply? {}",
+      id, _functions._names[func_id], in_size, invoc_id, solicited
+    );
     auto start = std::chrono::high_resolution_clock::now();
     // Data to ignore header passed in the buffer
     uint32_t out_size = (*ptr)(rcv.data(), in_size, send.ptr());
@@ -43,7 +45,8 @@ namespace server {
       send.sge(out_size, 0),
       {header->r_address, header->r_key},
       (invoc_id << 16) | 0,
-      out_size <= max_inline_data
+      out_size <= max_inline_data,
+      solicited
     );
     auto end = std::chrono::high_resolution_clock::now();
     _accounting.update_execution_time(start, end);
@@ -76,6 +79,7 @@ namespace server {
           int info = ntohl(wc->imm_data);
           int func_id = info & invocation_mask;
           int invoc_id = info >> 16;
+          bool solicited = info & solicited_mask;
           SPDLOG_DEBUG(
             "Thread {} Invoc id {} Execute func {} Repetition {}",
             id, invoc_id, func_id, repetitions
@@ -83,7 +87,9 @@ namespace server {
 
           // Measure hot polling time until we started execution
           auto now = std::chrono::high_resolution_clock::now();
-          auto func_end = work(invoc_id, func_id, wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
+          auto func_end = work(invoc_id, func_id, solicited,
+              wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE
+          );
           _accounting.update_polling_time(start, now);
           i = 0;
           start = func_end;
@@ -136,13 +142,14 @@ namespace server {
           }
           int info = ntohl(wc->imm_data);
           int func_id = info & invocation_mask;
+          bool solicited = info & solicited_mask;
           int invoc_id = info >> 16;
           SPDLOG_DEBUG(
             "Thread {} Invoc id {} Execute func {} Repetition {}",
             id, invoc_id, func_id, repetitions
           );
 
-          work(invoc_id, func_id, wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
+          work(invoc_id, func_id, solicited, wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
 
           //sum += server_processing_times.end();
           conn->poll_wc(rdmalib::QueueType::SEND, true);

@@ -66,7 +66,12 @@ namespace rdmalib {
     int32_t post_batched_empty_recv(int32_t count = 1);
 
     int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, bool force_inline = false);
-    int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, uint32_t immediate, bool force_inline = false);
+    // Solicited makes sense only for RDMA write with immediate
+    int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf,
+      uint32_t immediate,
+      bool force_inline = false,
+      bool solicited = false
+    );
     int32_t post_cas(ScatterGatherElement && elems, const RemoteBuffer & buf, uint64_t compare, uint64_t swap);
     int32_t post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add);
 
@@ -75,7 +80,7 @@ namespace rdmalib {
     ibv_cq* wait_events();
     void ack_events(ibv_cq* cq, int len);
   private:
-    int32_t _post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline);
+    int32_t _post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
   };
 }
 
