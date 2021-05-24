@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <future>
 
 #include <rdmalib/benchmarker.hpp>
 #include <rdmalib/connection.hpp>
@@ -52,6 +53,12 @@ namespace rfaas {
     std::unique_ptr<manager_connection> _exec_manager;
     std::vector<std::string> _func_names;
 
+    // manage async executions
+    std::atomic<bool> _active_polling;
+    std::unordered_map<int, std::promise<int>> _futures;
+    std::unique_ptr<std::thread> _background_thread;
+    int events;
+
     executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg);
 
     // Skipping managers is useful for benchmarking
@@ -59,14 +66,15 @@ namespace rfaas {
         bool skip_manager = false, rdmalib::Benchmarker<5> * benchmarker = nullptr);
     void deallocate();
     rdmalib::Buffer<char> load_library(std::string path);
+    void poll_queue();
 
     template<typename T>
-    bool async(std::string fname, const rdmalib::Buffer<T> & in, rdmalib::Buffer<T> & out)
+    std::future<int> async(std::string fname, const rdmalib::Buffer<T> & in, rdmalib::Buffer<T> & out)
     {
       auto it = std::find(_func_names.begin(), _func_names.end(), fname);
       if(it == _func_names.end()) {
         spdlog::error("Function {} not found in the deployed library!", fname);
-        return false;
+        return std::future<int>{};
       }
       int func_idx = std::distance(_func_names.begin(), it);
 
@@ -81,14 +89,19 @@ namespace rfaas {
         "Invoke function {} with invocation id {}, submission id {}",
         func_idx, invoc_id, (invoc_id << 16) | func_idx
       );
+      spdlog::info(
+        "Invoke function {} with invocation id {}, submission id {}",
+        func_idx, invoc_id, (invoc_id << 16) | func_idx
+      );
       _connections[0].conn->post_write(
         in,
         _connections[0].remote_input,
         (invoc_id << 16) | func_idx,
         in.bytes() <= _max_inlined_msg
       );
+      _futures[invoc_id] = std::move(std::promise<int>{});
       _connections[0]._rcv_buffer.refill();
-      return true;
+      return _futures[invoc_id].get_future();
     }
 
     bool block()
@@ -142,21 +155,70 @@ namespace rfaas {
         (invoc_id << 16) | func_idx,
         in.bytes() <= _max_inlined_msg
       );
+      _active_polling = true;
       _connections[0]._rcv_buffer.refill();
       _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
 
-      auto wc = _connections[0]._rcv_buffer.poll(true);
-      uint32_t val = ntohl(std::get<0>(wc)[0].imm_data);
-      int return_val = val & 0x0000FFFF;
-      int finished_invoc_id = val >> 16;
-      if(return_val == 0) {
-        SPDLOG_DEBUG("Finished invocation {} succesfully", finished_invoc_id);
+      bool found_result = false;
+      int return_value = 0;
+      while(!found_result) {
+        auto wc = _connections[0]._rcv_buffer.poll(true);
+        for(int i = 0; i < std::get<1>(wc); ++i) {
+          uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
+          int return_val = val & 0x0000FFFF;
+          int finished_invoc_id = val >> 16;
+
+          if(finished_invoc_id == invoc_id) {
+            found_result = true;
+            return_value = return_val;
+            spdlog::info("Result for id {}", finished_invoc_id);
+          } else {
+            auto it = _futures.find(finished_invoc_id);
+            spdlog::info("Poll Future for id {}", finished_invoc_id);
+            // if it == end -> we have a bug, should never appear
+            (*it).second.set_value(return_val);
+          }
+        }
+        if(found_result) {
+          _active_polling = false;
+          auto wc = _connections[0]._rcv_buffer.poll(false);
+          // Catch very unlikely interleaving
+          // Event arrives after we poll while the background thread is skipping
+          // because we still hold the atomic
+          // Thus, we later unset the variable since we're done
+          for(int i = 0; i < std::get<1>(wc); ++i) {
+            uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
+            int return_val = val & 0x0000FFFF;
+            int finished_invoc_id = val >> 16;
+            auto it = _futures.find(finished_invoc_id);
+            spdlog::info("Poll Future for id {}", finished_invoc_id);
+            // if it == end -> we have a bug, should never appear
+            (*it).second.set_value(return_val);
+          }
+        }
+        //val = ntohl(std::get<0>(wc)[0].imm_data);
+        //finished_invoc_id = val >> 16;
+        //if(finished_invoc_id == invoc_id) {
+        //  _active_polling = false;
+        //  found_result = true;
+        //  auto wc = _connections[0]._rcv_buffer.poll(false);
+        //  // Catch very unlikely interleaving
+        //  if(std::get<0>(wc)) {
+        //    // set future
+        //  }
+        //} else {
+        //  // set future
+        //}
+      }
+      //int return_val = val & 0x0000FFFF;
+      if(return_value == 0) {
+        SPDLOG_DEBUG("Finished invocation {} succesfully", invoc_id);
         return true;
       } else {
-        if(val == 1)
-          spdlog::error("Invocation: {}, Thread busy, cannot post work", finished_invoc_id);
+        if(return_value == 1)
+          spdlog::error("Invocation: {}, Thread busy, cannot post work", invoc_id);
         else
-          spdlog::error("Invocation: {}, Unknown error {}", finished_invoc_id, val);
+          spdlog::error("Invocation: {}, Unknown error {}", invoc_id, return_value);
         return false;
       }
     }
@@ -199,6 +261,7 @@ namespace rfaas {
 
       expected = numcores;
       bool correct = true;
+      _active_polling = true;
       while(expected) {
         auto wc = _connections[0]._rcv_buffer.poll(true);
         expected -= std::get<1>(wc);
@@ -217,6 +280,7 @@ namespace rfaas {
           correct &= return_val == 0;
         }
       }
+      _active_polling = false;
 
       _connections[0]._rcv_buffer._requests += numcores - 1;
       for(int i = 1; i < numcores; ++i)

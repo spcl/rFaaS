@@ -23,7 +23,6 @@ namespace rfaas {
     conn(std::move(conn)),
     _rcv_buffer(rcv_buf_size)
   {
-
   }
 
   executor::executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
@@ -38,6 +37,7 @@ namespace rfaas {
     _max_inlined_msg(max_inlined_msg)
   {
     _execs_buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    events = 0;
   }
 
   rdmalib::Buffer<char> executor::load_library(std::string path)
@@ -106,7 +106,45 @@ namespace rfaas {
       _exec_manager.reset(nullptr);
       _connections.clear();
       _state._cfg.attr.send_cq = _state._cfg.attr.recv_cq = 0;
+      _background_thread->detach();
+      _background_thread.reset();
+      spdlog::info("events {}", events);
     }
+  }
+
+  void executor::poll_queue()
+  {
+    spdlog::info("Background thread starts waiting for events");
+    _connections[0].conn->notify_events(false);
+    // Wait for event
+    // Ask for next events
+    // Check if no one is polling
+    // Check data
+    while(_connections.size()) {
+      auto cq = _connections[0].conn->wait_events();
+      _connections[0].conn->notify_events(false);
+      _connections[0].conn->ack_events(cq, 1);
+      if(!_active_polling) {
+        auto wc = _connections[0]._rcv_buffer.poll(false);
+        for(int i = 0; i < std::get<1>(wc); ++i) {
+          uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
+          int return_val = val & 0x0000FFFF;
+          int finished_invoc_id = val >> 16;
+          auto it = _futures.find(finished_invoc_id);
+          // if it == end -> we have a bug, should never appear
+          spdlog::info("Future for id {}", finished_invoc_id);
+          (*it).second.set_value(return_val);
+          // FIXME: handle error
+          //++events;
+          //spdlog::info("Caught events {}", finished_invoc_id);
+        }
+      } else {
+        //spdlog::info("Skipping event because warm polling is active");
+        //events += 2;
+      }
+      //spdlog::info("Caught events2 {}", _connections.size());
+    }
+    spdlog::info("Background thread stops waiting for events");
   }
 
   bool executor::allocate(std::string functions_path, int numcores, int max_input_size,
@@ -211,6 +249,16 @@ namespace rfaas {
       benchmarker->end(3);
       benchmarker->start();
     }
+    if(_background_thread) {
+      _background_thread->detach();
+    }
+    // FIXME: extend to multiple connections
+    _background_thread.reset(
+      new std::thread{
+        &executor::poll_queue,
+        this
+      }
+    );
     SPDLOG_DEBUG("Code submission for all threads is finished");
     return true;
   }
