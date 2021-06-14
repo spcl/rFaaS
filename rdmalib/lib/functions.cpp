@@ -5,6 +5,8 @@
 
 namespace rdmalib { namespace functions {
 
+  constexpr int Submission::DATA_HEADER_SIZE;
+
   void FunctionsDB::test_function(void* args, void* res)
   {
     int* src = static_cast<int*>(args), *dest = static_cast<int*>(res);
