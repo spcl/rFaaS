@@ -13,6 +13,7 @@
 #include <rdmalib/rdmalib.hpp>
 
 #include <rfaas/connection.hpp>
+#include <rfaas/devices.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -60,6 +61,7 @@ namespace rfaas {
     int events;
 
     executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg);
+    executor(device_data & dev);
 
     // Skipping managers is useful for benchmarking
     bool allocate(std::string functions_path, int numcores, int max_input_size, int hot_timeout,
