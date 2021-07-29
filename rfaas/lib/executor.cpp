@@ -16,6 +16,7 @@
 #include <dlfcn.h>
 #include <elf.h>
 #include <link.h>
+#include <poll.h>
 
 namespace rfaas {
 
@@ -38,6 +39,8 @@ namespace rfaas {
   {
     _execs_buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     events = 0;
+    _active_polling = false;
+    _end_requested = false;
   }
 
   rdmalib::Buffer<char> executor::load_library(std::string path)
@@ -102,13 +105,17 @@ namespace rfaas {
   void executor::deallocate()
   {
     if(_exec_manager) {
+      _end_requested = true;
+      _background_thread->join();
+      _background_thread.reset();
       _exec_manager->disconnect();
       _exec_manager.reset(nullptr);
-      _connections.clear();
       _state._cfg.attr.send_cq = _state._cfg.attr.recv_cq = 0;
-      _background_thread->detach();
-      _background_thread.reset();
-      spdlog::info("events {}", events);
+      //_active_polling = true;
+      _connections.clear();
+      //_background_thread->detach();
+      //_background_thread.reset();
+      //spdlog::info("events {}", events);
     }
   }
 
@@ -116,15 +123,33 @@ namespace rfaas {
   {
     spdlog::info("Background thread starts waiting for events");
     _connections[0].conn->notify_events(true);
-    // Wait for event
-    // Ask for next events
-    // Check if no one is polling
-    // Check data
-    while(_connections.size()) {
-      auto cq = _connections[0].conn->wait_events();
-      _connections[0].conn->notify_events(true);
-      _connections[0].conn->ack_events(cq, 1);
-      if(!_active_polling) {
+    int flags = fcntl(_connections[0].conn->_channel->fd, F_GETFL);
+    int rc = fcntl(_connections[0].conn->_channel->fd, F_SETFL, flags | O_NONBLOCK);
+    if (rc < 0) {
+      fprintf(stderr, "Failed to change file descriptor of completion event channel\n");
+      return;
+    }
+
+    while(!_end_requested && _connections.size()) {
+      pollfd my_pollfd;
+      my_pollfd.fd      = _connections[0].conn->_channel->fd;
+      my_pollfd.events  = POLLIN;
+      my_pollfd.revents = 0;
+      do {
+        rc = poll(&my_pollfd, 1, 100);
+        if(_end_requested) {
+          spdlog::info("Background thread stops waiting for events");
+          return;
+        }
+      } while (rc == 0);
+      if (rc < 0) {
+        fprintf(stderr, "poll failed\n");
+        return;
+      }
+      if(!_end_requested) {
+        auto cq = _connections[0].conn->wait_events();
+        _connections[0].conn->notify_events(true);
+        _connections[0].conn->ack_events(cq, 1);
         auto wc = _connections[0]._rcv_buffer.poll(false);
         for(int i = 0; i < std::get<1>(wc); ++i) {
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
@@ -133,12 +158,57 @@ namespace rfaas {
           auto it = _futures.find(finished_invoc_id);
           // if it == end -> we have a bug, should never appear
           //spdlog::info("Future for id {}", finished_invoc_id);
-          (*it).second.set_value(return_val);
+          //(*it).second.set_value(return_val);
           // FIXME: handle error
+          if(!--std::get<0>(it->second)) {
+            std::get<1>(it->second).set_value(return_val);
+            // FIXME
+            //
+            _connections[0]._rcv_buffer._requests += _connections.size() - 1;
+            for(int i = 1; i < _connections.size(); ++i)
+              _connections[i]._rcv_buffer._requests--;
+          }
         }
+        // Poll completions from past sends
+        for(auto & conn : _connections)
+          conn.conn->poll_wc(rdmalib::QueueType::SEND, false);
       }
     }
     spdlog::info("Background thread stops waiting for events");
+
+    // Wait for event
+    // Ask for next events
+    // Check if no one is polling
+    // Check data
+    //while(!_end_requested && _connections.size()) {
+      //std::cout << ("Sleep \n");
+      //auto cq = _connections[0].conn->wait_events();
+      //std::cout << ("Wake up + " + std::to_string(_end_requested) + "\n");
+      //if(_end_requested)
+      //  break; 
+      //if(_connections.size() > 0) {
+      //  //std::cout << ("Check connections\n");
+      //  _connections[0].conn->notify_events(true);
+      //  _connections[0].conn->ack_events(cq, 1);
+      //  //spdlog::info("wake up! {}", _active_polling);
+      //  if(!_active_polling) {
+      //    auto wc = _connections[0]._rcv_buffer.poll(false);
+      //    for(int i = 0; i < std::get<1>(wc); ++i) {
+      //      uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
+      //      int return_val = val & 0x0000FFFF;
+      //      int finished_invoc_id = val >> 16;
+      //      auto it = _futures.find(finished_invoc_id);
+      //      // if it == end -> we have a bug, should never appear
+      //      //spdlog::info("Future for id {}", finished_invoc_id);
+      //      (*it).second.set_value(return_val);
+      //      // FIXME: handle error
+      //    }
+      //    // Poll completions from past sends
+      //    _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, false);
+      //  }
+      //}
+    //}
+    //spdlog::info("Background thread stops waiting for events");
   }
 
   bool executor::allocate(std::string functions_path, int numcores, int max_input_size,
@@ -243,9 +313,10 @@ namespace rfaas {
       benchmarker->end(3);
       benchmarker->start();
     }
-    if(_background_thread) {
-      _background_thread->detach();
-    }
+    //if(_background_thread) {
+    //  _background_thread->detach();
+    //}
+    _active_polling = false;
     // FIXME: extend to multiple connections
     _background_thread.reset(
       new std::thread{
