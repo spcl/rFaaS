@@ -320,6 +320,17 @@ namespace rfaas {
     }
 
     received = 0;
+    _active_polling = false;
+    // Ensure that we are able to process asynchronous replies
+    // before we start any submissionk.
+    _connections[0].conn->notify_events(true);
+    // FIXME: extend to multiple connections
+    _background_thread.reset(
+      new std::thread{
+        &executor::poll_queue,
+        this
+      }
+    );
     while(received < numcores) {
       auto wcs = this->_connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
       received += std::get<1>(wcs);
@@ -332,14 +343,6 @@ namespace rfaas {
     //if(_background_thread) {
     //  _background_thread->detach();
     //}
-    _active_polling = false;
-    // FIXME: extend to multiple connections
-    _background_thread.reset(
-      new std::thread{
-        &executor::poll_queue,
-        this
-      }
-    );
     SPDLOG_DEBUG("Code submission for all threads is finished");
     return true;
   }

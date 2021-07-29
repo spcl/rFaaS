@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <iterator>
 #include <future>
+#include <fcntl.h>
 
 #include <rdmalib/benchmarker.hpp>
 #include <rdmalib/connection.hpp>
