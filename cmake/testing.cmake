@@ -2,6 +2,26 @@
 enable_testing()
 include(GoogleTest)
 
+# FIXME: config build dir
+# FIXME: config user
+# FIXME: kill pid
+# FIXME: fail if pid is not running
+add_test(
+  NAME start_exec_mgr
+  COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_executor_manager.sh
+  32 1 1
+  #$<TARGET_FILE:lws-minimal-http-server-tls>
+)
+add_test(
+  NAME end_exec_mgr
+  COMMAND killall executor_manager
+)
+
+set_property(TEST start_exec_mgr PROPERTY WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST start_exec_mgr PROPERTY FIXTURES_SETUP localserver)
+set_property(TEST start_exec_mgr PROPERTY ENVIRONMENT "PATH=${CMAKE_BINARY_DIR}/bin\:$ENV{PATH}")
+set_property(TEST end_exec_mgr PROPERTY FIXTURES_CLEANUP localserver)
+
 add_executable(
   basic_allocation_test
   tests/basic_allocation_test.cpp
@@ -13,7 +33,11 @@ foreach(target ${tests_targets})
   target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:rfaaslib,INTERFACE_INCLUDE_DIRECTORIES>)
   target_link_libraries(${target} PRIVATE rfaaslib gtest_main)
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY tests)
-  gtest_discover_tests(basic_allocation_test)
+  gtest_discover_tests(
+    ${target}
+    PROPERTIES FIXTURES_REQUIRED localserver
+  )
+  #set_tests_properties(${target} PROPERTIES FIXTURES_REQUIRED localserver)
 endforeach()
 
 
