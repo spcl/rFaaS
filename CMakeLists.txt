@@ -1,6 +1,8 @@
+
 cmake_minimum_required(VERSION 3.11)
 include(FetchContent)
 project(serverless-rdma)
+set (CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
@@ -113,6 +115,18 @@ if(NOT cereal_FOUND)
 endif()
 
 ###
+# google test
+###
+include(FetchContent)
+message(STATUS "Downloading and building gtest")
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG release-1.11.0
+)
+FetchContent_MakeAvailable(googletest)
+
+###
 # rdmalib: build C++14, PIC and no RTTI
 ###
 file(GLOB rdmalib_files "rdmalib/lib/*.cpp")
@@ -142,13 +156,13 @@ add_dependencies(rfaaslib rdmalib)
 target_include_directories(rfaaslib PUBLIC "rfaas/include")
 target_include_directories(rfaaslib PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(rfaaslib SYSTEM PUBLIC $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(rfaaslib SYSTEM PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rfaaslib SYSTEM PUBLIC $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(rfaaslib PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(rfaaslib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
 target_link_libraries(rfaaslib PUBLIC rdmalib)
 target_link_libraries(rfaaslib PUBLIC PkgConfig::rdmacm)
 target_link_libraries(rfaaslib PUBLIC PkgConfig::ibverbs)
-target_link_libraries(rfaaslib PRIVATE spdlog::spdlog)
+target_link_libraries(rfaaslib PUBLIC spdlog::spdlog)
 target_link_libraries(rfaaslib PRIVATE cereal)
 target_link_libraries(rfaaslib PUBLIC dl)
 target_link_libraries(rfaaslib PUBLIC Threads::Threads)
@@ -201,3 +215,4 @@ add_library(functions SHARED examples/functions.cpp)
 set_target_properties(functions PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(functions PROPERTIES LIBRARY_OUTPUT_DIRECTORY examples)
 
+include(testing)
