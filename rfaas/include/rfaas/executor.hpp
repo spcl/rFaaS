@@ -30,6 +30,16 @@ namespace rfaas {
 
   }
 
+  struct polling_type {
+    static const polling_type HOT_ALWAYS;
+    static const polling_type WARM_ALWAYS;
+
+    int _timeout;
+
+    polling_type(int timeout);
+    operator int() const;
+  };
+
   struct executor_state {
     std::unique_ptr<rdmalib::Connection> conn;
     rdmalib::RemoteBuffer remote_input;

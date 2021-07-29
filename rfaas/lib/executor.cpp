@@ -19,6 +19,18 @@
 
 namespace rfaas {
 
+  const polling_type polling_type::HOT_ALWAYS = polling_type{-1};
+  const polling_type polling_type::WARM_ALWAYS = polling_type{0};
+
+  polling_type::polling_type(int timeout):
+    _timeout(timeout)
+  {}
+
+  polling_type::operator int() const
+  {
+    return _timeout;
+  }
+
   executor_state::executor_state(std::unique_ptr<rdmalib::Connection> conn, int rcv_buf_size):
     conn(std::move(conn)),
     _rcv_buffer(rcv_buf_size)
