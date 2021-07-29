@@ -65,8 +65,10 @@ namespace rfaas {
     std::vector<std::string> _func_names;
 
     // manage async executions
+    std::atomic<bool> _end_requested;
     std::atomic<bool> _active_polling;
-    std::unordered_map<int, std::promise<int>> _futures;
+    //std::unordered_map<int, std::promise<int>> _futures;
+    std::unordered_map<int, std::tuple<int, std::promise<int>>> _futures;
     std::unique_ptr<std::thread> _background_thread;
     int events;
 
@@ -80,8 +82,8 @@ namespace rfaas {
     rdmalib::Buffer<char> load_library(std::string path);
     void poll_queue();
 
-    template<typename T>
-    std::future<int> async(std::string fname, const rdmalib::Buffer<T> & in, rdmalib::Buffer<T> & out)
+    template<typename T, typename U>
+    std::future<int> async(std::string fname, const rdmalib::Buffer<T> & in, rdmalib::Buffer<U> & out, int64_t size = -1)
     {
       auto it = std::find(_func_names.begin(), _func_names.end(), fname);
       if(it == _func_names.end()) {
@@ -97,21 +99,72 @@ namespace rfaas {
       *reinterpret_cast<uint32_t*>(data + 8) = out.rkey();
 
       int invoc_id = this->_invoc_id++;
+      //_futures[invoc_id] = std::move(std::promise<int>{});
+      _futures[invoc_id] = std::make_tuple(1, std::move(std::promise<int>{}));
       uint32_t submission_id = (invoc_id << 16) | (1 << 15) | func_idx;
       SPDLOG_DEBUG(
         "Invoke function {} with invocation id {}, submission id {}",
         func_idx, invoc_id, submission_id
       );
-      _connections[0].conn->post_write(
-        in,
-        _connections[0].remote_input,
-        submission_id,
-        in.bytes() <= _max_inlined_msg,
-        true
-      );
-      _futures[invoc_id] = std::move(std::promise<int>{});
+      if(size != -1) {
+        rdmalib::ScatterGatherElement sge;
+        sge.add(in, size, 0);
+        _connections[0].conn->post_write(
+          std::move(sge),
+          _connections[0].remote_input,
+          submission_id,
+          size <= _max_inlined_msg,
+          true
+        );
+      } else {
+        _connections[0].conn->post_write(
+          in,
+          _connections[0].remote_input,
+          submission_id,
+          in.bytes() <= _max_inlined_msg,
+          true
+        );
+      }
       _connections[0]._rcv_buffer.refill();
-      return _futures[invoc_id].get_future();
+      return std::get<1>(_futures[invoc_id]).get_future();
+    }
+
+    template<typename T,typename U>
+    std::future<int> async(std::string fname, const std::vector<rdmalib::Buffer<T>> & in, std::vector<rdmalib::Buffer<U>> & out)
+    {
+      auto it = std::find(_func_names.begin(), _func_names.end(), fname);
+      if(it == _func_names.end()) {
+        spdlog::error("Function {} not found in the deployed library!", fname);
+        return std::future<int>{};
+      }
+      int func_idx = std::distance(_func_names.begin(), it);
+
+      int invoc_id = this->_invoc_id++;
+      //_futures[invoc_id] = std::move(std::promise<int>{});
+      int numcores = _connections.size();
+      _futures[invoc_id] = std::make_tuple(numcores, std::move(std::promise<int>{}));
+      uint32_t submission_id = (invoc_id << 16) | (1 << 15) | func_idx;
+      for(int i = 0; i < numcores; ++i) {
+        // FIXME: here get a future for async
+        char* data = static_cast<char*>(in[i].ptr());
+        // TODO: we assume here uintptr_t is 8 bytes
+        *reinterpret_cast<uint64_t*>(data) = out[i].address();
+        *reinterpret_cast<uint32_t*>(data + 8) = out[i].rkey();
+
+        SPDLOG_DEBUG("Invoke function {} with invocation id {}", func_idx, _invoc_id);
+        _connections[i].conn->post_write(
+          in[i],
+          _connections[i].remote_input,
+          submission_id,
+          in[i].bytes() <= _max_inlined_msg,
+          true
+        );
+      }
+
+      for(int i = 0; i < numcores; ++i) {
+        _connections[i]._rcv_buffer.refill();
+      }
+      return std::get<1>(_futures[invoc_id]).get_future();
     }
 
     bool block()
@@ -167,7 +220,6 @@ namespace rfaas {
       );
       _active_polling = true;
       _connections[0]._rcv_buffer.refill();
-      _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
 
       bool found_result = false;
       int return_value = 0;
@@ -186,7 +238,9 @@ namespace rfaas {
             auto it = _futures.find(finished_invoc_id);
             //spdlog::info("Poll Future for id {}", finished_invoc_id);
             // if it == end -> we have a bug, should never appear
-            (*it).second.set_value(return_val);
+            //(*it).second.set_value(return_val);
+            if(!--std::get<0>(it->second))
+              std::get<1>(it->second).set_value(return_val);
           }
         }
         if(found_result) {
@@ -203,10 +257,13 @@ namespace rfaas {
             auto it = _futures.find(finished_invoc_id);
             //spdlog::info("Poll Future for id {}", finished_invoc_id);
             // if it == end -> we have a bug, should never appear
-            (*it).second.set_value(return_val);
+            //(*it).second.set_value(return_val);
+            if(!--std::get<0>(it->second))
+              std::get<1>(it->second).set_value(return_val);
           }
         }
       }
+      _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, false);
       if(return_value == 0) {
         SPDLOG_DEBUG("Finished invocation {} succesfully", invoc_id);
         return true;
