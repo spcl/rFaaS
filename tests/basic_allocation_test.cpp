@@ -7,6 +7,11 @@
 #include <gtest/gtest.h>
 #include <cereal/archives/json.hpp>
 
+struct Settings
+{
+  static constexpr char FLIB_PATH[] = "examples/libfunctions.so";
+};
+
 class BasicAllocationTest : public ::testing::Test {
 protected:
   void SetUp() override
@@ -30,15 +35,21 @@ protected:
   }
 };
 
-
-// Demonstrate some basic assertions.
+// Test should execute without any exceptions.
 TEST_F(BasicAllocationTest, BasicAllocation) {
   rfaas::devices & dev = rfaas::devices::instance();
   rfaas::executor executor(*dev.device("rocep7s0"));
-  //executor.allocate(opts.flib, opts.numcores, opts.input_size, opts.hot_timeout, false);
-  // Expect two strings not to be equal.
-  EXPECT_STRNE("hello", "world");
-  // Expect equality.
-  EXPECT_EQ(7 * 6, 42);
+  int numcores = 1;
+  int input_size = 1;
+
+  bool result = executor.allocate(
+    std::string{Settings::FLIB_PATH},
+    numcores,
+    input_size,
+    rfaas::polling_type::HOT_ALWAYS,
+    false
+  );
+  EXPECT_TRUE(result);
+  executor.deallocate();
 }
 
