@@ -53,3 +53,20 @@ TEST_F(BasicAllocationTest, BasicAllocation) {
   executor.deallocate();
 }
 
+// Test should still exit gracefully
+TEST_F(BasicAllocationTest, UnfinishedAllocation) {
+  rfaas::devices & dev = rfaas::devices::instance();
+  rfaas::executor executor(*dev.device("rocep7s0"));
+  int numcores = 1;
+  int input_size = 1;
+
+  bool result = executor.allocate(
+    std::string{Settings::FLIB_PATH},
+    numcores,
+    input_size,
+    rfaas::polling_type::HOT_ALWAYS,
+    false
+  );
+  EXPECT_TRUE(result);
+}
+

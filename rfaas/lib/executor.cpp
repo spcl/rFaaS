@@ -59,6 +59,11 @@ namespace rfaas {
     executor(dev.ip_address, dev.port, dev.default_receive_buffer_size, dev.max_inline_data)
   {}
 
+  executor::~executor()
+  {
+    this->deallocate();
+  }
+
   rdmalib::Buffer<char> executor::load_library(std::string path)
   {
     _func_names.clear();
