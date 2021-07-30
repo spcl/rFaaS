@@ -1,16 +1,14 @@
 
-#include "rfaas/devices.hpp"
 #include <fstream>
 
 #include <rfaas/rfaas.hpp>
+#include <rfaas/devices.hpp>
+
+#include "config.h"
 
 #include <gtest/gtest.h>
 #include <cereal/archives/json.hpp>
 
-struct Settings
-{
-  static constexpr char FLIB_PATH[] = "examples/libfunctions.so";
-};
 
 class BasicAllocationTest : public ::testing::Test {
 protected:
@@ -24,7 +22,7 @@ protected:
 
     {
       // Read device details to the managers
-      std::ifstream in_cfg("devices.json");
+      std::ifstream in_cfg(Settings::DEVICE_JSON_PATH);
       rfaas::devices::deserialize(in_cfg);
     }
   }

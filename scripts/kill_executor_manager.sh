@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BUILD_DIRECTORY=/home/mcopik/Projekty/ETH/serverless/2021_rfaas/repo/build
+BUILD_DIRECTORY=$1
 
 pid=`cat ${BUILD_DIRECTORY}/tests/test_server.pid`
 kill ${pid}

@@ -8,12 +8,11 @@ include(GoogleTest)
 add_test(
   NAME start_exec_mgr
   COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_executor_manager.sh
-  32 1 1
-  #$<TARGET_FILE:lws-minimal-http-server-tls>
+  ${CMAKE_BINARY_DIR} 32 1 0
 )
 add_test(
   NAME end_exec_mgr
-  COMMAND ${CMAKE_SOURCE_DIR}/scripts/kill_executor_manager.sh
+  COMMAND ${CMAKE_SOURCE_DIR}/scripts/kill_executor_manager.sh ${CMAKE_BINARY_DIR}
 )
 
 set_property(TEST start_exec_mgr PROPERTY WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

@@ -24,6 +24,28 @@ string(APPEND CMAKE_CXX_FLAGS_DEBUG " -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG "
 string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra ")
 
 ###
+# Mandatory: devices configuration file.
+###
+
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/configuration)
+set(DEVICES_JSON "" CACHE STRING "Specification of RDMA devices in JSON file")
+if( DEVICES_JSON STREQUAL "")
+  message(FATAL_ERROR "The device configration must be provided in the DEVICES_JSON parameter!")
+else()
+  file(COPY ${DEVICES_JSON} DESTINATION ${CMAKE_BINARY_DIR}/configuration)
+endif()
+
+set(TESTING_JSON "" CACHE STRING "Specification of testing infrastructure in JSON file.")
+if( NOT TESTING_JSON STREQUAL "")
+  set(RFAAS_WITH_TESTING ON)
+  message(STATUS "Enabling testing using device ${TESTING_JSON}")
+  file(COPY ${TESTING_JSON} DESTINATION ${CMAKE_BINARY_DIR}/configuration)
+else()
+  set(RFAAS_WITH_TESTING OFF)
+  message(WARNING "Testing is disabled, as testing configuration is not provided in TESTING_JSON parameter!")
+endif()
+
+###
 # Optional: use existing installations
 ###
 set(CXXOPTS_PATH "" CACHE STRING "Path to installation of cxxopts")
@@ -215,4 +237,6 @@ add_library(functions SHARED examples/functions.cpp)
 set_target_properties(functions PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(functions PROPERTIES LIBRARY_OUTPUT_DIRECTORY examples)
 
-include(testing)
+if( ${RFAAS_WITH_TESTING} )
+  include(testing)
+endif()

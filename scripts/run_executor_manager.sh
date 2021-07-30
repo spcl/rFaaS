@@ -1,11 +1,15 @@
+#!/bin/bash
 
-BUILD_DIRECTORY=/home/mcopik/Projekty/ETH/serverless/2021_rfaas/repo/build
-IP=192.168.0.18
-PORT=10001
+BUILD_DIRECTORY=$1
+RX_DEPTH=$2
+REPETITIONS=$3
+WARMUP=$4
 
-RX_DEPTH=$1
-REPETITIONS=$2
-WARMUP=$3
+DEVICE=`cat ${BUILD_DIRECTORY}/configuration/testing.json | jq -r '.["test_executor"]["device"]'`
+PORT=`cat ${BUILD_DIRECTORY}/configuration/testing.json | jq -r '.["test_executor"]["port"]'`
+RESULT=$(jq -j '.devices[] | select(.name=="'${DEVICE}'") | "\(.ip_address);"' ${BUILD_DIRECTORY}/configuration/devices.json)
+IFS=";" read IP <<< $RESULT
+
 
 cmd="
   ${BUILD_DIRECTORY}/bin/executor_manager\
@@ -18,6 +22,7 @@ cmd="
   --warmup-iters $WARMUP\
   --max-inline-data 0
 "
+echo ${cmd}
 ${cmd} > ${BUILD_DIRECTORY}/tests/test_serverless_server 2>&1 &
 pid=$!
 echo $pid > ${BUILD_DIRECTORY}/tests/test_server.pid
