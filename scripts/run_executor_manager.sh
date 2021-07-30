@@ -18,7 +18,8 @@ cmd="
   --warmup-iters $WARMUP\
   --max-inline-data 0
 "
-echo $PATH
-pid=`${cmd} > ${BUILD_DIRECTORY}/tests/test_serverless_server 2>&1 &`
+${cmd} > ${BUILD_DIRECTORY}/tests/test_serverless_server 2>&1 &
+pid=$!
+echo $pid > ${BUILD_DIRECTORY}/tests/test_server.pid
 # wait for the server to boot and start listening for events
 sleep 1

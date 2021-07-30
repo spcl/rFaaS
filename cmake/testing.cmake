@@ -4,7 +4,6 @@ include(GoogleTest)
 
 # FIXME: config build dir
 # FIXME: config user
-# FIXME: kill pid
 # FIXME: fail if pid is not running
 add_test(
   NAME start_exec_mgr
@@ -14,7 +13,7 @@ add_test(
 )
 add_test(
   NAME end_exec_mgr
-  COMMAND killall executor_manager
+  COMMAND ${CMAKE_SOURCE_DIR}/scripts/kill_executor_manager.sh
 )
 
 set_property(TEST start_exec_mgr PROPERTY WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
