@@ -2,6 +2,11 @@
 enable_testing()
 include(GoogleTest)
 
+execute_process (
+  COMMAND bash -c "jq -j \'.test_executor.device\' ${CMAKE_BINARY_DIR}/configuration/testing.json"
+  OUTPUT_VARIABLE TEST_DEVICE
+)
+
 # FIXME: config build dir
 # FIXME: config user
 # FIXME: fail if pid is not running
@@ -33,6 +38,7 @@ foreach(target ${tests_targets})
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY tests)
   gtest_discover_tests(
     ${target}
+    EXTRA_ARGS ${TEST_DEVICE}
     PROPERTIES FIXTURES_REQUIRED localserver
   )
   #set_tests_properties(${target} PROPERTIES FIXTURES_REQUIRED localserver)

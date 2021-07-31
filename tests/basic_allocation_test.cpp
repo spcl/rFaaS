@@ -11,6 +11,10 @@
 
 
 class BasicAllocationTest : public ::testing::Test {
+
+public:
+  static std::string _device_name;
+
 protected:
   void SetUp() override
   {
@@ -32,11 +36,12 @@ protected:
 
   }
 };
+std::string BasicAllocationTest::_device_name;
 
 // Test should execute without any exceptions.
 TEST_F(BasicAllocationTest, BasicAllocation) {
   rfaas::devices & dev = rfaas::devices::instance();
-  rfaas::executor executor(*dev.device("rocep7s0"));
+  rfaas::executor executor(*dev.device(_device_name));
   int numcores = 1;
   int input_size = 1;
 
@@ -54,7 +59,7 @@ TEST_F(BasicAllocationTest, BasicAllocation) {
 // Test should still exit gracefully
 TEST_F(BasicAllocationTest, UnfinishedAllocation) {
   rfaas::devices & dev = rfaas::devices::instance();
-  rfaas::executor executor(*dev.device("rocep7s0"));
+  rfaas::executor executor(*dev.device(_device_name));
   int numcores = 1;
   int input_size = 1;
 
@@ -66,5 +71,18 @@ TEST_F(BasicAllocationTest, UnfinishedAllocation) {
     false
   );
   EXPECT_TRUE(result);
+}
+
+// FIXME: test two cores
+// FIXME: test multiple cores
+// FIXME: too many cores
+// FIXME: algorithm of allocating multiple executors
+// FIXME: timeout
+
+int main(int argc, char **argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  std::string arg{argc == 1 ? "" : argv[1]};
+  BasicAllocationTest::_device_name = arg;
+  return RUN_ALL_TESTS();
 }
 
