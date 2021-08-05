@@ -47,8 +47,7 @@ namespace rfaas {
   void servers::deserialize(std::istream & in)
   {
     servers::_instance.reset(new servers{});
-    cereal::JSONInputArchive archive_in(in);
-    archive_in(*servers::_instance.get());
+    servers::_instance.get()->read(in);
   }
 
   void servers::read(std::istream & in)
