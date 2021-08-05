@@ -8,9 +8,14 @@ WARMUP=$4
 DEVICE=`cat ${BUILD_DIRECTORY}/configuration/testing.json | jq -r '.["test_executor"]["device"]'`
 PORT=`cat ${BUILD_DIRECTORY}/configuration/testing.json | jq -r '.["test_executor"]["port"]'`
 RESULT=$(jq -j '.devices[] | select(.name=="'${DEVICE}'") | "\(.ip_address);"' ${BUILD_DIRECTORY}/configuration/devices.json)
+RESULT_STATUS=$?
+if [ ${RESULT_STATUS} -ne 0 ]; then
+  echo "Incorrect parsing of ${BUILD_DIRECTORY}/configuration/devices.json!"
+  echo "Result: ${RESULT}"
+  exit 1
+fi
+
 IFS=";" read IP <<< $RESULT
-
-
 cmd="
   ${BUILD_DIRECTORY}/bin/executor_manager\
   -a ${IP}\
