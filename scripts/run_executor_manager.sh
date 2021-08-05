@@ -5,8 +5,8 @@ RX_DEPTH=$2
 REPETITIONS=$3
 WARMUP=$4
 
-DEVICE=`cat ${BUILD_DIRECTORY}/configuration/testing.json | jq -r '.["test_executor"]["device"]'`
-PORT=`cat ${BUILD_DIRECTORY}/configuration/testing.json | jq -r '.["test_executor"]["port"]'`
+DEVICE=`cat ${BUILD_DIRECTORY}/configuration/testing.json | jq -r '.["rfaas_server"]["device"]'`
+PORT=`cat ${BUILD_DIRECTORY}/configuration/testing.json | jq -r '.["rfaas_server"]["port"]'`
 RESULT=$(jq -j '.devices[] | select(.name=="'${DEVICE}'") | "\(.ip_address);"' ${BUILD_DIRECTORY}/configuration/devices.json)
 RESULT_STATUS=$?
 if [ ${RESULT_STATUS} -ne 0 ]; then
