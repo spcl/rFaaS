@@ -25,7 +25,8 @@ namespace rfaas {
     template <class Archive>
     void save(Archive & ar) const
     {
-      ar(CEREAL_NVP(port), CEREAL_NVP(cores));//, CEREAL_NVP(address));
+      std::string addr{address};
+      ar(CEREAL_NVP(port), CEREAL_NVP(cores), cereal::make_nvp("address", addr));
     }
 
     template <class Archive>
