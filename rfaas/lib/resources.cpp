@@ -9,6 +9,18 @@ namespace rfaas {
 
   std::unique_ptr<servers> servers::_instance = nullptr;
 
+  server_data::server_data():
+    port(-1),
+    cores(-1)
+  {}
+
+  server_data::server_data(const std::string & ip, int16_t port, int16_t cores):
+    port(port),
+    cores(cores)
+  {
+    strncpy(address, ip.c_str(), 16);
+  }
+
   servers::servers(int positions)
   {
     if(positions)

@@ -19,6 +19,9 @@ namespace rfaas {
     int16_t cores;
     char address[16];
 
+    server_data();
+    server_data(const std::string & ip, int16_t port, int16_t cores);
+
     template <class Archive>
     void save(Archive & ar) const
     {
