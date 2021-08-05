@@ -14,7 +14,6 @@ execute_process (
 
 # FIXME: config build dir
 # FIXME: config user
-# FIXME: fail if pid is not running
 add_test(
   NAME start_exec_mgr
   COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_executor_manager.sh

@@ -30,6 +30,8 @@ cmd="
 echo ${cmd}
 ${cmd} > ${BUILD_DIRECTORY}/tests/test_serverless_server 2>&1 &
 pid=$!
-echo $pid > ${BUILD_DIRECTORY}/tests/test_server.pid
+echo $pid $ret > ${BUILD_DIRECTORY}/tests/test_server.pid
 # wait for the server to boot and start listening for events
 sleep 1
+# exit with the return code of executor_manager
+[ -d "/proc/${pid}" ] && exit 0 || exit 1
