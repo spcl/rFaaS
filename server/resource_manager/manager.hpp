@@ -10,6 +10,9 @@
 #include <map>
 #include <optional>
 
+#include <pistache/http.h>
+#include <pistache/endpoint.h>
+
 #include <rdmalib/connection.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/server.hpp>
@@ -18,7 +21,7 @@
 
 #include <rfaas/devices.hpp>
 #include <rfaas/resources.hpp>
-#include "../common/readerwriterqueue.h"
+#include "common/readerwriterqueue.h"
 
 namespace rdmalib {
   struct AllocationRequest;
@@ -35,7 +38,7 @@ namespace rfaas::resource_manager {
     rfaas::device_data* device;
     
     std::string http_network_address;
-    int http_network_port;
+    uint16_t http_network_port;
 
     template <class Archive>
     void load(Archive & ar )
@@ -58,6 +61,12 @@ namespace rfaas::resource_manager {
   };
   Options opts(int, char**);
 
+  class HTTPHandler : public Pistache::Http::Handler
+  {
+    HTTP_PROTOTYPE(HTTPHandler)
+    void onRequest(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response) override;
+  };
+
   struct Manager
   {
     //moodycamel::ReaderWriterQueue<std::pair<int, std::unique_ptr<rdmalib::Connection>>> _q1;
@@ -70,7 +79,7 @@ namespace rfaas::resource_manager {
     // Handling RDMA connections with clients and executor managers
     rdmalib::RDMAPassive _state;
     // Handling HTTP events
-    // FIXME
+    Pistache::Http::Endpoint _http_server;
 
     // Store the data on executors
     rfaas::servers _executors_data;
@@ -89,6 +98,7 @@ namespace rfaas::resource_manager {
     void set_database_path(const std::string & name);
     void dump_database();
     void start();
+    void shutdown();
     //void listen();
     //void poll_rdma();
   };

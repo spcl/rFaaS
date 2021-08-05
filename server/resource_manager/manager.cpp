@@ -27,6 +27,9 @@ namespace rfaas::resource_manager {
     _state(settings.device->ip_address, settings.rdma_device_port,
         settings.device->default_receive_buffer_size, true,
         settings.device->max_inline_data),
+    _http_server(
+      Pistache::Address{settings.http_network_address, settings.http_network_port}
+    ),
     _executors_output_path()
   {
 
@@ -35,7 +38,15 @@ namespace rfaas::resource_manager {
 
   void Manager::start()
   {
+    auto opts = Pistache::Http::Endpoint::options().threads(1);
+    _http_server.init(opts);
+    _http_server.setHandler(Pistache::Http::make_handler<HTTPHandler>());
+    _http_server.serve();//Threaded();
+  }
 
+  void Manager::shutdown()
+  {
+    _http_server.shutdown();
   }
 
   void Manager::read_database(const std::string & name)
@@ -55,6 +66,21 @@ namespace rfaas::resource_manager {
       std::ofstream out{_executors_output_path.value()};
       spdlog::debug("Writing resource manager database to {}", _executors_output_path.value());
       _executors_data.write(out);
+    }
+  }
+
+  void HTTPHandler::onRequest(
+    const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response
+  ) {
+
+    if(req.resource() == "/add") {
+      std::cerr << "add " << req.body() << std::endl;
+      response.send(Pistache::Http::Code::Ok);
+    } else if(req.resource() == "/remove") {
+      std::cerr << "remove " << req.body() << std::endl;
+      response.send(Pistache::Http::Code::Ok);
+    } else {
+      response.send(Pistache::Http::Code::Not_Found);
     }
   }
 }
