@@ -16,7 +16,7 @@
 #include <rdmalib/recv_buffer.hpp>
 
 #include "common.hpp"
-#include "readerwriterqueue.h"
+#include "common/readerwriterqueue.h"
 
 namespace rdmalib {
   struct AllocationRequest;
