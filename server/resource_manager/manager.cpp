@@ -4,14 +4,18 @@
 #include <spdlog/spdlog.h>
 
 #include "manager.hpp"
+#include "rdmalib/connection.hpp"
 
 namespace rfaas::resource_manager {
+
+  constexpr int Manager::POLLING_TIMEOUT_MS;
 
   Manager::Manager(Settings & settings):
     _executors_output_path(),
     _state(settings.device->ip_address, settings.rdma_device_port,
         settings.device->default_receive_buffer_size, true,
         settings.device->max_inline_data),
+    _shutdown(false),
     _http_server(_executor_data, settings)
   {
 
@@ -20,11 +24,58 @@ namespace rfaas::resource_manager {
 
   void Manager::start()
   {
+    // Start HTTP server on a new thread
     _http_server.start();
+    spdlog::info("Begin listening and processing events!");
+    std::thread listener(&Manager::listen_rdma, this);
+    std::thread rdma_poller(&Manager::process_rdma, this);
+
+    listener.join();
+    rdma_poller.join();
+  }
+
+
+  void Manager::listen_rdma()
+  {
+    while(!_shutdown.load()) {
+      // Connection initialization:
+      // (1) Initialize receive WCs with the allocation request buffer
+      bool result = _state.nonblocking_poll_events(POLLING_TIMEOUT_MS);
+      if(!result)
+        continue;
+
+      auto conn = _state.poll_events(
+        false
+      );
+      if(conn == nullptr){
+        spdlog::error("Failed connection creation");
+        continue;
+      }
+
+      // Accept client connection and push
+      spdlog::debug("listen: Connected new client");
+      _state.accept(conn);
+      _rdma_queue.enqueue(std::move(conn));
+    }
+    spdlog::info("Background thread stops waiting for rdmacm events");
+  }
+
+  void Manager::process_rdma()
+  {
+
+    while(!_shutdown.load()) {
+      std::unique_ptr<rdmalib::Connection> conn;
+      if(_rdma_queue.wait_dequeue_timed(conn, std::chrono::milliseconds(POLLING_TIMEOUT_MS))) {
+        spdlog::debug("process: Connected new client, attempting to send data");
+      }
+    }
+
+    spdlog::info("Background thread stops processing rdmacm events");
   }
 
   void Manager::shutdown()
   {
+    _shutdown.store(true);
     _http_server.stop();
   }
 

@@ -19,9 +19,10 @@
 
 rfaas::resource_manager::Manager * instance = nullptr;
 
-void signal_handler(int signal)
+void signal_handler(int)
 {
   assert(instance);
+  spdlog::debug("kill");
   instance->shutdown();
 }
 
@@ -51,6 +52,7 @@ int main(int argc, char ** argv)
   rfaas::resource_manager::Settings settings = rfaas::resource_manager::Settings::deserialize(in_cfg);
 
   rfaas::resource_manager::Manager mgr(settings);
+  instance = &mgr;
 
   if(opts.initial_database != "") {
     mgr.read_database(opts.initial_database);
@@ -60,7 +62,6 @@ int main(int argc, char ** argv)
   }
 
   mgr.start();
-  std::this_thread::sleep_for(std::chrono::seconds(100)); 
 
   spdlog::info("Resource manager is closing down");
   mgr.dump_database();

@@ -4,6 +4,7 @@
 #include "http.hpp"
 #include "db.hpp"
 
+#include <spdlog/spdlog.h>
 
 namespace rfaas::resource_manager {
 
@@ -73,6 +74,7 @@ namespace rfaas::resource_manager {
 
   void HTTPServer::stop()
   {
+    spdlog::info("Background thread stops waiting for HTTP requests");
     _server.shutdown();
   }
 

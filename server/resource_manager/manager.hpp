@@ -40,7 +40,6 @@ namespace rfaas::resource_manager {
 
   struct Manager
   {
-    //moodycamel::ReaderWriterQueue<std::pair<int, std::unique_ptr<rdmalib::Connection>>> _q1;
     //moodycamel::ReaderWriterQueue<std::pair<int,Client>> _q2;
     //std::mutex clients;
     //std::map<int, Client> _clients;
@@ -50,16 +49,18 @@ namespace rfaas::resource_manager {
     std::optional<std::string> _executors_output_path;
 
     // Handling RDMA connections with clients and executor managers
+    moodycamel::BlockingReaderWriterQueue<
+      std::unique_ptr<rdmalib::Connection>
+    > _rdma_queue;
     rdmalib::RDMAPassive _state;
+    std::atomic<bool> _shutdown;
+
     // Handling HTTP events
     HTTPServer _http_server;
 
-    //rdmalib::server::ServerStatus _status;
+    // configuration parameters
     Settings _settings;
-    //rdmalib::Buffer<Accounting> _accounting_data;
-    std::string _address;
-    int _port;
-    int _secret;
+    static constexpr int POLLING_TIMEOUT_MS = 100;
 
     Manager(Settings &);
 
@@ -68,8 +69,9 @@ namespace rfaas::resource_manager {
     void dump_database();
     void start();
     void shutdown();
-    //void listen();
-    //void poll_rdma();
+
+    void listen_rdma();
+    void process_rdma();
   };
 
 }
