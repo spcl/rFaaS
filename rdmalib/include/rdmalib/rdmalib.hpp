@@ -55,7 +55,9 @@ namespace rdmalib {
     void allocate();
     ibv_pd* pd() const;
     std::unique_ptr<Connection> poll_events(bool share_cqs = false);
+    bool nonblocking_poll_events(int timeout = 100);
     void accept(std::unique_ptr<Connection> & connection);
+    void set_nonblocking_poll();
   };
 }
 

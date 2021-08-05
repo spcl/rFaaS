@@ -5,6 +5,10 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+// poll on file descriptors
+#include <poll.h>
+#include <fcntl.h>
+
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bundled/format.h>
 
@@ -246,6 +250,31 @@ namespace rdmalib {
   ibv_pd* RDMAPassive::pd() const
   {
     return this->_pd;
+  }
+
+  void RDMAPassive::set_nonblocking_poll()
+  {
+    int fd = this->_ec->fd;
+    int flags = fcntl(fd, F_GETFL);
+    int rc = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    if (rc < 0) {
+      spdlog::error("Failed to change file descriptor of rdmacm event channel");
+      return;
+    }
+  }
+
+  bool RDMAPassive::nonblocking_poll_events(int timeout)
+  {
+    pollfd my_pollfd;
+    my_pollfd.fd      = this->_ec->fd;
+    my_pollfd.events  = POLLIN;
+    my_pollfd.revents = 0;
+    int rc = poll(&my_pollfd, 1, timeout);
+    if (rc < 0) {
+      spdlog::error("RDMA event poll failed");
+      return false;
+    }
+    return rc > 0;
   }
 
   std::unique_ptr<Connection> RDMAPassive::poll_events(bool share_cqs)
