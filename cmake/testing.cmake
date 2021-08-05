@@ -2,8 +2,13 @@
 enable_testing()
 include(GoogleTest)
 
+find_program(JQ NAMES jq)
+if(NOT JQ)
+  message(FATAL_ERROR "jq not found, but necessary for testing!")
+endif()
+
 execute_process (
-  COMMAND bash -c "jq -j \'.test_executor.device\' ${CMAKE_BINARY_DIR}/configuration/testing.json"
+  COMMAND bash -c "${JQ} -j \'.test_executor.device\' ${CMAKE_BINARY_DIR}/configuration/testing.json"
   OUTPUT_VARIABLE TEST_DEVICE
 )
 
