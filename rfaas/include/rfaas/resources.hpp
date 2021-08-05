@@ -2,6 +2,7 @@
 #ifndef __RFAAS_RESOURCES_HPP__
 #define __RFAAS_RESOURCES_HPP__
 
+#include <iostream>
 #include <vector>
 #include <cstdint>
 #include <memory>
@@ -57,6 +58,8 @@ namespace rfaas {
 
     static servers & instance();
     static void deserialize(std::istream & in);
+    void read(std::istream & in);
+    void write(std::ostream & out);
   };
 
 };

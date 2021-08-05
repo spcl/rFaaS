@@ -1,5 +1,6 @@
 
 #include <algorithm>
+
 #include <cereal/archives/json.hpp>
 
 #include <rfaas/resources.hpp>
@@ -36,6 +37,18 @@ namespace rfaas {
     servers::_instance.reset(new servers{});
     cereal::JSONInputArchive archive_in(in);
     archive_in(*servers::_instance.get());
+  }
+
+  void servers::read(std::istream & in)
+  {
+    cereal::JSONInputArchive archive_in(in);
+    archive_in(cereal::make_nvp("executors", this->_data));
+  }
+
+  void servers::write(std::ostream & out)
+  {
+    cereal::JSONOutputArchive archive_out(out);
+    archive_out(cereal::make_nvp("executors", this->_data));
   }
 
 }
