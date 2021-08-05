@@ -15,6 +15,7 @@
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/recv_buffer.hpp>
 
+#include <rfaas/devices.hpp>
 #include "../common/readerwriterqueue.h"
 
 namespace rdmalib {
@@ -23,14 +24,27 @@ namespace rdmalib {
 
 namespace rfaas::resource_manager {
 
+  // Manager configuration settings.
+  // Includes the RDMA connection, and the HTTP connection.
   struct Settings
   {
     std::string rdma_device;
-    std::string rdma_device_address;
     int rdma_device_port;
+    rfaas::device_data* device;
     
     std::string http_network_address;
     int http_network_port;
+
+    template <class Archive>
+    void load(Archive & ar )
+    {
+      ar(
+        CEREAL_NVP(rdma_device), CEREAL_NVP(rdma_device_port),
+        CEREAL_NVP(http_network_address), CEREAL_NVP(http_network_port)
+      );
+    }
+
+    static Settings deserialize(std::istream & in);
   };
 
   struct Options {
@@ -38,38 +52,37 @@ namespace rfaas::resource_manager {
     std::string initial_database;
     std::string output_database;
     std::string device_database;
-    std::string device;
     bool verbose;
   };
   Options opts(int, char**);
 
   struct Manager
   {
-    moodycamel::ReaderWriterQueue<std::pair<int, std::unique_ptr<rdmalib::Connection>>> _q1;
-    moodycamel::ReaderWriterQueue<std::pair<int,Client>> _q2;
+    //moodycamel::ReaderWriterQueue<std::pair<int, std::unique_ptr<rdmalib::Connection>>> _q1;
+    //moodycamel::ReaderWriterQueue<std::pair<int,Client>> _q2;
+    //std::mutex clients;
+    //std::map<int, Client> _clients;
+    //int _ids;
 
+    // FIXME: database
 
+    // Handling RDMA connections with clients and executor managers
     rdmalib::RDMAPassive _state;
-    // FIXME: multicast
+    // Handling HTTP events
+    // FIXME
 
-    std::mutex clients;
-    std::map<int, Client> _clients;
-    int _ids;
-
-    //std::vector<Client> _clients;
-    //std::atomic<int> _clients_active;
-    rdmalib::server::ServerStatus _status;
-    ExecutorSettings _settings;
+    //rdmalib::server::ServerStatus _status;
+    Settings _settings;
     //rdmalib::Buffer<Accounting> _accounting_data;
     std::string _address;
     int _port;
     int _secret;
 
-    Manager(std::string addr, int port, std::string server_file, const ExecutorSettings & settings);
+    Manager(Settings &);
 
     void start();
-    void listen();
-    void poll_rdma();
+    //void listen();
+    //void poll_rdma();
   };
 
 }
