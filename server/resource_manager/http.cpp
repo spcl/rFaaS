@@ -1,6 +1,9 @@
 
+//#include <rapidjson/document.h>
+
 #include "http.hpp"
 #include "db.hpp"
+
 
 namespace rfaas::resource_manager {
 
@@ -12,14 +15,32 @@ namespace rfaas::resource_manager {
     const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response
   ) {
 
+
+    rapidjson::Document document;
+    document.Parse(req.body().c_str());
+
     if(req.resource() == "/add") {
+
+      if(
+          !(document.HasMember("ip_address")  && document["ip_address"].IsString()) ||
+          !(document.HasMember("port")        && document["port"].IsInt()) ||
+          !(document.HasMember("cores")       && document["cores"].IsInt())
+      ) {
+        response.send(Pistache::Http::Code::Bad_Request, "Malformed Input");
+        return;
+      }
+
+      // FIXME: sanitize input
+      std::string ip_address{document["ip_address"].GetString()};
+      int port{document["port"].GetInt()};
+      int cores{document["cores"].GetInt()};
 
       // Return 400 if the request is malformed or incorret
       // If good, then return 200
-      if(_database.add(req.body()) == ExecutorDB::ResultCode::OK) {
-        response.send(Pistache::Http::Code::Ok);
+      if(_database.add(ip_address, port, cores) == ExecutorDB::ResultCode::OK) {
+        response.send(Pistache::Http::Code::Ok, "Sucess");
       } else {
-        response.send(Pistache::Http::Code::Bad_Request);
+        response.send(Pistache::Http::Code::Internal_Server_Error, "Failure");
       }
 
     } else if(req.resource() == "/remove") {
@@ -33,7 +54,7 @@ namespace rfaas::resource_manager {
       }
 
     } else {
-      response.send(Pistache::Http::Code::Not_Found);
+      response.send(Pistache::Http::Code::Not_Found, "Operation not supported");
     }
   }
 
