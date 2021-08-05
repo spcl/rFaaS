@@ -4,6 +4,7 @@
 #include <thread>
 #include <climits>
 #include <sys/time.h>
+#include <signal.h>
 
 #include <cxxopts.hpp>
 #include <spdlog/spdlog.h>
@@ -16,6 +17,13 @@
 
 #include "manager.hpp"
 
+rfaas::resource_manager::Manager * instance = nullptr;
+
+void signal_handler(int signal)
+{
+  assert(instance);
+  instance->shutdown();
+}
 
 int main(int argc, char ** argv)
 {
@@ -27,6 +35,13 @@ int main(int argc, char ** argv)
   spdlog::set_level(spdlog::level::debug);
   spdlog::set_pattern("[%H:%M:%S:%f] [P %P] [T %t] [%l] %v ");
   spdlog::info("Executing rFaaS executor manager!");
+
+  // Catch SIGINT
+  struct sigaction sigIntHandler;
+  sigIntHandler.sa_handler = &signal_handler;
+  sigemptyset(&sigIntHandler.sa_mask);
+  sigIntHandler.sa_flags = 0;
+  sigaction(SIGINT, &sigIntHandler, NULL);
 
   // Read device details
   std::ifstream in_dev{opts.device_database};
@@ -44,13 +59,11 @@ int main(int argc, char ** argv)
     mgr.set_database_path(opts.output_database);
   }
 
-  // read initial contents
-
   mgr.start();
+  std::this_thread::sleep_for(std::chrono::seconds(100)); 
 
   spdlog::info("Resource manager is closing down");
   mgr.dump_database();
-  std::this_thread::sleep_for(std::chrono::seconds(1)); 
 
   return 0;
 }

@@ -221,7 +221,14 @@ endforeach()
 ###
 add_executable(executor server/executor.cpp server/opts.cpp server/fast_executor.cpp server/functions.cpp)
 add_executable(executor_manager server/executor_manager.cpp server/manager.cpp server/opts.cpp)
-add_executable(resource_manager server/resource_manager/opts.cpp server/resource_manager/cli.cpp server/resource_manager/manager.cpp)
+add_executable(resource_manager
+  server/resource_manager/cli.cpp
+  server/resource_manager/opts.cpp
+  server/resource_manager/db.cpp
+  server/resource_manager/http.cpp
+  server/resource_manager/settings.cpp
+  server/resource_manager/manager.cpp
+)
 set(targets "executor" "executor_manager" "resource_manager")
 foreach(target ${targets})
   add_dependencies(${target} cxxopts::cxxopts)

@@ -10,9 +10,6 @@
 #include <map>
 #include <optional>
 
-#include <pistache/http.h>
-#include <pistache/endpoint.h>
-
 #include <rdmalib/connection.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/server.hpp>
@@ -20,37 +17,17 @@
 #include <rdmalib/recv_buffer.hpp>
 
 #include <rfaas/devices.hpp>
-#include <rfaas/resources.hpp>
+
 #include "common/readerwriterqueue.h"
+#include "db.hpp"
+#include "http.hpp"
+#include "settings.hpp"
 
 namespace rdmalib {
   struct AllocationRequest;
 }
 
 namespace rfaas::resource_manager {
-
-  // Manager configuration settings.
-  // Includes the RDMA connection, and the HTTP connection.
-  struct Settings
-  {
-    std::string rdma_device;
-    int rdma_device_port;
-    rfaas::device_data* device;
-    
-    std::string http_network_address;
-    uint16_t http_network_port;
-
-    template <class Archive>
-    void load(Archive & ar )
-    {
-      ar(
-        CEREAL_NVP(rdma_device), CEREAL_NVP(rdma_device_port),
-        CEREAL_NVP(http_network_address), CEREAL_NVP(http_network_port)
-      );
-    }
-
-    static Settings deserialize(std::istream & in);
-  };
 
   struct Options {
     std::string json_config;
@@ -61,12 +38,6 @@ namespace rfaas::resource_manager {
   };
   Options opts(int, char**);
 
-  class HTTPHandler : public Pistache::Http::Handler
-  {
-    HTTP_PROTOTYPE(HTTPHandler)
-    void onRequest(const Pistache::Http::Request& req, Pistache::Http::ResponseWriter response) override;
-  };
-
   struct Manager
   {
     //moodycamel::ReaderWriterQueue<std::pair<int, std::unique_ptr<rdmalib::Connection>>> _q1;
@@ -75,15 +46,13 @@ namespace rfaas::resource_manager {
     //std::map<int, Client> _clients;
     //int _ids;
 
+    ExecutorDB _executor_data;
+    std::optional<std::string> _executors_output_path;
 
     // Handling RDMA connections with clients and executor managers
     rdmalib::RDMAPassive _state;
     // Handling HTTP events
-    Pistache::Http::Endpoint _http_server;
-
-    // Store the data on executors
-    rfaas::servers _executors_data;
-    std::optional<std::string> _executors_output_path;
+    HTTPServer _http_server;
 
     //rdmalib::server::ServerStatus _status;
     Settings _settings;
