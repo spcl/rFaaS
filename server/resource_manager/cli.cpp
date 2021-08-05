@@ -37,11 +37,19 @@ int main(int argc, char ** argv)
 
   rfaas::resource_manager::Manager mgr(settings);
 
+  if(opts.initial_database != "") {
+    mgr.read_database(opts.initial_database);
+  }
+  if(opts.output_database != "") {
+    mgr.set_database_path(opts.output_database);
+  }
+
   // read initial contents
 
   mgr.start();
 
   spdlog::info("Resource manager is closing down");
+  mgr.dump_database();
   std::this_thread::sleep_for(std::chrono::seconds(1)); 
 
   return 0;

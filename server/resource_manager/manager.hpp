@@ -8,6 +8,7 @@
 #include <vector>
 #include <mutex>
 #include <map>
+#include <optional>
 
 #include <rdmalib/connection.hpp>
 #include <rdmalib/rdmalib.hpp>
@@ -16,6 +17,7 @@
 #include <rdmalib/recv_buffer.hpp>
 
 #include <rfaas/devices.hpp>
+#include <rfaas/resources.hpp>
 #include "../common/readerwriterqueue.h"
 
 namespace rdmalib {
@@ -64,12 +66,15 @@ namespace rfaas::resource_manager {
     //std::map<int, Client> _clients;
     //int _ids;
 
-    // FIXME: database
 
     // Handling RDMA connections with clients and executor managers
     rdmalib::RDMAPassive _state;
     // Handling HTTP events
     // FIXME
+
+    // Store the data on executors
+    rfaas::servers _executors_data;
+    std::optional<std::string> _executors_output_path;
 
     //rdmalib::server::ServerStatus _status;
     Settings _settings;
@@ -80,6 +85,9 @@ namespace rfaas::resource_manager {
 
     Manager(Settings &);
 
+    void read_database(const std::string & name);
+    void set_database_path(const std::string & name);
+    void dump_database();
     void start();
     //void listen();
     //void poll_rdma();
