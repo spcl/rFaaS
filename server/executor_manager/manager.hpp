@@ -48,12 +48,13 @@ namespace rfaas::executor_manager {
 
     //std::vector<Client> _clients;
     //std::atomic<int> _clients_active;
+    rdmalib::RDMAActive _active_connections;
+    //std::unique_ptr<rdmalib::Connection> _res_mgr_connection;
+
     rdmalib::RDMAPassive _state;
     //rdmalib::server::ServerStatus _status;
-    ExecutorSettings _settings;
+    Settings _settings;
     //rdmalib::Buffer<Accounting> _accounting_data;
-    std::string _address;
-    int _port;
     int _secret;
 
     Manager(Settings &);

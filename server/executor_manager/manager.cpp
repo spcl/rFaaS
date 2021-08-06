@@ -20,19 +20,43 @@ namespace rfaas::executor_manager {
   Manager::Manager(Settings & settings):
     //_clients_active(0),
     _q1(100), _q2(100),
+    _active_connections(
+        settings.resource_manager_address,
+        settings.resource_manager_port,
+        settings.device->default_receive_buffer_size
+    ),
     _state(settings.device->ip_address, settings.rdma_device_port,
         settings.device->default_receive_buffer_size, true),
-    _settings(settings.exec),
-    _address(settings.device->ip_address),
-    _port(settings.rdma_device_port),
+    _settings(settings),
+    //_address(settings.device->ip_address),
+    //_port(settings.rdma_device_port),
+    _ids(0),
     // FIXME: randomly generated
-    _secret(0x1234),
-    _ids(0)
-  {}
+    _secret(0x1234)
+  {
+    _active_connections.allocate();
+  }
 
   void Manager::start()
   {
-    spdlog::info("Begin listening and processing events!");
+    spdlog::info(
+      "Connecting to resource manager at {}:{} with secret {}.",
+      _settings.resource_manager_address,
+      _settings.resource_manager_port,
+      _settings.resource_manager_secret
+    );
+    //if(!_active_connections.connect()) { //_settings.resource_manager_secret)) {
+    //  spdlog::error("Connection to resource manager was not succesful!");
+    //  return;
+    //}
+    if(_active_connections._conn)
+      std::cerr << _active_connections._conn->_id->channel << " " << _active_connections._conn->_id << " " << _active_connections._conn->_qp << '\n';
+    std::cerr << _state._ec << " " << _state._listen_id << " " << _state._listen_id->qp << '\n';
+    spdlog::info(
+      "Begin listening at {}:{} and processing events!",
+      _settings.device->ip_address,
+      _settings.rdma_device_port
+    );
     std::thread listener(&Manager::listen, this);
     std::thread rdma_poller(&Manager::poll_rdma, this);
 
@@ -45,6 +69,7 @@ namespace rfaas::executor_manager {
     while(true) {
       // Connection initialization:
       // (1) Initialize receive WCs with the allocation request buffer
+      spdlog::debug("Listen for new rdmacm events");
       auto conn = _state.poll_events(
         false
       );
@@ -52,6 +77,7 @@ namespace rfaas::executor_manager {
         spdlog::error("Failed connection creation");
         continue;
       }
+      spdlog::debug("New connection request!");
       if(conn->_private_data) {
         if((conn->_private_data & 0xFFFF ) == this->_secret) {
           int client = conn->_private_data >> 16;
@@ -168,8 +194,12 @@ namespace rfaas::executor_manager {
               client.executor.reset(
                 ProcessExecutor::spawn(
                   client.allocation_requests.data()[id],
-                  _settings,
-                  {this->_address, this->_port, secret, addr, client.accounting.rkey()}
+                  _settings.exec,
+                  {
+                    _settings.device->ip_address,
+                    _settings.rdma_device_port,
+                    secret, addr, client.accounting.rkey()
+                  }
                 )
               );
               auto end = std::chrono::high_resolution_clock::now();

@@ -38,6 +38,11 @@ namespace rfaas::executor_manager {
     int rdma_device_port;
     rfaas::device_data* device;
 
+    // resource manager connection
+    std::string resource_manager_address;
+    int resource_manager_port;
+    int resource_manager_secret;
+
     // Passed to the scheduled executor
     ExecutorSettings exec;
 
@@ -45,7 +50,9 @@ namespace rfaas::executor_manager {
     void load(Archive & ar )
     {
       ar(
-        CEREAL_NVP(rdma_device), CEREAL_NVP(rdma_device_port)
+        CEREAL_NVP(rdma_device), CEREAL_NVP(rdma_device_port),
+        CEREAL_NVP(resource_manager_address), CEREAL_NVP(resource_manager_port),
+        CEREAL_NVP(resource_manager_secret)
       );
     }
 
