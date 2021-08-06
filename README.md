@@ -7,6 +7,9 @@ cmake params
 
 works only on Linux!
 
+We use standard Linux RDMA tools such as `ibv_devinfo`.
+
+
 ## Configuration
 
 use the JSON file

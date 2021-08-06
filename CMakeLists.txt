@@ -220,7 +220,14 @@ endforeach()
 # Server
 ###
 add_executable(executor server/executor.cpp server/opts.cpp server/fast_executor.cpp server/functions.cpp)
-add_executable(executor_manager server/executor_manager.cpp server/manager.cpp server/opts.cpp)
+add_executable(executor_manager
+  server/executor_manager/cli.cpp
+  server/executor_manager/opts.cpp
+  server/executor_manager/settings.cpp
+  server/executor_manager/manager.cpp
+  server/executor_manager/client.cpp
+  server/executor_manager/executor_process.cpp
+)
 add_executable(resource_manager
   server/resource_manager/cli.cpp
   server/resource_manager/opts.cpp
