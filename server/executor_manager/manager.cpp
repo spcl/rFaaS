@@ -45,13 +45,13 @@ namespace rfaas::executor_manager {
       _settings.resource_manager_port,
       _settings.resource_manager_secret
     );
-    //if(!_active_connections.connect()) { //_settings.resource_manager_secret)) {
-    //  spdlog::error("Connection to resource manager was not succesful!");
-    //  return;
-    //}
-    if(_active_connections._conn)
-      std::cerr << _active_connections._conn->_id->channel << " " << _active_connections._conn->_id << " " << _active_connections._conn->_qp << '\n';
-    std::cerr << _state._ec << " " << _state._listen_id << " " << _state._listen_id->qp << '\n';
+    if(!_active_connections.connect(_settings.resource_manager_secret)) {
+      spdlog::error("Connection to resource manager was not succesful!");
+      return;
+    }
+    rdmalib::RecvBuffer _rcv_buffer{32};
+    _rcv_buffer.connect(&_active_connections.connection());
+
     spdlog::info(
       "Begin listening at {}:{} and processing events!",
       _settings.device->ip_address,

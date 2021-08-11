@@ -62,11 +62,12 @@ namespace rfaas::resource_manager {
 
   void Manager::process_rdma()
   {
-
+    std::vector<std::unique_ptr<rdmalib::Connection>> vec;
     while(!_shutdown.load()) {
       std::unique_ptr<rdmalib::Connection> conn;
       if(_rdma_queue.wait_dequeue_timed(conn, std::chrono::milliseconds(POLLING_TIMEOUT_MS))) {
         spdlog::debug("process: Connected new client, attempting to send data");
+        vec.push_back(std::move(conn));
       }
     }
 
