@@ -46,6 +46,11 @@ else()
   message(WARNING "Testing is disabled, as testing configuration is not provided in TESTING_JSON parameter!")
 endif()
 
+option(WITH_EXAMPLES "s" On)
+if(${WITH_EXAMPLES})
+  include(examples)
+endif()
+
 ###
 # Optional: use existing installations
 ###
