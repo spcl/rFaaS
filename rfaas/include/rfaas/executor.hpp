@@ -194,12 +194,12 @@ namespace rfaas {
     //template<class... Args>
     //void execute(int numcores, std::string fname, Args &&... args)
     template<typename T>
-    bool execute(std::string fname, const rdmalib::Buffer<T> & in, rdmalib::Buffer<T> & out)
+    std::tuple<bool, int> execute(std::string fname, const rdmalib::Buffer<T> & in, rdmalib::Buffer<T> & out)
     {
       auto it = std::find(_func_names.begin(), _func_names.end(), fname);
       if(it == _func_names.end()) {
         spdlog::error("Function {} not found in the deployed library!", fname);
-        return false;
+        return std::make_tuple(false, 0);
       }
       int func_idx = std::distance(_func_names.begin(), it);
 
@@ -225,6 +225,7 @@ namespace rfaas {
 
       bool found_result = false;
       int return_value = 0;
+      int out_size = 0;
       while(!found_result) {
         auto wc = _connections[0]._rcv_buffer.poll(true);
         for(int i = 0; i < std::get<1>(wc); ++i) {
@@ -235,6 +236,7 @@ namespace rfaas {
           if(finished_invoc_id == invoc_id) {
             found_result = true;
             return_value = return_val;
+            out_size = std::get<0>(wc)[i].byte_len;
             //spdlog::info("Result for id {}", finished_invoc_id);
           } else {
             auto it = _futures.find(finished_invoc_id);
@@ -268,13 +270,13 @@ namespace rfaas {
       _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, false);
       if(return_value == 0) {
         SPDLOG_DEBUG("Finished invocation {} succesfully", invoc_id);
-        return true;
+        return std::make_tuple(true, out_size);
       } else {
         if(return_value == 1)
           spdlog::error("Invocation: {}, Thread busy, cannot post work", invoc_id);
         else
           spdlog::error("Invocation: {}, Unknown error {}", invoc_id, return_value);
-        return false;
+        return std::make_tuple(false, 0);
       }
     }
 

@@ -56,7 +56,8 @@ int main(int argc, char ** argv)
   for(int i = 0; i < opts.repetitions;) {
     benchmarker.start();
     SPDLOG_DEBUG("Submit execution {}", i);
-    if(executor.execute(opts.fname, in, out)) {
+    auto ret = executor.execute(opts.fname, in, out);
+    if(std::get<0>(executor.execute(opts.fname, in, out))) {
       SPDLOG_DEBUG("Finished execution");
       benchmarker.end(0);
       ++i;
