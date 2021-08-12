@@ -77,7 +77,7 @@ int main(int argc, char ** argv)
   benchmarker.export_csv(opts.out_file, {"time"});
   executor.deallocate();
 
-  spdlog::info("Deallocated resources, writing result to {}", "result_new.jpg");
+  spdlog::info("Deallocated resources, writing {} bytes of result to {}", out_size, "result_new.jpg");
   std::ofstream output("result_new.jpg", std::ios::binary );
   // FIXME:
   copy(out.data(), out.data() + out_size, std::ostreambuf_iterator<char>(output));
