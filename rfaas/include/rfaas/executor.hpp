@@ -193,8 +193,8 @@ namespace rfaas {
     // FIXME: now only operates on buffers
     //template<class... Args>
     //void execute(int numcores, std::string fname, Args &&... args)
-    template<typename T>
-    std::tuple<bool, int> execute(std::string fname, const rdmalib::Buffer<T> & in, rdmalib::Buffer<T> & out)
+    template<typename T, typename U>
+    std::tuple<bool, int> execute(std::string fname, const rdmalib::Buffer<T> & in, rdmalib::Buffer<U> & out)
     {
       auto it = std::find(_func_names.begin(), _func_names.end(), fname);
       if(it == _func_names.end()) {
