@@ -29,7 +29,6 @@ int main(int argc, char ** argv)
     spdlog::set_level(spdlog::level::debug);
   else
     spdlog::set_level(spdlog::level::info);
-  spdlog::set_level(spdlog::level::debug);
   spdlog::set_pattern("[%H:%M:%S:%f] [P %P] [T %t] [%l] %v ");
   spdlog::info("Executing rFaaS executor manager!");
 
