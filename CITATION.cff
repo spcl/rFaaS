@@ -1,0 +1,14 @@
+# YAML 1.2
+---
+authors: 
+  -
+    family-names: Copik
+    given-names: Marcin
+    orcid: "https://orcid.org/0000-0002-7606-5519"
+cff-version: "1.1.0"
+date-released: 2021-07-29
+message: "If you use this software, please cite our rFaaS paper, and cite the software repository using this metadata."
+repository-code: "https://github.com/spcl/serverless-benchmarks"
+title: "rFaaS: RDMA-Enabled FaaS Platform for Serverless High-Performance Computing"
+version: "1.0"
+...
