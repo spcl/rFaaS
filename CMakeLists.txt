@@ -29,26 +29,37 @@ string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra ")
 ###
 
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/configuration)
-set(DEVICES_JSON "" CACHE STRING "Specification of RDMA devices in JSON file")
-if( DEVICES_JSON STREQUAL "")
-  message(FATAL_ERROR "The device configration must be provided in the DEVICES_JSON parameter!")
-else()
-  file(COPY ${DEVICES_JSON} DESTINATION ${CMAKE_BINARY_DIR}/configuration)
+
+set(DEVICES_CONFIG "" CACHE STRING "Specification of RDMA devices in JSON file")
+set(TESTING_CONFIG "" CACHE STRING "Specification of testing infrastructure in JSON file.")
+if( NOT DEVICES_CONFIG STREQUAL "")
+  message(STATUS "Copying device configuration ${DEVICES_CONFIG} to ${CMAKE_BINARY_DIR}/configuration")
+  file(COPY ${DEVICES_CONFIG} DESTINATION ${CMAKE_BINARY_DIR}/configuration)
+endif()
+if( NOT TESTING_CONFIG STREQUAL "")
+  set(RFAAS_WITH_TESTING ON)
+  message(STATUS "Copying testing configuration ${TESTING_CONFIG} to ${CMAKE_BINARY_DIR}/configuration")
+  file(COPY ${TESTING_CONFIG} DESTINATION ${CMAKE_BINARY_DIR}/configuration)
 endif()
 
-set(TESTING_JSON "" CACHE STRING "Specification of testing infrastructure in JSON file.")
-if( NOT TESTING_JSON STREQUAL "")
-  set(RFAAS_WITH_TESTING ON)
-  message(STATUS "Enabling testing using device ${TESTING_JSON}")
-  file(COPY ${TESTING_JSON} DESTINATION ${CMAKE_BINARY_DIR}/configuration)
+option(WITH_EXAMPLES "Enable building extended function examples (requires additional dependencies)." Off)
+if(${WITH_EXAMPLES})
+  set(RFAAS_WITH_EXAMPLES ON)
+else()
+  set(RFAAS_WITH_EXAMPLES OFF)
+endif()
+
+option(WITH_TESTING "Enable building of rFaaS tests." Off)
+if(${WITH_TESTING})
+  if( NOT TESTING_CONFIG STREQUAL "" AND NOT DEVICES_CONFIG STREQUAL "")
+    set(RFAAS_WITH_TESTING ON)
+    message(STATUS "Enabling testing using configuration provided with ${TESTING_CONFIG}")
+  else()
+    set(RFAAS_WITH_TESTING OFF)
+    message(WARNING "Testing is disabled, as either device or testing configuration are not provided!")
+  endif()
 else()
   set(RFAAS_WITH_TESTING OFF)
-  message(WARNING "Testing is disabled, as testing configuration is not provided in TESTING_JSON parameter!")
-endif()
-
-option(WITH_EXAMPLES "s" On)
-if(${WITH_EXAMPLES})
-  include(examples)
 endif()
 
 ###
@@ -91,73 +102,7 @@ pkg_check_modules(Pistache REQUIRED IMPORTED_TARGET libpistache)
 ###
 # External dependencies
 ###
-set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
-
-###
-# cxxopts
-###
-find_package(cxxopts QUIET)
-if(NOT cxxopts_FOUND)
-  message(STATUS "Downloading and building cxxopts dependency")
-  FetchContent_Declare(cxxopts
-    GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-    CMAKE_ARGS -DCXXOPTS_BUILD_EXAMPLES=Off -DCXXOPTS_BUILD_TESTS=Off
-  )
-  FetchContent_Populate(cxxopts)
-  FetchContent_MakeAvailable(cxxopts)
-  add_subdirectory(${cxxopts_SOURCE_DIR} ${cxxopts_BINARY_DIR})
-endif()
-
-###
-# spdlog
-###
-find_package(spdlog QUIET)
-if(NOT spdlog_FOUND)
-  message(STATUS "Downloading and building spdlog dependency")
-  FetchContent_Declare(spdlog
-    GIT_REPOSITORY https://github.com/gabime/spdlog.git
-    # default branch is v1.x - for some reason, cmake switches to master
-    GIT_TAG v1.8.0
-  )
-  FetchContent_Populate(spdlog)
-  FetchContent_MakeAvailable(spdlog)
-  add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
-else()
-  add_custom_target(spdlog)
-endif()
-
-###
-# cereal
-###
-find_package(cereal QUIET)
-if(NOT cereal_FOUND)
-  message(STATUS "Downloading and building cereal dependency")
-  FetchContent_Declare(cereal
-    GIT_REPOSITORY https://github.com/USCiLab/cereal.git
-    CMAKE_ARGS -DSKIP_PERFORMANCE_COMPARISON=On -DSKIP_PORTABILITY_TEST=On -DJUST_INSTALL_CEREAL=On
-    # default branch is v1.x - for some reason, cmake switches to master
-    GIT_TAG v1.3.0
-  )
-  # for some reason the CMAKE_ARGS are ignored here
-  set(SKIP_PERFORMANCE_COMPARISON ON CACHE INTERNAL "")
-  set(SKIP_PORTABILITY_TEST ON CACHE INTERNAL "")
-  set(JUST_INSTALL_CEREAL ON CACHE INTERNAL "")
-  FetchContent_Populate(cereal)
-  FetchContent_MakeAvailable(cereal)
-  add_subdirectory(${cereal_SOURCE_DIR} ${cereal_BINARY_DIR})
-endif()
-
-###
-# google test
-###
-include(FetchContent)
-message(STATUS "Downloading and building gtest")
-FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG release-1.11.0
-)
-FetchContent_MakeAvailable(googletest)
+include(dependencies)
 
 ###
 # rdmalib: build C++14, PIC and no RTTI
@@ -201,27 +146,6 @@ target_link_libraries(rfaaslib PUBLIC dl)
 target_link_libraries(rfaaslib PUBLIC Threads::Threads)
 
 ###
-# Warm/hot benchmarker
-###
-add_executable(warm_benchmarker benchmarks/warm_benchmark.cpp benchmarks/warm_benchmark_opts.cpp)
-add_executable(parallel_invocations benchmarks/parallel_invocations.cpp benchmarks/parallel_invocations_opts.cpp)
-add_executable(cold_benchmarker benchmarks/cold_benchmark.cpp benchmarks/cold_benchmark_opts.cpp)
-add_executable(cpp_interface benchmarks/cpp_interface.cpp benchmarks/warm_benchmark_opts.cpp)
-#set(tests_targets "warm_benchmarker" "cold_benchmarker")
-set(tests_targets "warm_benchmarker" "cold_benchmarker" "parallel_invocations" "cpp_interface")
-foreach(target ${tests_targets})
-  add_dependencies(${target} cxxopts::cxxopts)
-  add_dependencies(${target} rdmalib)
-  add_dependencies(${target} rfaaslib)
-  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:rfaaslib,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_include_directories(${target} SYSTEM PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_link_libraries(${target} PRIVATE spdlog::spdlog)
-  target_link_libraries(${target} PRIVATE rfaaslib)
-  set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY benchmarks)
-endforeach()
-
-###
 # Server
 ###
 add_executable(executor server/executor.cpp server/opts.cpp server/fast_executor.cpp server/functions.cpp)
@@ -262,12 +186,24 @@ target_include_directories(resource_manager SYSTEM PUBLIC $<TARGET_PROPERTY:PkgC
 target_link_libraries(resource_manager PRIVATE PkgConfig::Pistache)
 
 ###
+# Benchmark apps
+###
+include(benchmarks)
+
+###
 # Examples
 ###
 add_library(functions SHARED examples/functions.cpp)
 set_target_properties(functions PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(functions PROPERTIES LIBRARY_OUTPUT_DIRECTORY examples)
+if( ${RFAAS_WITH_EXAMPLES} )
+  include(examples)
+endif()
 
+###
+# Examples
+###
 if( ${RFAAS_WITH_TESTING} )
   include(testing)
 endif()
+
