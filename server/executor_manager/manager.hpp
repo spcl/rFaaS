@@ -29,6 +29,7 @@ namespace rfaas::executor_manager {
   struct Options {
     std::string json_config;
     std::string device_database;
+    bool skip_rm;
     bool verbose;
   };
   Options opts(int, char**);
@@ -48,7 +49,7 @@ namespace rfaas::executor_manager {
 
     //std::vector<Client> _clients;
     //std::atomic<int> _clients_active;
-    rdmalib::RDMAActive _active_connections;
+    rdmalib::RDMAActive _res_mgr_connection;
     //std::unique_ptr<rdmalib::Connection> _res_mgr_connection;
 
     rdmalib::RDMAPassive _state;
@@ -56,8 +57,9 @@ namespace rfaas::executor_manager {
     Settings _settings;
     //rdmalib::Buffer<Accounting> _accounting_data;
     int _secret;
+    bool _skip_rm;
 
-    Manager(Settings &);
+    Manager(Settings &, bool skip_rm);
 
     void start();
     void listen();

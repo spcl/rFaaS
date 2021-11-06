@@ -37,10 +37,11 @@ int main(int argc, char ** argv)
   std::ifstream in_dev{opts.device_database};
   rfaas::devices::deserialize(in_dev);
 
+  // Read executor manager settings
   std::ifstream in_cfg{opts.json_config};
   rfaas::executor_manager::Settings settings = rfaas::executor_manager::Settings::deserialize(in_cfg);
 
-  rfaas::executor_manager::Manager mgr{settings};
+  rfaas::executor_manager::Manager mgr{settings, opts.skip_rm};
   mgr.start();
 
   spdlog::info("Executor manager is closing down");

@@ -17,10 +17,10 @@
 
 namespace rfaas::executor_manager {
 
-  Manager::Manager(Settings & settings):
-    //_clients_active(0),
+  Manager::Manager(Settings & settings, bool skip_rm):
     _q1(100), _q2(100),
-    _active_connections(
+    _ids(0),
+    _res_mgr_connection(
         settings.resource_manager_address,
         settings.resource_manager_port,
         settings.device->default_receive_buffer_size
@@ -28,29 +28,30 @@ namespace rfaas::executor_manager {
     _state(settings.device->ip_address, settings.rdma_device_port,
         settings.device->default_receive_buffer_size, true),
     _settings(settings),
-    //_address(settings.device->ip_address),
-    //_port(settings.rdma_device_port),
-    _ids(0),
     // FIXME: randomly generated
-    _secret(0x1234)
+    _secret(0x1234),
+    _skip_rm(skip_rm)
   {
-    _active_connections.allocate();
+    if(!_skip_rm)
+      _res_mgr_connection.allocate();
   }
 
   void Manager::start()
   {
-    spdlog::info(
-      "Connecting to resource manager at {}:{} with secret {}.",
-      _settings.resource_manager_address,
-      _settings.resource_manager_port,
-      _settings.resource_manager_secret
-    );
-    if(!_active_connections.connect(_settings.resource_manager_secret)) {
-      spdlog::error("Connection to resource manager was not succesful!");
-      return;
-    }
     rdmalib::RecvBuffer _rcv_buffer{32};
-    _rcv_buffer.connect(&_active_connections.connection());
+    if(!_skip_rm) {
+      spdlog::info(
+        "Connecting to resource manager at {}:{} with secret {}.",
+        _settings.resource_manager_address,
+        _settings.resource_manager_port,
+        _settings.resource_manager_secret
+      );
+      if(!_res_mgr_connection.connect(_settings.resource_manager_secret)) {
+        spdlog::error("Connection to resource manager was not succesful!");
+        return;
+      }
+      _rcv_buffer.connect(&_res_mgr_connection.connection());
+    }
 
     spdlog::info(
       "Begin listening at {}:{} and processing events!",
@@ -147,9 +148,8 @@ namespace rfaas::executor_manager {
         }; 
         std::pair<int,Client>* p2 = _q2.peek();
         if(p2){
-           int pos = p2->first;
           _clients.insert(std::make_pair(p2->first, std::move(p2->second)));
-          SPDLOG_DEBUG("Connected new client id {}", pos);
+          SPDLOG_DEBUG("Connected new client id {}", p2->first);
           _q2.pop();
         };  
       }
