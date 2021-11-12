@@ -233,6 +233,10 @@ namespace rdmalib {
       spdlog::error("Post write unsuccesful, reason {} {}, sges_count {}, wr_id {}, remote addr {}, remote rkey {}, imm data {}",
         ret, strerror(ret), wr.num_sge, wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
       );
+      if(IBV_SEND_INLINE & wr.send_flags)
+        spdlog::error("The write of size {} was inlined, is it supported by the device?",
+          wr.sg_list[0].length
+        );
       return -1;
     }
     if(wr.num_sge > 0)
