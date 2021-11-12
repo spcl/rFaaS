@@ -8,31 +8,15 @@ namespace warm_benchmarker {
 
   struct Options {
 
-    enum class PollingMgr {
-      SERVER_NOTIFY=0,
-      THREAD
-    };
-
-    enum class PollingType {
-      WC=0,
-      DRAM
-    };
-
-    std::string address;
-    int port;
-    int repetitions;
-    int warmup_iters;
-    int numcores;
-    int hot_timeout;
+    std::string json_config;
+    std::string device_database;
+    std::string executors_database;
+    std::string output_stats;
+    bool verbose;
     std::string fname;
     std::string flib;
     int input_size;
-    std::string server_file;
-    std::string out_file;
-    bool pin_threads;
-    int recv_buf_size;
-    int max_inline_data;
-    bool verbose;
+
   };
 
   Options options(int argc, char ** argv);

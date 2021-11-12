@@ -15,6 +15,7 @@
 #include <rfaas/resources.hpp>
 
 #include "warm_benchmark.hpp"
+#include "settings.hpp"
 
 int main(int argc, char ** argv)
 {
@@ -26,16 +27,36 @@ int main(int argc, char ** argv)
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
   spdlog::info("Executing serverless-rdma test warm_benchmarker!");
 
-  // Read connection details to the managers
-  std::ifstream in_cfg(opts.server_file);
+  // Read device details
+  std::ifstream in_dev{opts.device_database};
+  rfaas::devices::deserialize(in_dev);
+  in_dev.close();
+
+  // Read benchmark settings
+  std::ifstream benchmark_cfg{opts.json_config};
+  rfaas::benchmark::Settings settings = rfaas::benchmark::Settings::deserialize(benchmark_cfg);
+  benchmark_cfg.close();
+
+  // Read connection details to the executors
+  std::ifstream in_cfg(opts.executors_database);
   rfaas::servers::deserialize(in_cfg);
   in_cfg.close();
-  rfaas::servers & cfg = rfaas::servers::instance();
 
-  rfaas::executor executor(opts.address, opts.port, opts.recv_buf_size, opts.max_inline_data);
-  executor.allocate(opts.flib, opts.numcores, opts.input_size, opts.hot_timeout, false);
+  rfaas::executor executor(
+    settings.device->ip_address,
+    settings.rdma_device_port,
+    settings.device->default_receive_buffer_size,
+    settings.device->max_inline_data
+  );
+  executor.allocate(
+    opts.flib,
+    settings.benchmark.numcores,
+    opts.input_size,
+    settings.benchmark.hot_timeout,
+    false
+  );
 
-  // FIXME: move me to allocator
+  // FIXME: move me to a memory allocator
   rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
   in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
   out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
@@ -44,21 +65,21 @@ int main(int argc, char ** argv)
     ((char*)in.data())[i] = 1;
   }
 
-  rdmalib::Benchmarker<1> benchmarker{opts.repetitions};
+  rdmalib::Benchmarker<1> benchmarker{settings.benchmark.repetitions};
   spdlog::info("Warmups begin");
-  for(int i = 0; i < opts.warmup_iters; ++i) {
+  for(int i = 0; i < settings.benchmark.warmup_repetitions; ++i) {
     SPDLOG_DEBUG("Submit warm {}", i);
     executor.execute(opts.fname, in, out);
   }
   spdlog::info("Warmups completed");
 
   // Start actual measurements
-  for(int i = 0; i < opts.repetitions;) {
+  for(int i = 0; i < settings.benchmark.repetitions;) {
     benchmarker.start();
     SPDLOG_DEBUG("Submit execution {}", i);
     auto ret = executor.execute(opts.fname, in, out);
-    if(std::get<0>(executor.execute(opts.fname, in, out))) {
-      SPDLOG_DEBUG("Finished execution");
+    if(std::get<0>(ret)) {
+      SPDLOG_DEBUG("Finished execution {} out of {}", i, settings.benchmark.repetitions);
       benchmarker.end(0);
       ++i;
     } else {
@@ -66,78 +87,17 @@ int main(int argc, char ** argv)
     }
   }
   auto [median, avg] = benchmarker.summary();
-  spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", opts.repetitions, avg, median);
-  benchmarker.export_csv(opts.out_file, {"time"});
+  spdlog::info(
+    "Executed {} repetitions, avg {} usec/iter, median {}",
+    settings.benchmark.repetitions, avg, median
+  );
+  if(opts.output_stats != "")
+    benchmarker.export_csv(opts.output_stats, {"time"});
   executor.deallocate();
 
   for(int i = 0; i < std::min(100, opts.input_size); ++i)
     printf("%d ", ((char*)out.data())[i]);
   printf("\n");
-
-  return 0;
-  //std::ifstream in(opts["file"].as<std::string>());
-  //client::ServerConnection client(rdmalib::server::ServerStatus::deserialize(in), recv_buf_size, max_inline_data);
-  //in.close();
-  //if(!client.connect())
-  //  return -1;
-
-  //client.allocate_send_buffers(2, buf_size);
-  //client.allocate_receive_buffers(2, buf_size);
-  //spdlog::info("Connected to the executor manager!");
-
-  //// prepare args
-  //memset(client.send_buffer(0).data(), 0, buf_size);
-  //memset(client.send_buffer(1).data(), 0, buf_size);
-  //for(int i = 0; i < buf_size; ++i) {
-  //  ((char*)client.send_buffer(0).data())[i] = 1;
-  //  ((char*)client.send_buffer(1).data())[i] = 2;
-  //}
-
-  //// Warmup iterations
-  //rdmalib::Benchmarker<2> benchmarker{repetitions};
-  ////rdmalib::RecvBuffer rcv_buffer{recv_buf_size};
-  ////rcv_buffer.connect(&client.connection());
-  //spdlog::info("Warmups begin");
-  //for(int i = 0; i < warmup_iters; ++i) {
-  //  client.recv().refill();
-  //  SPDLOG_DEBUG("Submit warm {}", i);
-  //  client.submit_fast(1, "test");
-  //  poll_result(client, i);
-  //}
-  //spdlog::info("Warmups completed");
-
-  //int pause = opts["pause"].as<int>();
-  //std::vector<int> refills;
-  //// Start actual measurements
-  //for(int i = 0; i < repetitions;) {
-  //  int b = client.recv().refill();
-  //  benchmarker.start();
-  //  int id = client.submit_fast(1, "test");
-  //  SPDLOG_DEBUG("Submit actual {}", i);
-  //  if(poll_result(client, i)) {
-  //    benchmarker.end(0);
-  //    SPDLOG_DEBUG("Finished execution");
-  //    ++i;
-  //  } else {
-  //    continue;
-  //  }
-  //  if (b)
-  //    refills.push_back(i);
-
-  //  // Wait for the next iteration
-  //  if(pause)
-  //    std::this_thread::sleep_for(std::chrono::microseconds(pause));
-  //}
-  //auto [median, avg] = benchmarker.summary();
-  //spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", repetitions, avg, median);
-  //std::cout << "Receive buffer refills; ";
-  //for(int i = 0; i < refills.size(); ++i)
-  //  std::cout << refills[i] << " ";
-  //std::cout << '\n';
-
-  //for(int i = 0; i < std::min(100, buf_size); ++i)
-  //  printf("%d ", ((char*)client.recv_buffer(1).data())[i]);
-  //printf("\n");
 
   return 0;
 }
