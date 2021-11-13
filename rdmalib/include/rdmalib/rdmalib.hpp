@@ -41,6 +41,7 @@ namespace rdmalib {
     void disconnect();
     ibv_pd* pd() const;
     Connection & connection();
+    bool is_connected();
   };
 
   struct RDMAPassive {

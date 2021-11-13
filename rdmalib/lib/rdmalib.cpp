@@ -166,6 +166,8 @@ namespace rdmalib {
     }
     if(rdma_connect(_conn->_id, &_cfg.conn_param)) {
       spdlog::error("Connection unsuccesful, reason {} {}", errno, strerror(errno));
+      _conn.reset();
+      _pd = nullptr;
       return false;
     } else {
       spdlog::debug("Connection succesful to {}:{}, on device {}", _addr._port, _addr._port, ibv_get_device_name(this->_conn->_id->verbs->device));
@@ -197,6 +199,11 @@ namespace rdmalib {
   Connection & RDMAActive::connection()
   {
     return *this->_conn;
+  }
+
+  bool RDMAActive::is_connected()
+  {
+    return this->_conn.get();
   }
 
   RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize, int max_inline_data):
