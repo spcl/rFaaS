@@ -229,25 +229,23 @@ namespace rfaas::executor_manager {
         if(client.active()) {
           client.rcv_buffer.refill();
           if(client.executor) {
-            //auto status = client.executor->check();
-            //if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
-            //  auto now = std::chrono::high_resolution_clock::now();
-            //  client.allocation_time +=
-            //    std::chrono::duration_cast<std::chrono::microseconds>(
-            //      now - client.executor->_allocation_finished
-            //    ).count();
-            //  // FIXME: update global manager
-            //  spdlog::info(
-            //    "Executor at client {} exited, status {}, time allocated {} us, polling {} us, execution {} us",
-            //    i, std::get<1>(status), client.allocation_time,
-            //    client.accounting.data()[i].hot_polling_time,
-            //    client.accounting.data()[i].execution_time
-            //    //_accounting_data.data()[i].hot_polling_time,
-            //    //_accounting_data.data()[i].execution_time
-            //  );
-            //  client.executor.reset(nullptr);
-            //  spdlog::info("Finished cleanup");
-            //}
+            auto status = client.executor->check();
+            if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
+              auto now = std::chrono::high_resolution_clock::now();
+              client.allocation_time +=
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                  now - client.executor->_allocation_finished
+                ).count();
+              // FIXME: update global manager
+              spdlog::info(
+                "Executor at client {} exited, status {}, time allocated {} us, polling {} us, execution {} us",
+                i, std::get<1>(status), client.allocation_time,
+                client.accounting.data()[i].hot_polling_time,
+                client.accounting.data()[i].execution_time
+              );
+              client.executor.reset(nullptr);
+              spdlog::info("Finished cleanup");
+            }
           }
         }
       }

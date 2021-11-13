@@ -49,10 +49,10 @@ namespace rfaas::executor_manager {
     rdma_disconnect(connection->_id);
     // First, we check if the child is still alive
     int status;
-    auto b= std::chrono::high_resolution_clock::now();
+    auto b = std::chrono::high_resolution_clock::now();
     kill(executor->id(), SIGKILL);
     waitpid(executor->id(), &status, WUNTRACED);
-    auto e= std::chrono::high_resolution_clock::now();
+    auto e = std::chrono::high_resolution_clock::now();
     spdlog::info("Waited for child {} ms", std::chrono::duration_cast<std::chrono::milliseconds>(e-b).count());
 
     //auto status = executor->check();
