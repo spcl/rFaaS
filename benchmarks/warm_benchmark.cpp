@@ -48,13 +48,16 @@ int main(int argc, char ** argv)
     settings.device->default_receive_buffer_size,
     settings.device->max_inline_data
   );
-  executor.allocate(
+  if(!executor.allocate(
     opts.flib,
     settings.benchmark.numcores,
     opts.input_size,
     settings.benchmark.hot_timeout,
     false
-  );
+  )) {
+    spdlog::error("Connection to executor and allocation failed!");
+    return 1;
+  }
 
   // FIXME: move me to a memory allocator
   rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
