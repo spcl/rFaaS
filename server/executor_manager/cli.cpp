@@ -15,6 +15,13 @@
 
 #include "manager.hpp"
 
+rfaas::executor_manager::Manager * instance = nullptr;
+
+void signal_handler(int)
+{
+  assert(instance);
+  instance->shutdown();
+}
 
 int main(int argc, char ** argv)
 {
@@ -32,6 +39,13 @@ int main(int argc, char ** argv)
   spdlog::set_pattern("[%H:%M:%S:%f] [P %P] [T %t] [%l] %v ");
   spdlog::info("Executing rFaaS executor manager!");
 
+  // Catch SIGINT
+  struct sigaction sigIntHandler;
+  sigIntHandler.sa_handler = &signal_handler;
+  sigemptyset(&sigIntHandler.sa_mask);
+  sigIntHandler.sa_flags = 0;
+  sigaction(SIGINT, &sigIntHandler, NULL);
+
   // Read device details
   std::ifstream in_dev{opts.device_database};
   rfaas::devices::deserialize(in_dev);
@@ -41,6 +55,7 @@ int main(int argc, char ** argv)
   rfaas::executor_manager::Settings settings = rfaas::executor_manager::Settings::deserialize(in_cfg);
 
   rfaas::executor_manager::Manager mgr{settings, opts.skip_rm};
+  instance = &mgr;
   mgr.start();
 
   spdlog::info("Executor manager is closing down");

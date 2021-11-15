@@ -40,6 +40,7 @@ namespace rfaas::executor_manager {
     //static constexpr int MAX_CLIENTS_ACTIVE = 128;
     static constexpr int MAX_EXECUTORS_ACTIVE = 8;
     static constexpr int MAX_CLIENTS_ACTIVE = 1024;
+    static constexpr int POLLING_TIMEOUT_MS = 100;
     moodycamel::ReaderWriterQueue<std::pair<int, rdmalib::Connection*>> _q1;
     moodycamel::ReaderWriterQueue<std::pair<int, Client>> _q2;
 
@@ -58,12 +59,14 @@ namespace rfaas::executor_manager {
     //rdmalib::Buffer<Accounting> _accounting_data;
     uint32_t _secret;
     bool _skip_rm;
+    std::atomic<bool> _shutdown;
 
     Manager(Settings &, bool skip_rm);
 
     void start();
     void listen();
     void poll_rdma();
+    void shutdown();
   };
 
 }

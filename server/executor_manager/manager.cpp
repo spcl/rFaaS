@@ -17,6 +17,8 @@
 
 namespace rfaas::executor_manager {
 
+  constexpr int Manager::POLLING_TIMEOUT_MS;
+
   Manager::Manager(Settings & settings, bool skip_rm):
     _q1(100), _q2(100),
     _ids(0),
@@ -30,10 +32,16 @@ namespace rfaas::executor_manager {
     _settings(settings),
     // FIXME: randomly generated
     _secret(0x1234),
-    _skip_rm(skip_rm)
+    _skip_rm(skip_rm),
+    _shutdown(false)
   {
     if(!_skip_rm)
       _res_mgr_connection.allocate();
+  }
+
+  void Manager::shutdown()
+  {
+    _shutdown.store(true);
   }
 
   void Manager::start()
@@ -67,10 +75,14 @@ namespace rfaas::executor_manager {
 
   void Manager::listen()
   {
-    while(true) {
-      // Connection initialization:
-      // (1) Initialize receive WCs with the allocation request buffer
-      spdlog::debug("[Manager-listen] Listen for new rdmacm events");
+    // FIXME: sleep when there are no clients
+    while(!_shutdown.load()) {
+
+      bool result = _state.nonblocking_poll_events(POLLING_TIMEOUT_MS);
+      if(!result)
+        continue;
+      spdlog::debug("[Manager-listen] Polled new rdmacm event");
+
       auto [conn, conn_status] = _state.poll_events(
         false
       );
@@ -122,13 +134,14 @@ namespace rfaas::executor_manager {
         }
       }
     }
+    spdlog::info("Background thread stops waiting for rdmacm events.");
   }
 
   void Manager::poll_rdma()
   {
     // FIXME: sleep when there are no clients
     bool active_clients = true;
-    while(active_clients) {
+    while(active_clients && !_shutdown.load()) {
       {
         std::pair<int, rdmalib::Connection*>* p1 = _q1.peek();
         if(p1){
@@ -248,6 +261,7 @@ namespace rfaas::executor_manager {
         }
       }
     }
+    spdlog::info("Background thread stops processing RDMA events.");
   }
 
   //void Manager::poll_rdma()
