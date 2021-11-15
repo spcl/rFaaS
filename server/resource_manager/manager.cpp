@@ -68,14 +68,17 @@ namespace rfaas::resource_manager {
 
   void Manager::process_rdma()
   {
-    std::vector<rdmalib::Connection> vec;
+    std::vector<rdmalib::Connection*> vec;
     while(!_shutdown.load()) {
       rdmalib::Connection* conn;
       if(_rdma_queue.wait_dequeue_timed(conn, std::chrono::milliseconds(POLLING_TIMEOUT_MS))) {
-        spdlog::debug("process: Connected new client, attempting to send data");
+        spdlog::debug("[Manager] connected new client/executor");
         vec.push_back(conn);
       }
     }
+
+    for(rdmalib::Connection* conn : vec)
+      delete conn;
 
     spdlog::info("Background thread stops processing rdmacm events");
   }
