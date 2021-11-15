@@ -237,10 +237,6 @@ namespace rdmalib {
   {
     rdma_destroy_id(this->_listen_id);
     rdma_destroy_event_channel(this->_ec);
-    //ibv_dealloc_pd(this->_pd);
-    //rdma_destroy_ep(this->_listen_id);
-    //ibv_dealloc_pd(this->_pd);
-    //rdma_destroy_id(this->_listen_id);
   }
 
   void RDMAPassive::allocate()
@@ -260,15 +256,6 @@ namespace rdmalib {
       "[RDMAPassive]: listening id {}, protection domain {}",
       fmt::ptr(this->_listen_id), _pd->handle
     );
-    //impl::expect_zero(rdma_create_ep(&this->_listen_id, _addr.addrinfo, nullptr, nullptr));
-    //impl::expect_zero(rdma_listen(this->_listen_id, 0));
-    //this->_addr._port = ntohs(rdma_get_src_port(this->_listen_id));
-    //this->_ec = this->_listen_id->channel;
-    //spdlog::info("Listening on device {}, port {}", ibv_get_device_name(this->_listen_id->verbs->device), this->_addr._port);
-
-    //// Alocate protection domain
-    //_pd = _listen_id->pd;
-    //impl::expect_nonnull(_pd = ibv_alloc_pd(_listen_id->verbs));
   }
 
   ibv_pd* RDMAPassive::pd() const
