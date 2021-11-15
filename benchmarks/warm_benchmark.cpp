@@ -50,7 +50,7 @@ int main(int argc, char ** argv)
   );
   if(!executor.allocate(
     opts.flib,
-    settings.benchmark.numcores,
+    1,
     opts.input_size,
     settings.benchmark.hot_timeout,
     false
@@ -98,6 +98,7 @@ int main(int argc, char ** argv)
     benchmarker.export_csv(opts.output_stats, {"time"});
   executor.deallocate();
 
+  printf("Data: ");
   for(int i = 0; i < std::min(100, opts.input_size); ++i)
     printf("%d ", ((char*)out.data())[i]);
   printf("\n");

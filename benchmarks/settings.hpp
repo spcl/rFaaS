@@ -16,7 +16,6 @@ namespace rfaas::benchmark {
     int repetitions;
     int warmup_repetitions;
     bool pin_threads;
-    int numcores;
     int hot_timeout;
 
     template <class Archive>
@@ -24,8 +23,7 @@ namespace rfaas::benchmark {
     {
       ar(
         CEREAL_NVP(repetitions), CEREAL_NVP(warmup_repetitions),
-        CEREAL_NVP(pin_threads), CEREAL_NVP(numcores),
-        CEREAL_NVP(hot_timeout)
+        CEREAL_NVP(pin_threads), CEREAL_NVP(hot_timeout)
       );
     }
   };
