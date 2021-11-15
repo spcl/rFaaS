@@ -190,7 +190,6 @@ namespace server {
 
     active.allocate();
     this->conn = &active.connection();
-    this->conn->initialize();
     // Receive function data from the client - this WC must be posted first
     // We do it before connection to ensure that client does not start sending before us
     func_buffer.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);

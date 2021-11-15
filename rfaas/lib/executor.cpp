@@ -55,6 +55,12 @@ namespace rfaas {
     _end_requested = false;
   }
 
+  executor_state::~executor_state()
+  {
+    conn->close();
+    delete conn;
+  }
+
   executor::executor(device_data & dev):
     executor(dev.ip_address, dev.port, dev.default_receive_buffer_size, dev.max_inline_data)
   {}
@@ -73,7 +79,7 @@ namespace rfaas {
     size_t len = ftell(file);
     rewind(file);
     rdmalib::Buffer<char> functions(len);
-    fread(functions.data(), 1, len, file);
+    rdmalib::impl::expect_true(fread(functions.data(), 1, len, file) == len);
     functions.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
 
     // FIXME: same function as in server/functions.cpp - merge?
@@ -135,20 +141,19 @@ namespace rfaas {
       _exec_manager->disconnect();
       _exec_manager.reset(nullptr);
       _state._cfg.attr.send_cq = _state._cfg.attr.recv_cq = 0;
-      //_active_polling = true;
+
+      // Clear up old connections
       _connections.clear();
-      //_background_thread->detach();
-      //_background_thread.reset();
-      //spdlog::info("events {}", events);
     }
   }
 
   void executor::poll_queue()
   {
+    // FIXME: hide the details in rdmalib
     spdlog::info("Background thread starts waiting for events");
     _connections[0].conn->notify_events(true);
-    int flags = fcntl(_connections[0].conn->_channel->fd, F_GETFL);
-    int rc = fcntl(_connections[0].conn->_channel->fd, F_SETFL, flags | O_NONBLOCK);
+    int flags = fcntl(_connections[0].conn->completion_channel()->fd, F_GETFL);
+    int rc = fcntl(_connections[0].conn->completion_channel()->fd, F_SETFL, flags | O_NONBLOCK);
     if (rc < 0) {
       fprintf(stderr, "Failed to change file descriptor of completion event channel\n");
       return;
@@ -156,7 +161,7 @@ namespace rfaas {
 
     while(!_end_requested && _connections.size()) {
       pollfd my_pollfd;
-      my_pollfd.fd      = _connections[0].conn->_channel->fd;
+      my_pollfd.fd      = _connections[0].conn->completion_channel()->fd;
       my_pollfd.events  = POLLIN;
       my_pollfd.revents = 0;
       do {
@@ -287,9 +292,6 @@ namespace rfaas {
     SPDLOG_DEBUG("Allocating {} threads on a remote executor", numcores);
     // Now receive the connections from executors
     uint32_t obj_size = sizeof(rdmalib::BufferInformation);
-
-    rdmalib::Connection* conn = nullptr;
-    rdmalib::ConnectionStatus conn_status = rdmalib::ConnectionStatus::UNKNOWN;
 
     // Accept connect requests, fill receive buffers and accept them.
     // When the connection is established, then send data.

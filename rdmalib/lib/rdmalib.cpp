@@ -102,10 +102,11 @@ namespace rdmalib {
     if(!_conn) {
       _conn = std::unique_ptr<Connection>(new Connection());
       SPDLOG_DEBUG("Allocate new connection");
-      impl::expect_zero(rdma_create_ep(&_conn->_id, _addr.addrinfo, nullptr, nullptr));
-      impl::expect_zero(rdma_create_qp(_conn->_id, _pd, &_cfg.attr));
-      _pd = _conn->_id->pd;
-      _conn->_qp = _conn->_id->qp;
+      rdma_cm_id* id;
+      impl::expect_zero(rdma_create_ep(&id, _addr.addrinfo, nullptr, nullptr));
+      impl::expect_zero(rdma_create_qp(id, _pd, &_cfg.attr));
+      _conn->initialize(id);
+      _pd = _conn->id()->pd;
 
       //struct ibv_qp_attr attr;
       //struct ibv_qp_init_attr init_attr;
@@ -165,13 +166,16 @@ namespace rdmalib {
       _cfg.conn_param.private_data_len = sizeof(uint32_t);
       SPDLOG_DEBUG("Setting connection secret {} of length {}", secret, sizeof(uint32_t));
     }
-    if(rdma_connect(_conn->_id, &_cfg.conn_param)) {
+    if(rdma_connect(_conn->id(), &_cfg.conn_param)) {
       spdlog::error("Connection unsuccesful, reason {} {}", errno, strerror(errno));
       _conn.reset();
       _pd = nullptr;
       return false;
     } else {
-      spdlog::debug("Connection succesful to {}:{}, on device {}", _addr._port, _addr._port, ibv_get_device_name(this->_conn->_id->verbs->device));
+      spdlog::debug(
+        "[RDMAActive] Connection succesful to {}:{}, on device {}",
+        _addr._port, _addr._port, ibv_get_device_name(this->_conn->id()->verbs->device)
+      );
     }
 
     //struct ibv_qp_attr attr;
@@ -184,12 +188,10 @@ namespace rdmalib {
 
   void RDMAActive::disconnect()
   {
-    //SPDLOG_DEBUG("Disconnecting");
-    impl::expect_zero(rdma_disconnect(_conn->_id));
+    spdlog::debug("[RDMAActive] Disonnecting connection with id {}", fmt::ptr(_conn->id()));
+    impl::expect_zero(rdma_disconnect(_conn->id()));
     _conn.reset();
     _pd = nullptr;
-    //rdma_destroy_qp(_conn._id);
-    //_conn._qp = nullptr;
   }
 
   ibv_pd* RDMAActive::pd() const
@@ -307,10 +309,10 @@ namespace rdmalib {
     switch (event->event) { 
       case RDMA_CM_EVENT_CONNECT_REQUEST:
         connection = new Connection{true};
-        connection->_id = event->id;
+        connection->initialize(event->id);
         if(event->param.conn.private_data_len != 0) {
           uint32_t data = *reinterpret_cast<const uint32_t*>(event->param.conn.private_data);
-          connection->_private_data = data;
+          connection->set_private_data(data);
           SPDLOG_DEBUG("[RDMAPassive] Connection request with private data {}", data);
         }
         else
@@ -320,7 +322,7 @@ namespace rdmalib {
         event->id->context = reinterpret_cast<void*>(connection);
         SPDLOG_DEBUG(
           "[RDMAPassive] Creating QP: id {} pd {} listener pd {}",
-          fmt::ptr(connection->_id), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd)
+          fmt::ptr(connection->id()), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd)
         );
 
         // Make sure to allocate new completion queue when they're not reused.
@@ -332,17 +334,14 @@ namespace rdmalib {
         );
 
         // Alocate queue pair for the new connection
-        impl::expect_zero(rdma_create_qp(connection->_id, _pd, &_cfg.attr));
-        SPDLOG_DEBUG("[RDMAPassive] Create QP with qpn {}", connection->_id->qp->qp_num);
-        connection->_qp = connection->_id->qp;
+        impl::expect_zero(rdma_create_qp(connection->id(), _pd, &_cfg.attr));
+        SPDLOG_DEBUG("[RDMAPassive] Create QP with qpn {}", connection->qp()->qp_num);
         SPDLOG_DEBUG(
           "[RDMAPassive] Created connection id {} qpnum {} qp {} send {} recv {}",
-          fmt::ptr(connection->_id), connection->_qp->qp_num, fmt::ptr(connection->_id->qp),
-          fmt::ptr(connection->_id->qp->send_cq), fmt::ptr(connection->_id->qp->recv_cq)
+          fmt::ptr(connection->id()), connection->qp()->qp_num, fmt::ptr(connection->qp()),
+          fmt::ptr(connection->qp()->send_cq), fmt::ptr(connection->qp()->recv_cq)
         );
 
-        // Finish connection initialization.
-        connection->initialize();
         status = ConnectionStatus::REQUESTED;
         _active_connections.insert(connection);
         break;
@@ -389,10 +388,10 @@ namespace rdmalib {
   }
 
   void RDMAPassive::accept(Connection* connection) {
-    if(rdma_accept(connection->_id, &_cfg.conn_param)) {
+    if(rdma_accept(connection->id(), &_cfg.conn_param)) {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
       connection = nullptr;
     }
-    SPDLOG_DEBUG("Accepted {}", fmt::ptr(connection->_qp));
+    SPDLOG_DEBUG("[RDMAPassive] Connection accepted at QP {}", fmt::ptr(connection->qp()));
   }
 }

@@ -56,7 +56,7 @@ namespace rfaas::executor_manager {
     //rdmalib::server::ServerStatus _status;
     Settings _settings;
     //rdmalib::Buffer<Accounting> _accounting_data;
-    int _secret;
+    uint32_t _secret;
     bool _skip_rm;
 
     Manager(Settings &, bool skip_rm);

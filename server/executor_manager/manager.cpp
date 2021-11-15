@@ -92,7 +92,7 @@ namespace rfaas::executor_manager {
       else if(conn_status == rdmalib::ConnectionStatus::REQUESTED) {
         spdlog::debug("[Manager-listen] Requested new connection {}", fmt::ptr(conn));
         // FIXME: users sending their ID 
-        if(!conn->_private_data) {
+        if(!conn->private_data()) {
           int pos = _ids++;
           Client client{conn, _state.pd()};
           client._active = true;
@@ -109,14 +109,15 @@ namespace rfaas::executor_manager {
       // For a connection with a client we don't have to do anything. 
       else if(conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
         spdlog::debug("[Manager-listen] New established connection {}", fmt::ptr(conn));
-        if(conn->_private_data) {
-          if((conn->_private_data & 0xFFFF ) == this->_secret) {
-            int client = conn->_private_data >> 16;
+        uint32_t private_data = conn->private_data();
+        if(private_data) {
+          if((private_data & 0xFFFF ) == this->_secret) {
+            int client = private_data >> 16;
             SPDLOG_DEBUG("Executor for client {}", client);
             // FIXME: check it exists
             _q1.enqueue(std::make_pair( client, conn ));    
           } else {
-            spdlog::error("New connection's private data that we can't understand: {}", conn->_private_data);
+            spdlog::error("New connection's private data that we can't understand: {}", private_data);
           }
         }
       }

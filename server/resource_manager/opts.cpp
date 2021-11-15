@@ -1,7 +1,6 @@
 
 #include <cxxopts.hpp>
 
-#include "server.hpp"
 #include "manager.hpp"
 
 namespace rfaas::resource_manager {

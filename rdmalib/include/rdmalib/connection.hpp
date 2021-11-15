@@ -42,6 +42,7 @@ namespace rdmalib {
   // a) communication ID
   // b) Queue Pair
   struct Connection {
+  private:
     rdma_cm_id* _id;
     ibv_qp* _qp; 
     ibv_comp_channel* _channel;
@@ -58,7 +59,8 @@ namespace rdmalib {
 
     static const int _rbatch = 32; // 32 for faster division in the code
     struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
- 
+
+  public:
     Connection(bool passive = false);
     ~Connection();
     Connection(const Connection&) = delete;
@@ -67,11 +69,15 @@ namespace rdmalib {
 
     void initialize_batched_recv(const rdmalib::impl::Buffer & sge, size_t offset);
     void inlining(bool enable);
-    void initialize();
+    void initialize(rdma_cm_id* id);
     void close();
+    rdma_cm_id* id() const;
     ibv_qp* qp() const;
+    ibv_comp_channel* completion_channel() const;
+    uint32_t private_data() const;
     ConnectionStatus status() const;
     void set_status(ConnectionStatus status);
+    void set_private_data(uint32_t private_data);
 
     // Blocking, no timeout
     std::tuple<ibv_wc*, int> poll_wc(QueueType, bool blocking = true, int count = -1);

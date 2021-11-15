@@ -46,6 +46,7 @@ namespace rfaas {
     rdmalib::RemoteBuffer remote_input;
     rdmalib::RecvBuffer _rcv_buffer;
     executor_state(rdmalib::Connection*, int rcv_buf_size);
+    ~executor_state();
   };
 
   struct executor {

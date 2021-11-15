@@ -46,10 +46,10 @@ namespace rfaas::executor_manager {
 
   void Client::disable(int id)
   {
-    rdma_disconnect(connection->_id);
+    rdma_disconnect(connection->id());
     SPDLOG_DEBUG(
       "[Client] Disconnect client with connection {} id {}",
-      fmt::ptr(connection), fmt::ptr(connection->_id)
+      fmt::ptr(connection), fmt::ptr(connection->id())
     );
     // First, we check if the child is still alive
     if(executor) {

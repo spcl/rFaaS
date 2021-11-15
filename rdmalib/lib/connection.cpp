@@ -1,7 +1,8 @@
 
 #include <chrono>
 #include <spdlog/spdlog.h>
-#include <thread> 
+#include <thread>
+
 #include <rdmalib/connection.hpp>
 #include <rdmalib/util.hpp>
 
@@ -31,14 +32,15 @@ namespace rdmalib {
       _batch_wrs[i].next=&(_batch_wrs[i+1]);
     }
     _batch_wrs[_rbatch-1].next = NULL;
- 
+    spdlog::debug("Allocate a connection with id {}", fmt::ptr(_id));
   }
 
   Connection::~Connection()
   {
+    spdlog::debug("Deallocate a connection with id {}", fmt::ptr(_id));
     close();
   }
- 
+
   Connection::Connection(Connection&& obj):
     _id(obj._id),
     _qp(obj._qp),
@@ -73,9 +75,12 @@ namespace rdmalib {
     }
   }
 
-  void Connection::initialize()
+  void Connection::initialize(rdma_cm_id* id)
   {
-    _channel = _id->recv_cq_channel;
+    this->_id = id;
+    this->_channel = _id->recv_cq_channel;
+    this->_qp = this->_id->qp;
+    spdlog::debug("Initialize a connection with id {}", fmt::ptr(_id));
   }
 
   void Connection::inlining(bool enable)
@@ -111,9 +116,24 @@ namespace rdmalib {
     }
   }
 
+  rdma_cm_id* Connection::id() const
+  {
+    return this->_id;
+  }
+
   ibv_qp* Connection::qp() const
   {
     return this->_qp;
+  }
+
+  ibv_comp_channel* Connection::completion_channel() const
+  {
+    return this->_channel;
+  }
+
+  uint32_t Connection::private_data() const
+  {
+    return this->_private_data;
   }
 
   ConnectionStatus Connection::status() const
@@ -124,6 +144,11 @@ namespace rdmalib {
   void Connection::set_status(ConnectionStatus status)
   {
     this->_status = status;
+  }
+
+  void Connection::set_private_data(uint32_t private_data)
+  {
+    this->_private_data = private_data;
   }
 
   int32_t Connection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline)
@@ -179,7 +204,7 @@ namespace rdmalib {
       while(begin) {
         if(begin->num_sge > 0) {
           SPDLOG_DEBUG("Batched receive num_sge {} sge[0].ptr {} sge[0].length {}", begin->num_sge, begin->sg_list[0].addr, begin->sg_list[0].length);
-        } else { 
+        } else {
           SPDLOG_DEBUG("Batched receive num_sge {}", begin->num_sge);
 	      }
         begin = begin->next;
@@ -194,7 +219,7 @@ namespace rdmalib {
     }
 
     SPDLOG_DEBUG("Batched Post empty recv succesfull");
-    return count; 
+    return count;
   }
 
   int32_t Connection::post_recv(ScatterGatherElement && elem, int32_t id, int count)
@@ -348,7 +373,7 @@ namespace rdmalib {
         wcs
       );
     } while(blocking && ret == 0);
-  
+
     if(ret < 0) {
       spdlog::error("Failure of polling events from: {} queue! Return value {}, errno {}", type == QueueType::RECV ? "recv" : "send", ret, errno);
       return std::make_tuple(nullptr, -1);
