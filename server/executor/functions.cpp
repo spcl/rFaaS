@@ -60,7 +60,7 @@ namespace server {
   {
     // FIXME: works only on Linux
     rdmalib::impl::expect_nonnegative(_fd = memfd_create("libfunction", 0));
-    ftruncate(_fd, size);
+    rdmalib::impl::expect_zero(ftruncate(_fd, size));
 
     rdmalib::impl::expect_nonnull(
       _memory_handle = mmap(NULL, size, PROT_WRITE, MAP_SHARED, _fd, 0)

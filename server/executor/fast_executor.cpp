@@ -228,7 +228,7 @@ namespace server {
     SPDLOG_DEBUG("Thread {} Sent buffer details to client!", id);
 
     // We should have received functions data - just one message
-    auto wcs = this->conn->poll_wc(rdmalib::QueueType::RECV, true, 1);
+    this->conn->poll_wc(rdmalib::QueueType::RECV, true, 1);
     _functions.process_library();
     SPDLOG_DEBUG("Thread {} Received functions library of size {}", id, std::get<0>(wcs)[0].byte_len);
 

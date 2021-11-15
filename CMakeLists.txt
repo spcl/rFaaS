@@ -148,7 +148,12 @@ target_link_libraries(rfaaslib PUBLIC Threads::Threads)
 ###
 # Server
 ###
-add_executable(executor server/executor.cpp server/opts.cpp server/fast_executor.cpp server/functions.cpp)
+add_executable(executor
+  server/executor/cli.cpp
+  server/executor/opts.cpp
+  server/executor/fast_executor.cpp
+  server/executor/functions.cpp
+)
 add_executable(executor_manager
   server/executor_manager/cli.cpp
   server/executor_manager/opts.cpp

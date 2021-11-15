@@ -117,7 +117,6 @@ namespace rfaas::executor_manager {
           "--mgr-secret", mgr_secret.c_str(),
           "--mgr-buf-addr", mgr_buf_addr.c_str(),
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
-          "-v",
           nullptr
         };
         int ret = execvp(argv[0], const_cast<char**>(&argv[0]));
