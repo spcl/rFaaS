@@ -6,7 +6,7 @@
 ![GitHub issues](https://img.shields.io/github/issues/spcl/serverless-benchmarks)
 ![GitHub pull requests](https://img.shields.io/github/issues-pr/spcl/serverless-benchmarks)
 
-[<img alt="rFaaS vs HPC vs FaaS" src="docs/systems_comparison.png" height="200" align="right" title="rFaaS vs HPC vs FaaS"/>](docs/images/extra-p-2d.png)
+[<img alt="rFaaS vs HPC vs FaaS" src="docs/systems_comparison.png" height="200" align="right" title="rFaaS vs HPC vs FaaS"/>](docs/systems_comparison.png)
 The cloud paradigm Function-as-a-Service (FaaS) provides an ability to execute stateless and fine-grained functions on elastic and ephemeral resources. However, serverless struggles to achieve the performance needed in high-performance computing: slow invocations, low network bandwidth, and the overheads of the FaaS management system make it difficult to incorporate serverless functions when every millisecond counts. Therefore, we decided to combine the best of both worlds: elasticity of FaaS and high-performance of cluster batch systems. We built a new FaaS platform with RDMA-accelerated network transport.
 
 rFaaS is a serverless platform redesigned to support high-performance and low-latency invocations with a direct RDMA connection. 
@@ -73,6 +73,8 @@ cmake -DCMAKE_CXX_COMPILER=<your-cxx-compiler> -DCMAKE_BUILD_TYPE=Release <sourc
 cmake --build .
 ```
 
+To enable more verbose logging, change the CMake configuration parameter to: `-DCMAKE_BUILD_TYPE=Debug`.
+
 The CMake installation has the following optional configuration parameters.
 
 | Arguments                                                            	|                                              		|
@@ -87,19 +89,28 @@ The CMake installation has the following optional configuration parameters.
 
 ## Usage
 
-In this section, we demonstrate how to use The rFaaS system consists of three basic software components:
+In this section, we demonstrate how to use rFaaS executors with a simple function.
+We show how to configure a database of RDMA devices, how to launch an executor manager
+capable of launching serverless executors, and how to use one of our benchmarking applications
+to allocate an executor and submit function invocations over the RDMA network.
 
-- **resource manager**, responsible for
-- **executor manager**
-- **rFaaS client**.
+A resource manager is an integral component of the system, as it provides executors with
+global management of billing and it distributes data on active executor servers to clients.
+Here, we skip the deployment of resource manager for simplicity.
+On small deployments with just few executor servers, we can bypass this step.
 
-For an in-depth analysis of each component, please look at [our documentation](docs/system.md).
+For an in-depth analysis of each component and their configuration, please look at [our documentation](docs/system.md).
 
 ### Device Database
 
 Each system component uses a simple JSON data structure to configure the available
-The database helps running the system components, as it's not necessary to specify all device properties in each executable - just the device name and an optional port selection.
+The database simplifies the command-line interface of each system component, as it's no longer
+necessary to specify all device properties in each executable - users need to provide just the
+device name and optionally specify the network port.
 
+Here we need to only specify the device name as it is visible when running the `ibv_devices`
+tool, and the IP address of the interface associated with the device. We can use default values
+for maximal size of inline messaged and the receive buffer size.
 
 ```json
 {
@@ -116,17 +127,41 @@ The database helps running the system components, as it's not necessary to speci
 
 In future, we plan for rFaaS to include a script for automatic generation of the database.
 
-### Resource Manager
-
-The CMake installation has the following configuration parameters.
-
 ### Executor Manager
 
-This lightweight allocator is responsible for accepting connections from clients and allocating function executors
+This lightweight allocator is responsible for accepting connections from clients,
+allocating function executors, and measuring costs associated with resource consumption.
+To start an instance of the executor manager, we use the following command:
+
+```
+PATH=<build-dir>/bin:$PATH <build-dir>/bin/executor_manager -c <path-to-cfg.json> --device-database <path-to-dev-db.json> --skip-resource-manager
+```
+
+**IMPORTANT** The environment variable `PATH` must include the directory `<build-dir>/bin`.
+This is caused by executor manager using `fork` and `execvp` to start a new executor process.
 
 ### rFaaS function
 
-### Example
+Functions
+
+We provide an simple example in `example/functions.cpp`:
+
+```cpp
+extern "C" uint32_t empty(void* args, uint32_t size, void* res)
+{
+  int* src = static_cast<int*>(args), *dest = static_cast<int*>(res);
+  *dest = *src;
+  return size;
+}
+```
+
+The examples are automatically built and the shared library `libfunctions.so` can be found
+in `<build-dir>/examples`.
+
+### Benchmark Example
+
+This benchmark explores the different options of scheduling warm and hot invocations.
+For details about the benchmark, please take a look [at the documentation](docs/benchmarks.md).
 
 ## Testing
 
