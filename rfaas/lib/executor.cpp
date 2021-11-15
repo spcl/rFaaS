@@ -55,12 +55,6 @@ namespace rfaas {
     _end_requested = false;
   }
 
-  executor_state::~executor_state()
-  {
-    conn->close();
-    delete conn;
-  }
-
   executor::executor(device_data & dev):
     executor(dev.ip_address, dev.port, dev.default_receive_buffer_size, dev.max_inline_data)
   {}
@@ -297,6 +291,7 @@ namespace rfaas {
 
     // Accept connect requests, fill receive buffers and accept them.
     // When the connection is established, then send data.
+    this->_connections.reserve(numcores);
     int requested = 0, established = 0;
     while(established < numcores) {
 
@@ -314,8 +309,8 @@ namespace rfaas {
         this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, requested*obj_size), requested);
         // FIXME: this should be in a function
         // FIXME: here it won't work if rcv_bufer_size < numcores
-        this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn);
-        _state.accept(this->_connections.back().conn);
+        this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn.get());
+        _state.accept(this->_connections.back().conn.get());
         ++requested;
       } else if(conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
         SPDLOG_DEBUG(

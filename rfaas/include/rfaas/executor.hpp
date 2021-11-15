@@ -42,11 +42,10 @@ namespace rfaas {
   };
 
   struct executor_state {
-    rdmalib::Connection* conn;
+    std::unique_ptr<rdmalib::Connection> conn;
     rdmalib::RemoteBuffer remote_input;
     rdmalib::RecvBuffer _rcv_buffer;
     executor_state(rdmalib::Connection*, int rcv_buf_size);
-    ~executor_state();
   };
 
   struct executor {
