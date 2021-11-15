@@ -20,8 +20,14 @@ namespace rfaas::resource_manager {
        cxxopts::value<std::string>()->default_value(""))
       ("device-database", "JSON configuration of devices.", cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
+      ("h,help", "Print usage", cxxopts::value<bool>()->default_value("false"))
     ;
     auto parsed_options = options.parse(argc, argv);
+    if(parsed_options.count("help"))
+    {
+      std::cout << options.help() << std::endl;
+      exit(0);
+    }
 
     Options result;
     result.json_config = parsed_options["config"].as<std::string>();
