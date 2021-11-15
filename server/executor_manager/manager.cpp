@@ -262,6 +262,7 @@ namespace rfaas::executor_manager {
       }
     }
     spdlog::info("Background thread stops processing RDMA events.");
+    _clients.clear();
   }
 
   //void Manager::poll_rdma()

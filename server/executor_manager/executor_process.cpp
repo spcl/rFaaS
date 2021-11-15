@@ -17,6 +17,9 @@ namespace rfaas::executor_manager {
 
   ActiveExecutor::~ActiveExecutor()
   {
+    for(int i = 0; i < connections_len; ++i) {
+      delete connections[i];
+    }
     delete[] connections; 
   }
 

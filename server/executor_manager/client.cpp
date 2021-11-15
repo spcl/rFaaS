@@ -72,6 +72,7 @@ namespace rfaas::executor_manager {
     // SEGFAULT?
     //ibv_dereg_mr(allocation_requests._mr);
     connection->close();
+    delete connection;
     connection = nullptr;
     _active=false;
   }
