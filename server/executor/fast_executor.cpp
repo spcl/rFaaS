@@ -302,10 +302,10 @@ namespace server {
     SPDLOG_DEBUG("Finished wait on {} threads", _threads.size());
 
     for(auto & thread : _threads_data)
-      spdlog::info("Thread {} Repetitions {} Avg time {}",
-          thread.id,
-          thread.repetitions,
-          static_cast<double>(thread.sum) / thread.repetitions / 1000.0
+      spdlog::info("Thread {} Repetitions {} Avg time {} ms",
+        thread.id,
+        thread.repetitions,
+        static_cast<double>(thread._accounting.total_execution_time) / thread.repetitions / 1000.0
       );
     _closing = true;
   }
