@@ -81,6 +81,7 @@ namespace rfaas {
     rdmalib::Buffer<char> functions(len);
     rdmalib::impl::expect_true(fread(functions.data(), 1, len, file) == len);
     functions.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
+    fclose(file);
 
     // FIXME: same function as in server/functions.cpp - merge?
     // https://stackoverflow.com/questions/25270275/get-functions-names-in-a-shared-library-programmatically
@@ -125,6 +126,7 @@ namespace rfaas {
       }
 		}
     std::sort(_func_names.begin(), _func_names.end());
+    dlclose(library_handle);
 
     return functions;
   }
