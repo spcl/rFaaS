@@ -229,7 +229,6 @@ namespace server {
     // We should have received functions data - just one message
     this->conn->poll_wc(rdmalib::QueueType::RECV, true, 1);
     _functions.process_library();
-    SPDLOG_DEBUG("Thread {} Received functions library of size {}", id, std::get<0>(wcs)[0].byte_len);
 
     spdlog::info("Thread {} begins work with timeout {}", id, timeout);
 

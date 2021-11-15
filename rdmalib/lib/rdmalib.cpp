@@ -309,7 +309,6 @@ namespace rdmalib {
     switch (event->event) { 
       case RDMA_CM_EVENT_CONNECT_REQUEST:
         connection = new Connection{true};
-        connection->initialize(event->id);
         if(event->param.conn.private_data_len != 0) {
           uint32_t data = *reinterpret_cast<const uint32_t*>(event->param.conn.private_data);
           connection->set_private_data(data);
@@ -334,8 +333,8 @@ namespace rdmalib {
         );
 
         // Alocate queue pair for the new connection
-        impl::expect_zero(rdma_create_qp(connection->id(), _pd, &_cfg.attr));
-        SPDLOG_DEBUG("[RDMAPassive] Create QP with qpn {}", connection->qp()->qp_num);
+        impl::expect_zero(rdma_create_qp(event->id, _pd, &_cfg.attr));
+        connection->initialize(event->id);
         SPDLOG_DEBUG(
           "[RDMAPassive] Created connection id {} qpnum {} qp {} send {} recv {}",
           fmt::ptr(connection->id()), connection->qp()->qp_num, fmt::ptr(connection->qp()),
