@@ -50,7 +50,7 @@ namespace rfaas::resource_manager {
 
     // Handling RDMA connections with clients and executor managers
     moodycamel::BlockingReaderWriterQueue<
-      std::unique_ptr<rdmalib::Connection>
+      rdmalib::Connection*
     > _rdma_queue;
     rdmalib::RDMAPassive _state;
     std::atomic<bool> _shutdown;

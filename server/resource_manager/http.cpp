@@ -62,6 +62,10 @@ namespace rfaas::resource_manager {
   HTTPServer::HTTPServer(ExecutorDB & db, Settings & settings):
     _server(Pistache::Address{settings.http_network_address, settings.http_network_port})
   {
+    spdlog::info(
+      "[HTTPServer] Initialize on adddress {} and port {}",
+      settings.http_network_address, settings.http_network_port
+    );
     auto opts = Pistache::Http::Endpoint::options().threads(1);
     _server.init(opts);
     _server.setHandler(Pistache::Http::make_handler<HTTPHandler>(db));
@@ -69,6 +73,7 @@ namespace rfaas::resource_manager {
 
   void HTTPServer::start()
   {
+    spdlog::info("[HTTPServer] Begin listening");
     _server.serveThreaded();
   }
 

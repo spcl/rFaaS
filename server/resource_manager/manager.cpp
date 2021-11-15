@@ -44,30 +44,36 @@ namespace rfaas::resource_manager {
       if(!result)
         continue;
 
-      auto conn = _state.poll_events(
+      auto [conn, conn_status] = _state.poll_events(
         false
       );
       if(conn == nullptr){
         spdlog::error("Failed connection creation");
         continue;
       }
-
-      // Accept client connection and push
-      spdlog::debug("listen: Connected new client");
-      _state.accept(conn);
-      _rdma_queue.enqueue(std::move(conn));
+      if(conn_status == rdmalib::ConnectionStatus::DISCONNECTED) {
+        // FIXME: handle disconnect
+        spdlog::debug("[Manager-listen] Disconnection on connection {}", fmt::ptr(conn));
+        continue;
+      } else if(conn_status == rdmalib::ConnectionStatus::REQUESTED) {
+        _state.accept(conn);
+      } else if(conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
+        // Accept client connection and push
+        SPDLOG_DEBUG("[Manager] Listen thread: connected new client");
+        _rdma_queue.enqueue(conn);
+      }
     }
     spdlog::info("Background thread stops waiting for rdmacm events");
   }
 
   void Manager::process_rdma()
   {
-    std::vector<std::unique_ptr<rdmalib::Connection>> vec;
+    std::vector<rdmalib::Connection> vec;
     while(!_shutdown.load()) {
-      std::unique_ptr<rdmalib::Connection> conn;
+      rdmalib::Connection* conn;
       if(_rdma_queue.wait_dequeue_timed(conn, std::chrono::milliseconds(POLLING_TIMEOUT_MS))) {
         spdlog::debug("process: Connected new client, attempting to send data");
-        vec.push_back(std::move(conn));
+        vec.push_back(conn);
       }
     }
 
