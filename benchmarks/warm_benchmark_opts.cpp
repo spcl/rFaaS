@@ -20,8 +20,15 @@ namespace warm_benchmarker {
       ("name", "Function name", cxxopts::value<std::string>())
       ("functions", "Functions library", cxxopts::value<std::string>())
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
+      ("h,help", "Print usage", cxxopts::value<bool>()->default_value("false"))
     ;
     auto parsed_options = options.parse(argc, argv);
+    if(parsed_options.count("help"))
+    {
+      std::cout << options.help() << std::endl;
+      exit(0);
+    }
+
     Options result;
     result.json_config = parsed_options["config"].as<std::string>();
     result.device_database = parsed_options["device-database"].as<std::string>();
