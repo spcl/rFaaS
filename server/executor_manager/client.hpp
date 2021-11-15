@@ -22,7 +22,7 @@ namespace rfaas::executor_manager {
   struct Client
   {
     static constexpr int RECV_BUF_SIZE = 8;
-    std::unique_ptr<rdmalib::Connection> connection;
+    rdmalib::Connection* connection;
     rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
     rdmalib::RecvBuffer rcv_buffer;
     std::unique_ptr<ActiveExecutor> executor;
@@ -30,7 +30,7 @@ namespace rfaas::executor_manager {
     uint32_t allocation_time;
     bool _active;
 
-    Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd);
+    Client(rdmalib::Connection* conn, ibv_pd* pd);
     void reload_queue();
     void disable(int);
     bool active();

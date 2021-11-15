@@ -27,6 +27,17 @@ namespace rdmalib {
     ConnectionConfiguration();
   };
 
+  enum class ConnectionStatus {
+    // The connection object does not bind to a defined RDMA connection.
+    UNKNOWN = 0,
+    // The connection has been requested, RDMA objects are allocated, but connection is not ready.
+    REQUESTED,
+    // The connection has been established and can be used.
+    ESTABLISHED,
+    // The connection has been disconnected and mustn't be used.
+    DISCONNECTED
+  };
+
   // State of a communication:
   // a) communication ID
   // b) Queue Pair
@@ -37,6 +48,7 @@ namespace rdmalib {
     int32_t _req_count;
     int32_t _private_data;
     bool _passive;
+    ConnectionStatus _status;
     static const int _wc_size = 32; 
     // FIXME: associate this with RecvBuffer
     std::array<ibv_wc, _wc_size> _swc; // fast fix for overlapping polling
@@ -58,6 +70,9 @@ namespace rdmalib {
     void initialize();
     void close();
     ibv_qp* qp() const;
+    ConnectionStatus status() const;
+    void set_status(ConnectionStatus status);
+
     // Blocking, no timeout
     std::tuple<ibv_wc*, int> poll_wc(QueueType, bool blocking = true, int count = -1);
     int32_t post_send(const ScatterGatherElement & elem, int32_t id = -1, bool force_inline = false);

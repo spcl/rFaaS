@@ -32,6 +32,16 @@ namespace rdmalib { namespace impl {
   }
 
   template<typename U>
+  void expect_nonzero(U * u)
+  {
+    if(!u) {
+      spdlog::error("Expected non-zero, found: {}", fmt::ptr(u));
+      traceback();
+    }
+    assert(u);
+  }
+
+  template<typename U>
   void expect_nonnegative(U && u)
   {
     if(u < 0) {

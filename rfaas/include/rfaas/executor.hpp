@@ -42,10 +42,10 @@ namespace rfaas {
   };
 
   struct executor_state {
-    std::unique_ptr<rdmalib::Connection> conn;
+    rdmalib::Connection* conn;
     rdmalib::RemoteBuffer remote_input;
     rdmalib::RecvBuffer _rcv_buffer;
-    executor_state(std::unique_ptr<rdmalib::Connection>, int rcv_buf_size);
+    executor_state(rdmalib::Connection*, int rcv_buf_size);
   };
 
   struct executor {
@@ -60,7 +60,7 @@ namespace rfaas {
     int _executions;
     int _invoc_id;
     // FIXME: global settings
-    int _max_inlined_msg;
+    size_t _max_inlined_msg;
     std::vector<executor_state> _connections;
     std::unique_ptr<manager_connection> _exec_manager;
     std::vector<std::string> _func_names;
@@ -102,7 +102,7 @@ namespace rfaas {
 
       int invoc_id = this->_invoc_id++;
       //_futures[invoc_id] = std::move(std::promise<int>{});
-      _futures[invoc_id] = std::make_tuple(1, std::move(std::promise<int>{}));
+      _futures[invoc_id] = std::make_tuple(1, std::promise<int>{});
       uint32_t submission_id = (invoc_id << 16) | (1 << 15) | func_idx;
       SPDLOG_DEBUG(
         "Invoke function {} with invocation id {}, submission id {}",
@@ -144,7 +144,7 @@ namespace rfaas {
       int invoc_id = this->_invoc_id++;
       //_futures[invoc_id] = std::move(std::promise<int>{});
       int numcores = _connections.size();
-      _futures[invoc_id] = std::make_tuple(numcores, std::move(std::promise<int>{}));
+      _futures[invoc_id] = std::make_tuple(numcores, std::promise<int>{});
       uint32_t submission_id = (invoc_id << 16) | (1 << 15) | func_idx;
       for(int i = 0; i < numcores; ++i) {
         // FIXME: here get a future for async

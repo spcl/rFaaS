@@ -19,7 +19,8 @@ namespace rdmalib {
     _channel(nullptr),
     _req_count(0),
     _private_data(0),
-    _passive(passive)
+    _passive(passive),
+    _status(ConnectionStatus::UNKNOWN)
   {
     inlining(false);
 
@@ -45,6 +46,7 @@ namespace rdmalib {
     _req_count(obj._req_count),
     _private_data(obj._private_data),
     _passive(obj._passive),
+    _status(obj._status),
     _send_flags(obj._send_flags)
   {
     obj._id = nullptr;
@@ -86,7 +88,7 @@ namespace rdmalib {
 
   void Connection::close()
   {
-    SPDLOG_DEBUG("Connection close called for {} ", fmt::ptr(this));
+    SPDLOG_DEBUG("Connection close called for {} id {}", fmt::ptr(this), fmt::ptr(this->_id));
     if(_id) {
       // When the connection is allocated on active side
       // We allocated ep, and that's the only thing we need to do
@@ -105,12 +107,23 @@ namespace rdmalib {
         rdma_destroy_id(_id);
       }
       _id = nullptr;
+      _status = ConnectionStatus::DISCONNECTED;
     }
   }
 
   ibv_qp* Connection::qp() const
   {
     return this->_qp;
+  }
+
+  ConnectionStatus Connection::status() const
+  {
+    return this->_status;
+  }
+
+  void Connection::set_status(ConnectionStatus status)
+  {
+    this->_status = status;
   }
 
   int32_t Connection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline)

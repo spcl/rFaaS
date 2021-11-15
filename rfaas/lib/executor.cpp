@@ -32,8 +32,8 @@ namespace rfaas {
     return _timeout;
   }
 
-  executor_state::executor_state(std::unique_ptr<rdmalib::Connection> conn, int rcv_buf_size):
-    conn(std::move(conn)),
+  executor_state::executor_state(rdmalib::Connection* conn, int rcv_buf_size):
+    conn(conn),
     _rcv_buffer(rcv_buf_size)
   {
   }
@@ -189,7 +189,7 @@ namespace rfaas {
             // FIXME
             //
             _connections[0]._rcv_buffer._requests += _connections.size() - 1;
-            for(int i = 1; i < _connections.size(); ++i)
+            for(size_t i = 1; i < _connections.size(); ++i)
               _connections[i]._rcv_buffer._requests--;
           }
         }
@@ -288,21 +288,46 @@ namespace rfaas {
     // Now receive the connections from executors
     uint32_t obj_size = sizeof(rdmalib::BufferInformation);
 
-    for(int i = 0; i < numcores; ++i) {
-      this->_connections.emplace_back(
-        _state.poll_events(
-          true
-        ),
-        _rcv_buf_size
-      );
-      this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, i*obj_size), i);
-      _state.accept(this->_connections.back().conn);
-      this->_connections.back().conn->post_send(functions);
-      SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", i + 1, numcores);
-      // FIXME: this should be in a function
-      // FIXME: here it won't work if rcv_bufer_size < numcores
-      this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn.get());
+    rdmalib::Connection* conn = nullptr;
+    rdmalib::ConnectionStatus conn_status = rdmalib::ConnectionStatus::UNKNOWN;
+
+    // Accept connect requests, fill receive buffers and accept them.
+    // When the connection is established, then send data.
+    int requested = 0, established = 0;
+    while(established < numcores) {
+
+      //while(conn_status != rdmalib::ConnectionStatus::REQUESTED)
+      auto [conn, conn_status] = _state.poll_events(true);
+      if(conn_status == rdmalib::ConnectionStatus::REQUESTED) {
+        SPDLOG_DEBUG(
+          "[Executor] Requested connection from executor {}, connection {}",
+          requested + 1, fmt::ptr(conn)
+        );
+        this->_connections.emplace_back(
+          conn,
+          _rcv_buf_size
+        );
+        this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, requested*obj_size), requested);
+        // FIXME: this should be in a function
+        // FIXME: here it won't work if rcv_bufer_size < numcores
+        this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn);
+        _state.accept(this->_connections.back().conn);
+        ++requested;
+      } else if(conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
+        SPDLOG_DEBUG(
+          "[Executor] Established connection to executor {}, connection {}",
+          established + 1, fmt::ptr(conn)
+        );
+        conn->post_send(functions);
+        SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", established + 1, numcores);
+        ++established;
+      }
+      // FIXME: fix handling of disconnection
+      else {
+        spdlog::error("Unhandled connection event {} in executor allocation", conn_status);
+      }
     }
+
     // Measure process spawn time
     if(benchmarker) {
       benchmarker->end(2);

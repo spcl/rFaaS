@@ -70,64 +70,55 @@ namespace rfaas::executor_manager {
     while(true) {
       // Connection initialization:
       // (1) Initialize receive WCs with the allocation request buffer
-      spdlog::debug("Listen for new rdmacm events");
-      auto conn = _state.poll_events(
+      spdlog::debug("[Manager-listen] Listen for new rdmacm events");
+      auto [conn, conn_status] = _state.poll_events(
         false
+      );
+      spdlog::debug(
+        "[Manager-listen] New rdmacm connection event - connection {}, status {}",
+        fmt::ptr(conn), conn_status
       );
       if(conn == nullptr){
         spdlog::error("Failed connection creation");
         continue;
       }
-      spdlog::debug("New connection request!");
-      if(conn->_private_data) {
-        if((conn->_private_data & 0xFFFF ) == this->_secret) {
-          int client = conn->_private_data >> 16;
-          SPDLOG_DEBUG("Executor for client {}", client);
-          _state.accept(conn);
-          // FIXME: check it exists
-
-          _q1.enqueue(std::make_pair( client, std::move(conn) ));    
-
-          //int pos = _clients.find(client)->second.executor->connections_len++;
-          //_clients.find(client)->second.executor->connections[pos] = std::move(conn); 
-
-
-          //_clients[client].executor->connections[pos] = std::move(conn);
-
-          //if(_clients[client].executor->connections_len == _clients[client].executor->cores) {
-            // FIXME: alloc time
-          //}
-        } else {
-          spdlog::error("New connection's private data that we can't understand: {}", conn->_private_data);
-        }
+      if(conn_status == rdmalib::ConnectionStatus::DISCONNECTED) {
+        // FIXME: handle disconnect
+        spdlog::debug("[Manager-listen] Disconnection on connection {}", fmt::ptr(conn));
+        continue;
       }
-      // FIXME: users sending their ID 
-      else {
-        //_clients.emplace_back(std::move(conn), _state.pd(), _accounting_data.data()[_clients_active]);
-        //_state.accept(_clients.back().connection);
-        //spdlog::info("Connected new client id {}", _clients_active);
-        ////_clients.back().connection->poll_wc(rdmalib::QueueType::RECV, true);
-        //_clients.back()._active = true;
-        //spdlog::info("Connected new client poll id {}", _clients_active);
-        //atomic_thread_fence(std::memory_order_release);
-        //_clients_active++;
-        //int pos = _clients.size();
-        int pos = _ids++;
-        Client client{std::move(conn), _state.pd()};//, _accounting_data.data()[pos]};
-        client._active = true;
-        _state.accept(client.connection);
+      // When client connects, we need to fill the receive queue with work requests before
+      // accepting connection. Otherwise, we could accept before we're ready to receive data.
+      else if(conn_status == rdmalib::ConnectionStatus::REQUESTED) {
+        spdlog::debug("[Manager-listen] Requested new connection {}", fmt::ptr(conn));
+        // FIXME: users sending their ID 
+        if(!conn->_private_data) {
+          int pos = _ids++;
+          Client client{conn, _state.pd()};
+          client._active = true;
+          _state.accept(conn);
+          _q2.enqueue(std::make_pair(pos, std::move(client)));    
 
-        _q2.enqueue(std::make_pair(pos, std::move(client)));    
-
-        SPDLOG_DEBUG("send to another thread\n");
-       // {
-    //      std::lock_guard<std::mutex> lock{clients};
-    //      _clients.insert(std::make_pair(pos, std::move(client)));
-    //    }
-
-        atomic_thread_fence(std::memory_order_release);
-       // spdlog::info("Connected new client id {}", pos);
-        //spdlog::info("Connected new client poll id {}", _clients_active);
+          SPDLOG_DEBUG("send to another thread\n");
+          atomic_thread_fence(std::memory_order_release);
+        } else
+          _state.accept(conn);
+        continue;
+      }
+      // Allocate structures for connections with an executor.
+      // For a connection with a client we don't have to do anything. 
+      else if(conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
+        spdlog::debug("[Manager-listen] New established connection {}", fmt::ptr(conn));
+        if(conn->_private_data) {
+          if((conn->_private_data & 0xFFFF ) == this->_secret) {
+            int client = conn->_private_data >> 16;
+            SPDLOG_DEBUG("Executor for client {}", client);
+            // FIXME: check it exists
+            _q1.enqueue(std::make_pair( client, conn ));    
+          } else {
+            spdlog::error("New connection's private data that we can't understand: {}", conn->_private_data);
+          }
+        }
       }
     }
   }
@@ -138,13 +129,13 @@ namespace rfaas::executor_manager {
     bool active_clients = true;
     while(active_clients) {
       {
-        std::pair<int, std::unique_ptr<rdmalib::Connection> > *p1 = _q1.peek();
+        std::pair<int, rdmalib::Connection*>* p1 = _q1.peek();
         if(p1){
           int client = p1->first;
           SPDLOG_DEBUG("Connected executor for client {}", client);
           int pos = _clients.find(client)->second.executor->connections_len++;
-          _clients.find(client)->second.executor->connections[pos] = std::move(p1->second); 
-        _q1.pop();
+          _clients.find(client)->second.executor->connections[pos] = p1->second; 
+          _q1.pop();
         }; 
         std::pair<int,Client>* p2 = _q2.peek();
         if(p2){

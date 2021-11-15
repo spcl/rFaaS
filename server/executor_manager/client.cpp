@@ -12,8 +12,8 @@
 
 namespace rfaas::executor_manager {
 
-  Client::Client(std::unique_ptr<rdmalib::Connection> conn, ibv_pd* pd): //, Accounting & _acc):
-    connection(std::move(conn)),
+  Client::Client(rdmalib::Connection* conn, ibv_pd* pd): //, Accounting & _acc):
+    connection(conn),
     allocation_requests(RECV_BUF_SIZE),
     rcv_buffer(RECV_BUF_SIZE),
     accounting(1),
@@ -28,7 +28,7 @@ namespace rfaas::executor_manager {
     allocation_requests.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     // Initialize batch receive WCs
     connection->initialize_batched_recv(allocation_requests, sizeof(rdmalib::AllocationRequest));
-    rcv_buffer.connect(connection.get());
+    rcv_buffer.connect(connection);
   }
 
   //void Client::reinitialize(rdmalib::Connection* conn)
@@ -47,32 +47,21 @@ namespace rfaas::executor_manager {
   void Client::disable(int id)
   {
     rdma_disconnect(connection->_id);
+    SPDLOG_DEBUG(
+      "[Client] Disconnect client with connection {} id {}",
+      fmt::ptr(connection), fmt::ptr(connection->_id)
+    );
     // First, we check if the child is still alive
-    int status;
-    auto b = std::chrono::high_resolution_clock::now();
-    kill(executor->id(), SIGKILL);
-    waitpid(executor->id(), &status, WUNTRACED);
-    auto e = std::chrono::high_resolution_clock::now();
-    spdlog::info("Waited for child {} ms", std::chrono::duration_cast<std::chrono::milliseconds>(e-b).count());
+    if(executor) {
+      int status;
+      auto b = std::chrono::high_resolution_clock::now();
+      kill(executor->id(), SIGKILL);
+      waitpid(executor->id(), &status, WUNTRACED);
+      auto e = std::chrono::high_resolution_clock::now();
+      spdlog::info("Waited for child {} ms", std::chrono::duration_cast<std::chrono::milliseconds>(e-b).count());
 
-    //auto status = executor->check();
-    //spdlog::info("executor {} {}", executor->id(), std::get<0>(status) == ActiveExecutor::Status::RUNNING);
-    //if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
-    //  if(std::get<0>(status) != ActiveExecutor::Status::FINISHED)
-    //    spdlog::info(
-    //      "Executor at client {} exited, status {}",
-    //      id, std::get<1>(status)
-    //    );
-    //  else
-    //    spdlog::error(
-    //      "Executor at client {} failed, status {}",
-    //      id, std::get<1>(status)
-    //    );
-    //} else {
-    //  // FIXME: kill executor
-
-    //}
-    executor.reset();
+      executor.reset();
+    }
     spdlog::info(
       "Client {} exited, time allocated {} us, polling {} us, execution {} us",
       id, allocation_time,

@@ -30,12 +30,12 @@ namespace rfaas::executor_manager {
     };
     typedef std::chrono::high_resolution_clock::time_point time_t;
     time_t _allocation_begin, _allocation_finished;
-    std::unique_ptr<rdmalib::Connection>* connections;
+    rdmalib::Connection** connections;
     int connections_len;
     int cores;
 
     ActiveExecutor(int cores):
-      connections(new std::unique_ptr<rdmalib::Connection>[cores]),
+      connections(new rdmalib::Connection*[cores]),
       connections_len(0),
       cores(cores)
     {}
