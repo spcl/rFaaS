@@ -32,12 +32,12 @@ namespace rdmalib {
       _batch_wrs[i].next=&(_batch_wrs[i+1]);
     }
     _batch_wrs[_rbatch-1].next = NULL;
-    spdlog::debug("Allocate a connection with id {}", fmt::ptr(_id));
+    SPDLOG_DEBUG("Allocate a connection with id {}", fmt::ptr(_id));
   }
 
   Connection::~Connection()
   {
-    spdlog::debug("Deallocate a connection with id {}", fmt::ptr(_id));
+    SPDLOG_DEBUG("Deallocate a connection with id {}", fmt::ptr(_id));
     close();
   }
 
@@ -80,7 +80,7 @@ namespace rdmalib {
     this->_id = id;
     this->_channel = _id->recv_cq_channel;
     this->_qp = this->_id->qp;
-    spdlog::debug("Initialize a connection with id {}", fmt::ptr(_id));
+    SPDLOG_DEBUG("Initialize a connection with id {}", fmt::ptr(_id));
   }
 
   void Connection::inlining(bool enable)
@@ -99,9 +99,8 @@ namespace rdmalib {
       // We allocated ep, and that's the only thing we need to do
       if(!_passive) {
         SPDLOG_DEBUG("Connection active close destroy ep id {} qp {}", fmt::ptr(_id), fmt::ptr(_id->qp));
+        rdma_destroy_qp(_id);
         rdma_destroy_ep(_id);
-        //rdma_destroy_qp(_id);
-        //rdma_destroy_id(_id);
       }
       // When the connection is allocated on passive side
       // We allocated QP and we need to free an ID

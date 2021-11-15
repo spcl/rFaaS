@@ -101,9 +101,9 @@ namespace rdmalib {
   {
     if(!_conn) {
       _conn = std::unique_ptr<Connection>(new Connection());
-      SPDLOG_DEBUG("Allocate new connection");
       rdma_cm_id* id;
       impl::expect_zero(rdma_create_ep(&id, _addr.addrinfo, nullptr, nullptr));
+      spdlog::info("Allocate new connection ep {}", fmt::ptr(id));
       impl::expect_zero(rdma_create_qp(id, _pd, &_cfg.attr));
       _conn->initialize(id);
       _pd = _conn->id()->pd;
