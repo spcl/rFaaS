@@ -38,9 +38,17 @@ int main(int argc, char ** argv)
   benchmark_cfg.close();
 
   // Read connection details to the executors
-  std::ifstream in_cfg(opts.executors_database);
-  rfaas::servers::deserialize(in_cfg);
-  in_cfg.close();
+  if(opts.executors_database != "") {
+    std::ifstream in_cfg(opts.executors_database);
+    rfaas::servers::deserialize(in_cfg);
+    in_cfg.close();
+  } else {
+    spdlog::error(
+      "Connection to resource manager is temporarily disabled, use executor database "
+      "option instead!"
+    );
+    return 1;
+  }
 
   rfaas::executor executor(
     settings.device->ip_address,

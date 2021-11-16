@@ -1,9 +1,9 @@
 
 #include <cxxopts.hpp>
 
-#include "parallel_invocations.hpp"
+#include "cpp_interface.hpp"
 
-namespace parallel_invocations {
+namespace cpp_interface {
 
   // Compilation time of client.cpp decreased from 11 to 1.5 seconds!!!
 
@@ -19,7 +19,6 @@ namespace parallel_invocations {
       ("name", "Function name", cxxopts::value<std::string>())
       ("functions", "Functions library", cxxopts::value<std::string>())
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
-      ("cores", "Number of cores", cxxopts::value<int>()->default_value("1"))
       ("h,help", "Print usage", cxxopts::value<bool>()->default_value("false"))
     ;
     auto parsed_options = options.parse(argc, argv);
@@ -38,7 +37,6 @@ namespace parallel_invocations {
     result.input_size = parsed_options["size"].as<int>();
     result.output_stats = parsed_options["output-stats"].as<std::string>();
     result.executors_database = parsed_options["executors-database"].as<std::string>();
-    result.numcores = parsed_options["cores"].as<int>();;
 
     return result;
   }

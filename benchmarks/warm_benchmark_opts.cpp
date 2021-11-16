@@ -15,7 +15,6 @@ namespace warm_benchmarker {
       ("device-database", "JSON configuration of devices.", cxxopts::value<std::string>())
       ("executors-database", "JSON configuration of executor servers.", cxxopts::value<std::string>()->default_value(""))
       ("output-stats", "Output file for benchmarking statistics.", cxxopts::value<std::string>()->default_value(""))
-      ("skip-resource-manager", "Ignore resource manager and don't connect to it.", cxxopts::value<bool>()->default_value("false"))
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
       ("name", "Function name", cxxopts::value<std::string>())
       ("functions", "Functions library", cxxopts::value<std::string>())

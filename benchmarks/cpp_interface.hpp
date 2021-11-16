@@ -1,10 +1,10 @@
 
-#ifndef __TESTS__COLD_BENCHMARKER_HPP__
-#define __TESTS__COLD_BENCHMARKER_HPP__
+#ifndef __TESTS__CPP_INTERFACE_HPP__
+#define __TESTS__CPP_INTERFACE_HPP__
 
 #include <string>
 
-namespace cold_benchmarker {
+namespace cpp_interface {
 
   struct Options {
 
@@ -16,14 +16,11 @@ namespace cold_benchmarker {
     std::string fname;
     std::string flib;
     int input_size;
-    int cores;
-    int pause;
 
   };
 
-  Options opts(int argc, char ** argv);
+  Options options(int argc, char ** argv);
 
 }
 
 #endif
-
