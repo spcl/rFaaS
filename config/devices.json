@@ -1,0 +1,11 @@
+{
+  "devices": [
+    {
+      "name": "",
+      "ip_address": "",
+      "port": 0,
+      "max_inline_data": 0,
+      "default_receive_buffer_size": 32
+    }
+  ]
+}

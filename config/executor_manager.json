@@ -1,0 +1,16 @@
+{
+  "config": {
+    "rdma_device": "",
+    "rdma_device_port": ,
+    "resource_manager_address": "",
+    "resource_manager_port": 0,
+    "resource_manager_secret": 0
+  },
+  "executor": {
+    "use_docker": false,
+    "repetitions": 100,
+    "warmup_iters": 0,
+    "pin_threads": false
+  }
+}
+

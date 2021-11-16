@@ -1,0 +1,16 @@
+{
+  "config": {
+    "rdma_device": "",
+    "rdma_device_port": 0,
+    "resource_manager_address": "",
+    "resource_manager_port": 0
+  },
+  "benchmark": {
+    "pin_threads": false,
+    "repetitions": 100,
+    "warmup_repetitions": 0,
+    "numcores": 1,
+    "hot_timeout": -1
+  }
+}
+
