@@ -1,7 +1,9 @@
 
+[<img alt="rFaaS vs HPC vs FaaS" src="system_design.png" height="200" align="right" title="rFaaS vs HPC vs FaaS"/>](system_design.png)
 
+## rFaaS System
 
-### Device Configuration
+### RDMA Devices
 
 - max inline
 - default receive buffer size
@@ -15,12 +17,15 @@ The `default_receive_buffer_size`
 
 ### Resource Manager
 
-### Executor Manager
+### Executor Manager (Lightweight Allocator)
 
-### Benchmarks
+### User Code Executor
 
 ### Functions
 
-api
+### Accounting
 
-Docker in future versions
+### Docker Registry
+
+## System Configuration
+

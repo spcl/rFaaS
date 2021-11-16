@@ -12,8 +12,7 @@ The cloud paradigm Function-as-a-Service (FaaS) provides an ability to execute s
 rFaaS is a serverless platform redesigned to support high-performance and low-latency invocations with a direct RDMA connection. 
 In rFaaS, the centralized schedulers and API gateway are replaced with a decentralized allocation mechanism. Instead of using a traditional cloud trigger, HPC applications query executor servers, obtain resource allocation and establish RDMA connections to remote workers. Every function is invoked by writing input data directly to the memory of the worker. This allows us to achieve a single-digit microsecond hot invocation latency - hot invocations add less than 350 nanoseconds overhead on top of the fastest available network transmission.
 
-To use rFaaS, please read the documentation on [software and hardware requirements](#requirements), [installation instructions](#installation), and [the basic example of using rFaaS](#usage). rFaaS comes with a set of [benchmark](docs/benchmarks.md) applications and [tests](#testing). We provide an extended set of [C++ serverless functions](docs/examples.md), including multimedia and ML inference examples from [the serverless benchmarking suite SeBS](https://github.com/spcl/serverless-benchmarks). Finally, you can find more details about rFaaS in the documentation on the [system](docs/system.md) and the [client rFaaS library](client_library.md).
-
+To use rFaaS, please read the documentation on [software and hardware requirements](#requirements), [installation instructions](#installation), and [the basic example of using rFaaS](#usage). rFaaS comes with a set of [benchmark](docs/benchmarks.md) applications and [tests](docs/testing). We provide an extended set of [C++ serverless functions](docs/examples.md), including multimedia and ML inference examples from [the serverless benchmarking suite SeBS](https://github.com/spcl/serverless-benchmarks). Finally, you can find more details about rFaaS in the documentation on the [system](docs/system.md) and the [client rFaaS library](docs/client_library.md).
 
 Do you have further questions not answered by our documentation? Did you encounter troubles with installing and using rFaaS? Or do you want to use rFaaS in your work and you need new features? Feel free to reach us through GitHub issues or by writing to <marcin.copik@inf.ethz.ch>.
 
@@ -79,7 +78,7 @@ The CMake installation has the following optional configuration parameters.
 
 | Arguments                                                            	|                                              		|
 |-------------------------------------------------------------------|----------------------------------------------|
-| <i>WITH_EXAMPLES</i>                                       	| **EXPERIMENTAL** Build additional examples ([see examples subsection](#examples) for details on additional dependencies).              						|
+| <i>WITH_EXAMPLES</i>                                       	| **EXPERIMENTAL** Build additional examples ([see examples subsection](docs/examples.md) for details on additional dependencies).              						|
 | <i>WITH_TESTING</i>                                        	| **EXPERIMENTAL** Enable testing - requires providing device database and testing configuration (see below). See [testing](#testing) subsection for details.	|
 | <i>DEVICES_CONFIG</i>                                         | File path for the JSON device configuration. |
 | <i>TESTING_CONFIG</i>                                         | File path for the JSON device configuration. |
@@ -99,18 +98,21 @@ global management of billing and it distributes data on active executor servers 
 Here, we skip the deployment of resource manager for simplicity.
 On small deployments with just few executor servers, we can bypass this step.
 
-For an in-depth analysis of each component and their configuration, please look at [our documentation](docs/system.md).
+For an in-depth analysis of each component and their configuration, please look at [the system documentation](docs/system.md).
 
 ### Device Database
 
-Each system component uses a simple JSON data structure to configure the available
+Each system component uses a simple JSON data structure to store the configuration of available
+RDMA devices.
 The database simplifies the command-line interface of each system component, as it's no longer
 necessary to specify all device properties in each executable - users need to provide just the
 device name and optionally specify the network port.
 
+An example of configuration is available in `config/devices.json`.
 Here we need to only specify the device name as it is visible when running the `ibv_devices`
-tool, and the IP address of the interface associated with the device. We can use default values
-for maximal size of inline messaged and the receive buffer size.
+tool, the IP address of the interface associated with the device, and default port selection for
+the device.
+We can use default values for maximal size of inline messaged and the receive buffer size.
 
 ```json
 {
@@ -118,6 +120,7 @@ for maximal size of inline messaged and the receive buffer size.
     {
       "name": IBV_DEVICE_NAME,
       "ip_address": IP_ADDRESS,
+      "port": PORT,
       "max_inline_data": 0,
       "default_receive_buffer_size": 32
     }
@@ -127,26 +130,24 @@ for maximal size of inline messaged and the receive buffer size.
 
 In future, we plan for rFaaS to include a script for automatic generation of the database.
 
-### Executor Manager
-
-This lightweight allocator is responsible for accepting connections from clients,
-allocating function executors, and measuring costs associated with resource consumption.
-To start an instance of the executor manager, we use the following command:
-
-```
-PATH=<build-dir>/bin:$PATH <build-dir>/bin/executor_manager -c <path-to-cfg.json> --device-database <path-to-dev-db.json> --skip-resource-manager
-```
-
-**IMPORTANT** The environment variable `PATH` must include the directory `<build-dir>/bin`.
-This is caused by executor manager using `fork` and `execvp` to start a new executor process.
-
 ### rFaaS function
 
-Functions
+`rFaaS` functions behave exactly like regular serverless functions, except for their
+C native interface:
 
+```c++
+extern "C" uint32_t func_name(void* args, uint32_t size, void* res)
+```
+
+The first parameter `args` points to a memory buffer with input data, and `size` contains
+the number of bytes sent. The function writes the output to the memory buffer of size `res`
+and the return value of the function is the number of bytes returned.
+
+
+`rFaaS` expects to receive a shared library with the function.
 We provide an simple example in `example/functions.cpp`:
 
-```cpp
+```c++
 extern "C" uint32_t empty(void* args, uint32_t size, void* res)
 {
   int* src = static_cast<int*>(args), *dest = static_cast<int*>(res);
@@ -158,34 +159,107 @@ extern "C" uint32_t empty(void* args, uint32_t size, void* res)
 The examples are automatically built and the shared library `libfunctions.so` can be found
 in `<build-dir>/examples`.
 
-### Benchmark Example
+### Executor Manager
 
-This benchmark explores the different options of scheduling warm and hot invocations.
-For details about the benchmark, please take a look [at the documentation](docs/benchmarks.md).
+This lightweight allocator is responsible for accepting connections from clients,
+allocating function executors, and measuring costs associated with resource consumption.
 
-## Testing
-
-**EXPERIMENTAL** Testing framework is a work in progress and might not work as expected at the moment.
-
-Testing rFaaS functionalities is a rather complex task given 
-
-This file describes which devices, servers, and ports to use when executing testing
+First, we need to configure the executor. An example of a configuration is available in `config/executor_manager.json`
+and it needs to be extended with device and port selection.
 
 ```json
 {
-  "test_executor": {
-    "device": DEV_NAME,
-    "port": PORT
+  "config": {
+    "rdma_device": "<rdma-device>",
+    "rdma_device_port": <device-port>,
+    "resource_manager_address": "",
+    "resource_manager_port": 0,
+    "resource_manager_secret": 0
   },
-  "rfaas_server": {
-    "remote_hostname": REMOTE_HOSTNAME
-    "device_ip": REMOTE_IP_ADDR,
-    "port": REMOTE_PORT
+  "executor": {
+    "use_docker": false,
+    "repetitions": 100,
+    "warmup_iters": 0,
+    "pin_threads": false
   }
 }
 ```
+
+To start an instance of the executor manager, we use the following command:
+
+```
+PATH=<build-dir>/bin:$PATH <build-dir>/bin/executor_manager -c <path-to-cfg.json> --device-database <path-to-dev-db.json> --skip-resource-manager
+```
+
+**IMPORTANT** The environment variable `PATH` must include the directory `<build-dir>/bin`.
+This is caused by executor manager using `fork` and `execvp` to start a new executor process.
+
+After starting the manager, you should see the output similar to this:
+
+```console
+[13:12:31:629452] [P 425702] [T 425702] [info] Executing rFaaS executor manager! 
+[13:12:31:634632] [P 425702] [T 425702] [info] Listening on device rocep61s0, port 10006
+[13:12:31:634674] [P 425702] [T 425702] [info] Begin listening at 192.168.0.21:10006 and processing events!
+```
+
+### Benchmark Example
+
+Finally, with an executor manager running, we can launch a client that sends function
+invocations. Since we skip resource manager in previous steps, we provide the list of 
+available executor managers in the JSON database.
+An example of configuration is available in `config/executors_database.json`.
+In our case, it looks as follows - see that IP address and port match the executor manager
+configuration from the previous step:
+
+```json
+{
+    "executors": [
+        {
+            "port": 10006,
+            "cores": 1,
+            "address": "192.168.0.21"
+        }
+    ]
+}
+```
+
+To invoke functions, we use a benchmark application that evaluates warm and hot invocations.
+Then, we need to configure the benchmark application.
+An example of a configuration is available in `config/benchmark.json`
+and it needs to be extended with device and port selection.
+Benchmark settings allow to change the number of repetitions and the hot polling timeout:
+`-1` forces to always execute hot invocations, `0` disables hot polling, and any positive
+value describes the hot polling timeout in milliseconds.
+
+```json
+{
+  "config": {
+    "rdma_device": "",
+    "rdma_device_port": 0,
+    "resource_manager_address": "",
+    "resource_manager_port": 0
+  },
+  "benchmark": {
+    "pin_threads": false,
+    "repetitions": 100,
+    "warmup_repetitions": 0,
+    "numcores": 1,
+    "hot_timeout": -1
+  }
+}
+```
+
+To start a benchmark instance with the `name` functions from `examples/libfunctions.so`,
+we use the following command:
+
+```
+<build-dir>/benchmarks/warm_benchmarker --config <benchmark-cfg>.json --device-database <devices>.json --name empty --functions examples/libfunctions.so --executors-database <executors>.json -s <payload-size>
+```
+
+For details about this and other benchmarks, please take a look [at the documentation](docs/benchmarks.md).
 
 ## Authors
 
 * [Marcin Copik (ETH Zurich)](https://github.com/mcopik/) - main author.
 * [Konstantin Taranov (ETH Zurich)](https://github.com/TaranovK) - consultation and troubleshooting of RDMA issues.
+
