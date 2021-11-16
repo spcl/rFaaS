@@ -256,6 +256,19 @@ we use the following command:
 <build-dir>/benchmarks/warm_benchmarker --config <benchmark-cfg>.json --device-database <devices>.json --name empty --functions examples/libfunctions.so --executors-database <executors>.json -s <payload-size>
 ```
 
+We should see the following output:
+
+```console
+[14:08:33:759206] [T 431516] [info] Executing serverless-rdma test warm_benchmarker! 
+[14:08:33:760560] [T 431516] [info] Listening on device rocep61s0, port 10008 
+[14:08:33:770880] [T 431525] [info] Background thread starts waiting for events 
+[14:08:33:770893] [T 431516] [info] Warmups begin 
+[14:08:33:770902] [T 431516] [info] Warmups completed 
+[14:08:33:771023] [T 431516] [info] Executed 20 repetitions, avg 5.704350000000001 usec/iter, median 5.163 
+[14:08:33:870995] [T 431525] [info] Background thread stops waiting for events 
+Data: 1 
+```
+
 For details about this and other benchmarks, please take a look [at the documentation](docs/benchmarks.md).
 
 ## Authors
