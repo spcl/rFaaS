@@ -14,7 +14,7 @@ namespace rfaas {
     cores(-1)
   {}
 
-  server_data::server_data(const std::string & ip, int16_t port, int16_t cores):
+  server_data::server_data(const std::string & ip, int32_t port, int16_t cores):
     port(port),
     cores(cores)
   {
