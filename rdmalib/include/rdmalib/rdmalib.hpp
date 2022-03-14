@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <array>
+#include <unordered_map>
 #include <vector>
 #include <functional>
 
@@ -41,6 +42,7 @@ namespace rdmalib {
     void disconnect();
     ibv_pd* pd() const;
     Connection & connection();
+    bool is_connected();
   };
 
   struct RDMAPassive {
@@ -49,13 +51,23 @@ namespace rdmalib {
     rdma_event_channel * _ec;
     rdma_cm_id* _listen_id;
     ibv_pd* _pd;
+    // Set of connections that have been
+    std::unordered_set<Connection*> _active_connections;
 
     RDMAPassive(const std::string & ip, int port, int recv_buf = 1, bool initialize = true, int max_inline_data = 0);
     ~RDMAPassive();
     void allocate();
     ibv_pd* pd() const;
-    std::unique_ptr<Connection> poll_events(bool share_cqs = false);
-    void accept(std::unique_ptr<Connection> & connection);
+    // Blocking poll for new rdmacm events.
+    // Returns connection pointer and connection change status.
+    // When connection is REQUESTED and ESTABLISHED, the pointer points to a valid connection.
+    // When the status is DISCONNECTED, the pointer points to a closed connection.
+    // User should deallocate the closed connection.
+    // When the status is UNKNOWN, the pointer is null.
+    std::tuple<Connection*, ConnectionStatus> poll_events(bool share_cqs = false);
+    bool nonblocking_poll_events(int timeout = 100);
+    void accept(Connection* connection);
+    void set_nonblocking_poll();
   };
 }
 

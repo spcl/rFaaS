@@ -1,7 +1,10 @@
+
 cmake_minimum_required(VERSION 3.11)
 include(FetchContent)
 project(serverless-rdma)
+set (CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=undefined")
@@ -20,6 +23,44 @@ string(REPLACE "-DNDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_R
 string(APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO " -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG ")
 string(APPEND CMAKE_CXX_FLAGS_DEBUG " -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG ")
 string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra ")
+
+###
+# Mandatory: devices configuration file.
+###
+
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/configuration)
+
+set(DEVICES_CONFIG "" CACHE STRING "Specification of RDMA devices in JSON file")
+set(TESTING_CONFIG "" CACHE STRING "Specification of testing infrastructure in JSON file.")
+if( NOT DEVICES_CONFIG STREQUAL "")
+  message(STATUS "Copying device configuration ${DEVICES_CONFIG} to ${CMAKE_BINARY_DIR}/configuration")
+  file(COPY ${DEVICES_CONFIG} DESTINATION ${CMAKE_BINARY_DIR}/configuration)
+endif()
+if( NOT TESTING_CONFIG STREQUAL "")
+  set(RFAAS_WITH_TESTING ON)
+  message(STATUS "Copying testing configuration ${TESTING_CONFIG} to ${CMAKE_BINARY_DIR}/configuration")
+  file(COPY ${TESTING_CONFIG} DESTINATION ${CMAKE_BINARY_DIR}/configuration)
+endif()
+
+option(WITH_EXAMPLES "Enable building extended function examples (requires additional dependencies)." Off)
+if(${WITH_EXAMPLES})
+  set(RFAAS_WITH_EXAMPLES ON)
+else()
+  set(RFAAS_WITH_EXAMPLES OFF)
+endif()
+
+option(WITH_TESTING "Enable building of rFaaS tests." Off)
+if(${WITH_TESTING})
+  if( NOT TESTING_CONFIG STREQUAL "" AND NOT DEVICES_CONFIG STREQUAL "")
+    set(RFAAS_WITH_TESTING ON)
+    message(STATUS "Enabling testing using configuration provided with ${TESTING_CONFIG}")
+  else()
+    set(RFAAS_WITH_TESTING OFF)
+    message(WARNING "Testing is disabled, as either device or testing configuration are not provided!")
+  endif()
+else()
+  set(RFAAS_WITH_TESTING OFF)
+endif()
 
 ###
 # Optional: use existing installations
@@ -54,62 +95,14 @@ pkg_check_modules(rdmacm REQUIRED IMPORTED_TARGET librdmacm)
 pkg_check_modules(ibverbs REQUIRED IMPORTED_TARGET libibverbs)
 
 ###
+# pistache
+###
+pkg_check_modules(Pistache REQUIRED IMPORTED_TARGET libpistache)
+
+###
 # External dependencies
 ###
-set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
-###
-# cxxopts
-###
-find_package(cxxopts QUIET)
-if(NOT cxxopts_FOUND)
-  message(STATUS "Downloading and building cxxopts dependency")
-  FetchContent_Declare(cxxopts
-    GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-    CMAKE_ARGS -DCXXOPTS_BUILD_EXAMPLES=Off -DCXXOPTS_BUILD_TESTS=Off
-  )
-  FetchContent_Populate(cxxopts)
-  FetchContent_MakeAvailable(cxxopts)
-  add_subdirectory(${cxxopts_SOURCE_DIR} ${cxxopts_BINARY_DIR})
-endif()
-
-###
-# spdlog
-###
-find_package(spdlog QUIET)
-if(NOT spdlog_FOUND)
-  message(STATUS "Downloading and building spdlog dependency")
-  FetchContent_Declare(spdlog
-    GIT_REPOSITORY https://github.com/gabime/spdlog.git
-    # default branch is v1.x - for some reason, cmake switches to master
-    GIT_TAG v1.8.0
-  )
-  FetchContent_Populate(spdlog)
-  FetchContent_MakeAvailable(spdlog)
-  add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
-else()
-  add_custom_target(spdlog)
-endif()
-
-###
-# cereal
-###
-find_package(cereal QUIET)
-if(NOT cereal_FOUND)
-  message(STATUS "Downloading and building cereal dependency")
-  FetchContent_Declare(cereal
-    GIT_REPOSITORY https://github.com/USCiLab/cereal.git
-    CMAKE_ARGS -DSKIP_PERFORMANCE_COMPARISON=On -DSKIP_PORTABILITY_TEST=On -DJUST_INSTALL_CEREAL=On
-    # default branch is v1.x - for some reason, cmake switches to master
-    GIT_TAG v1.3.0
-  )
-  # for some reason the CMAKE_ARGS are ignored here
-  set(SKIP_PERFORMANCE_COMPARISON ON CACHE INTERNAL "")
-  set(SKIP_PORTABILITY_TEST ON CACHE INTERNAL "")
-  set(JUST_INSTALL_CEREAL ON CACHE INTERNAL "")
-  FetchContent_Populate(cereal)
-  FetchContent_MakeAvailable(cereal)
-  add_subdirectory(${cereal_SOURCE_DIR} ${cereal_BINARY_DIR})
-endif()
+include(dependencies)
 
 ###
 # rdmalib: build C++14, PIC and no RTTI
@@ -119,10 +112,10 @@ add_library(rdmalib STATIC ${rdmalib_files})
 add_dependencies(rdmalib spdlog)
 add_dependencies(rdmalib cereal)
 target_include_directories(rdmalib PUBLIC "rdmalib/include")
-target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:PkgConfig::rdmacm,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:PkgConfig::ibverbs,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(rdmalib PUBLIC $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(rdmalib PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rdmalib SYSTEM PUBLIC $<TARGET_PROPERTY:PkgConfig::rdmacm,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rdmalib SYSTEM PUBLIC $<TARGET_PROPERTY:PkgConfig::ibverbs,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rdmalib SYSTEM PUBLIC $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rdmalib SYSTEM PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(rdmalib PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(rdmalib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
 target_link_libraries(rdmalib PUBLIC PkgConfig::rdmacm)
@@ -140,56 +133,67 @@ add_dependencies(rfaaslib cereal)
 add_dependencies(rfaaslib rdmalib)
 target_include_directories(rfaaslib PUBLIC "rfaas/include")
 target_include_directories(rfaaslib PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(rfaaslib PUBLIC $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(rfaaslib PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rfaaslib SYSTEM PUBLIC $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(rfaaslib SYSTEM PUBLIC $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(rfaaslib PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(rfaaslib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
 target_link_libraries(rfaaslib PUBLIC rdmalib)
 target_link_libraries(rfaaslib PUBLIC PkgConfig::rdmacm)
 target_link_libraries(rfaaslib PUBLIC PkgConfig::ibverbs)
-target_link_libraries(rfaaslib PRIVATE spdlog::spdlog)
+target_link_libraries(rfaaslib PUBLIC spdlog::spdlog)
 target_link_libraries(rfaaslib PRIVATE cereal)
 target_link_libraries(rfaaslib PUBLIC dl)
-
-###
-# Warm/hot benchmarker
-###
-add_executable(warm_benchmarker tests/warm_benchmark.cpp tests/warm_benchmark_opts.cpp)
-add_executable(parallel_invocations tests/parallel_invocations.cpp tests/parallel_invocations_opts.cpp)
-add_executable(cold_benchmarker tests/cold_benchmark.cpp tests/cold_benchmark_opts.cpp)
-#set(tests_targets "warm_benchmarker" "cold_benchmarker")
-set(tests_targets "warm_benchmarker" "cold_benchmarker" "parallel_invocations")
-foreach(target ${tests_targets})
-  add_dependencies(${target} cxxopts::cxxopts)
-  add_dependencies(${target} rdmalib)
-  add_dependencies(${target} rfaaslib)
-  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:rfaaslib,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_link_libraries(${target} PRIVATE spdlog::spdlog)
-  target_link_libraries(${target} PRIVATE rfaaslib)
-  set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY tests)
-endforeach()
+target_link_libraries(rfaaslib PUBLIC Threads::Threads)
 
 ###
 # Server
 ###
-add_executable(executor server/executor.cpp server/opts.cpp server/fast_executor.cpp server/functions.cpp)
-add_executable(executor_manager server/executor_manager.cpp server/manager.cpp server/opts.cpp)
-set(targets "executor" "executor_manager")
+add_executable(executor
+  server/executor/cli.cpp
+  server/executor/opts.cpp
+  server/executor/fast_executor.cpp
+  server/executor/functions.cpp
+)
+add_executable(executor_manager
+  server/executor_manager/cli.cpp
+  server/executor_manager/opts.cpp
+  server/executor_manager/settings.cpp
+  server/executor_manager/manager.cpp
+  server/executor_manager/client.cpp
+  server/executor_manager/executor_process.cpp
+)
+add_executable(resource_manager
+  server/resource_manager/cli.cpp
+  server/resource_manager/opts.cpp
+  server/resource_manager/db.cpp
+  server/resource_manager/http.cpp
+  server/resource_manager/settings.cpp
+  server/resource_manager/manager.cpp
+)
+set(targets "executor" "executor_manager" "resource_manager")
 foreach(target ${targets})
   add_dependencies(${target} cxxopts::cxxopts)
   add_dependencies(${target} spdlog::spdlog)
   add_dependencies(${target} rdmalib)
+  add_dependencies(${target} rfaaslib)
   target_include_directories(${target} PRIVATE server/)
+  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:rfaaslib,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_include_directories(${target} SYSTEM PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
   target_link_libraries(${target} PRIVATE spdlog::spdlog)
   target_link_libraries(${target} PRIVATE rdmalib)
+  target_link_libraries(${target} PRIVATE rfaaslib)
   target_link_libraries(${target} PRIVATE Threads::Threads)
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 endforeach()
 target_link_libraries(executor PRIVATE dl)
+target_include_directories(resource_manager SYSTEM PUBLIC $<TARGET_PROPERTY:PkgConfig::Pistache,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(resource_manager PRIVATE PkgConfig::Pistache)
+
+###
+# Benchmark apps
+###
+include(benchmarks)
 
 ###
 # Examples
@@ -197,4 +201,14 @@ target_link_libraries(executor PRIVATE dl)
 add_library(functions SHARED examples/functions.cpp)
 set_target_properties(functions PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(functions PROPERTIES LIBRARY_OUTPUT_DIRECTORY examples)
+if( ${RFAAS_WITH_EXAMPLES} )
+  include(examples)
+endif()
+
+###
+# Examples
+###
+if( ${RFAAS_WITH_TESTING} )
+  include(testing)
+endif()
 

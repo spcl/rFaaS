@@ -43,7 +43,7 @@ namespace rdmalib {
     inline bool refill()
     {
       if(_requests < _refill_threshold) {
-        SPDLOG_DEBUG("Post {} requests to buffer at QP {}", _rcv_buf_size - _requests, fmt::ptr(_conn->_qp));
+        SPDLOG_DEBUG("Post {} requests to buffer at QP {}", _rcv_buf_size - _requests, fmt::ptr(_conn->qp()));
         this->_conn->post_batched_empty_recv(_rcv_buf_size - _requests);
         //this->_conn->post_recv({}, -1, _rcv_buf_size - _requests);
         _requests = _rcv_buf_size;

@@ -1,7 +1,8 @@
 
 #include <chrono>
 #include <spdlog/spdlog.h>
-#include <thread> 
+#include <thread>
+
 #include <rdmalib/connection.hpp>
 #include <rdmalib/util.hpp>
 
@@ -19,7 +20,8 @@ namespace rdmalib {
     _channel(nullptr),
     _req_count(0),
     _private_data(0),
-    _passive(passive)
+    _passive(passive),
+    _status(ConnectionStatus::UNKNOWN)
   {
     inlining(false);
 
@@ -30,14 +32,15 @@ namespace rdmalib {
       _batch_wrs[i].next=&(_batch_wrs[i+1]);
     }
     _batch_wrs[_rbatch-1].next = NULL;
- 
+    SPDLOG_DEBUG("Allocate a connection with id {}", fmt::ptr(_id));
   }
 
   Connection::~Connection()
   {
+    SPDLOG_DEBUG("Deallocate a connection with id {}", fmt::ptr(_id));
     close();
   }
- 
+
   Connection::Connection(Connection&& obj):
     _id(obj._id),
     _qp(obj._qp),
@@ -45,6 +48,7 @@ namespace rdmalib {
     _req_count(obj._req_count),
     _private_data(obj._private_data),
     _passive(obj._passive),
+    _status(obj._status),
     _send_flags(obj._send_flags)
   {
     obj._id = nullptr;
@@ -71,9 +75,12 @@ namespace rdmalib {
     }
   }
 
-  void Connection::initialize()
+  void Connection::initialize(rdma_cm_id* id)
   {
-    _channel = _id->recv_cq_channel;
+    this->_id = id;
+    this->_channel = _id->recv_cq_channel;
+    this->_qp = this->_id->qp;
+    SPDLOG_DEBUG("Initialize a connection with id {}", fmt::ptr(_id));
   }
 
   void Connection::inlining(bool enable)
@@ -86,15 +93,14 @@ namespace rdmalib {
 
   void Connection::close()
   {
-    SPDLOG_DEBUG("Connection close called for {} ", fmt::ptr(this));
+    SPDLOG_DEBUG("Connection close called for {} id {}", fmt::ptr(this), fmt::ptr(this->_id));
     if(_id) {
       // When the connection is allocated on active side
       // We allocated ep, and that's the only thing we need to do
       if(!_passive) {
         SPDLOG_DEBUG("Connection active close destroy ep id {} qp {}", fmt::ptr(_id), fmt::ptr(_id->qp));
+        rdma_destroy_qp(_id);
         rdma_destroy_ep(_id);
-        //rdma_destroy_qp(_id);
-        //rdma_destroy_id(_id);
       }
       // When the connection is allocated on passive side
       // We allocated QP and we need to free an ID
@@ -105,12 +111,43 @@ namespace rdmalib {
         rdma_destroy_id(_id);
       }
       _id = nullptr;
+      _status = ConnectionStatus::DISCONNECTED;
     }
+  }
+
+  rdma_cm_id* Connection::id() const
+  {
+    return this->_id;
   }
 
   ibv_qp* Connection::qp() const
   {
     return this->_qp;
+  }
+
+  ibv_comp_channel* Connection::completion_channel() const
+  {
+    return this->_channel;
+  }
+
+  uint32_t Connection::private_data() const
+  {
+    return this->_private_data;
+  }
+
+  ConnectionStatus Connection::status() const
+  {
+    return this->_status;
+  }
+
+  void Connection::set_status(ConnectionStatus status)
+  {
+    this->_status = status;
+  }
+
+  void Connection::set_private_data(uint32_t private_data)
+  {
+    this->_private_data = private_data;
   }
 
   int32_t Connection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline)
@@ -166,7 +203,7 @@ namespace rdmalib {
       while(begin) {
         if(begin->num_sge > 0) {
           SPDLOG_DEBUG("Batched receive num_sge {} sge[0].ptr {} sge[0].length {}", begin->num_sge, begin->sg_list[0].addr, begin->sg_list[0].length);
-        } else { 
+        } else {
           SPDLOG_DEBUG("Batched receive num_sge {}", begin->num_sge);
 	      }
         begin = begin->next;
@@ -181,7 +218,7 @@ namespace rdmalib {
     }
 
     SPDLOG_DEBUG("Batched Post empty recv succesfull");
-    return count; 
+    return count;
   }
 
   int32_t Connection::post_recv(ScatterGatherElement && elem, int32_t id, int count)
@@ -215,7 +252,7 @@ namespace rdmalib {
     return wr.wr_id;
   }
 
-  int32_t Connection::_post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline)
+  int32_t Connection::_post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline, bool force_solicited)
   {
     ibv_send_wr* bad;
     wr.wr_id = _req_count++;
@@ -223,6 +260,7 @@ namespace rdmalib {
     wr.sg_list = elems.array();
     wr.num_sge = elems.size();
     wr.send_flags = force_inline ? IBV_SEND_SIGNALED | IBV_SEND_INLINE : _send_flags;
+    wr.send_flags = force_solicited ? IBV_SEND_SOLICITED | wr.send_flags : wr.send_flags;
 
     if(wr.num_sge == 1 && wr.sg_list[0].length == 0)
       wr.num_sge = 0;
@@ -232,6 +270,10 @@ namespace rdmalib {
       spdlog::error("Post write unsuccesful, reason {} {}, sges_count {}, wr_id {}, remote addr {}, remote rkey {}, imm data {}",
         ret, strerror(ret), wr.num_sge, wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
       );
+      if(IBV_SEND_INLINE & wr.send_flags)
+        spdlog::error("The write of size {} was inlined, is it supported by the device?",
+          wr.sg_list[0].length
+        );
       return -1;
     }
     if(wr.num_sge > 0)
@@ -254,10 +296,10 @@ namespace rdmalib {
     wr.opcode = IBV_WR_RDMA_WRITE;
     wr.wr.rdma.remote_addr = rbuf.addr;
     wr.wr.rdma.rkey = rbuf.rkey;
-    return _post_write(std::forward<ScatterGatherElement>(elems), wr, force_inline);
+    return _post_write(std::forward<ScatterGatherElement>(elems), wr, force_inline, false);
   }
 
-  int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint32_t immediate, bool force_inline)
+  int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint32_t immediate, bool force_inline, bool force_solicited)
   {
     ibv_send_wr wr;
     memset(&wr, 0, sizeof(wr));
@@ -265,7 +307,7 @@ namespace rdmalib {
     wr.imm_data = htonl(immediate);
     wr.wr.rdma.remote_addr = rbuf.addr;
     wr.wr.rdma.rkey = rbuf.rkey;
-    return _post_write(std::forward<ScatterGatherElement>(elems), wr, force_inline);
+    return _post_write(std::forward<ScatterGatherElement>(elems), wr, force_inline, force_solicited);
   }
 
   int32_t Connection::post_cas(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t compare, uint64_t swap)
@@ -330,7 +372,7 @@ namespace rdmalib {
         wcs
       );
     } while(blocking && ret == 0);
-  
+
     if(ret < 0) {
       spdlog::error("Failure of polling events from: {} queue! Return value {}, errno {}", type == QueueType::RECV ? "recv" : "send", ret, errno);
       return std::make_tuple(nullptr, -1);
@@ -349,9 +391,9 @@ namespace rdmalib {
     return std::make_tuple(wcs, ret);
   }
 
-  void Connection::notify_events()
+  void Connection::notify_events(bool only_solicited)
   {
-    impl::expect_zero(ibv_req_notify_cq(_qp->recv_cq, 0));
+    impl::expect_zero(ibv_req_notify_cq(_qp->recv_cq, only_solicited));
   }
 
   ibv_cq* Connection::wait_events()

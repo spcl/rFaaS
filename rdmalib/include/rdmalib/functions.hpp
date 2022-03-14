@@ -13,6 +13,9 @@ namespace rdmalib { namespace functions {
     static constexpr int DATA_HEADER_SIZE = 12;
   };
 
+  constexpr int Submission::DATA_HEADER_SIZE;
+
+
   typedef void (*FuncType)(void*, void*);
 
   struct FunctionsDB {

@@ -61,6 +61,10 @@ namespace rdmalib { namespace impl {
     //}
     // page-aligned address for maximum performance
     _ptr = mmap(nullptr, _bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+    SPDLOG_DEBUG(
+      "Allocated {} bytes, address {}",
+      _bytes, fmt::ptr(_ptr)
+    );
   }
 
   Buffer::Buffer(void* ptr, uint32_t size, uint32_t byte_size):
@@ -71,7 +75,12 @@ namespace rdmalib { namespace impl {
     _ptr(ptr),
     _mr(nullptr),
     _own_memory(false)
-  {}
+  {
+    SPDLOG_DEBUG(
+      "Allocated {} bytes, address {}",
+      _bytes, fmt::ptr(_ptr)
+    );
+  }
   
   Buffer::~Buffer()
   {
@@ -90,7 +99,7 @@ namespace rdmalib { namespace impl {
     _mr = ibv_reg_mr(pd, _ptr, _bytes, access);
     impl::expect_nonnull(_mr);
     SPDLOG_DEBUG(
-      "Allocated {} bytes, mr {}, address {}, lkey {}, rkey {}",
+      "Registered {} bytes, mr {}, address {}, lkey {}, rkey {}",
       _bytes, fmt::ptr(_mr), fmt::ptr(_mr->addr), _mr->lkey, _mr->rkey
     );
   }

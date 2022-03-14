@@ -2,6 +2,7 @@
 #ifndef __RFAAS_RESOURCES_HPP__
 #define __RFAAS_RESOURCES_HPP__
 
+#include <iostream>
 #include <vector>
 #include <cstdint>
 #include <memory>
@@ -14,14 +15,18 @@ namespace rfaas {
 
   struct server_data
   {
-    int16_t port;
+    int32_t port;
     int16_t cores;
     char address[16];
+
+    server_data();
+    server_data(const std::string & ip, int32_t port, int16_t cores);
 
     template <class Archive>
     void save(Archive & ar) const
     {
-      ar(CEREAL_NVP(port), CEREAL_NVP(cores));//, CEREAL_NVP(address));
+      std::string addr{address};
+      ar(CEREAL_NVP(port), CEREAL_NVP(cores), cereal::make_nvp("address", addr));
     }
 
     template <class Archive>
@@ -57,6 +62,8 @@ namespace rfaas {
 
     static servers & instance();
     static void deserialize(std::istream & in);
+    void read(std::istream & in);
+    void write(std::ostream & out);
   };
 
 };

@@ -1,0 +1,9 @@
+{
+    "executors": [
+        {
+            "address": "",
+            "port": 1,
+            "cores": 0
+        }
+    ]
+}

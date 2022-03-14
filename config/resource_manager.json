@@ -1,0 +1,8 @@
+{
+  "config": {
+    "rdma_device": "",
+    "rdma_device_port": 0,
+    "http_network_address": "",
+    "http_network_port": 0
+  }
+}

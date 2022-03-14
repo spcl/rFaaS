@@ -5,11 +5,16 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+// poll on file descriptors
+#include <poll.h>
+#include <fcntl.h>
+
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bundled/format.h>
 
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/util.hpp>
+#include <stdexcept>
 
 namespace rdmalib {
 
@@ -96,11 +101,11 @@ namespace rdmalib {
   {
     if(!_conn) {
       _conn = std::unique_ptr<Connection>(new Connection());
-      SPDLOG_DEBUG("Allocate new connection");
-      impl::expect_zero(rdma_create_ep(&_conn->_id, _addr.addrinfo, nullptr, nullptr));
-      impl::expect_zero(rdma_create_qp(_conn->_id, _pd, &_cfg.attr));
-      _pd = _conn->_id->pd;
-      _conn->_qp = _conn->_id->qp;
+      rdma_cm_id* id;
+      impl::expect_zero(rdma_create_ep(&id, _addr.addrinfo, nullptr, nullptr));
+      impl::expect_zero(rdma_create_qp(id, _pd, &_cfg.attr));
+      _conn->initialize(id);
+      _pd = _conn->id()->pd;
 
       //struct ibv_qp_attr attr;
       //struct ibv_qp_init_attr init_attr;
@@ -160,11 +165,16 @@ namespace rdmalib {
       _cfg.conn_param.private_data_len = sizeof(uint32_t);
       SPDLOG_DEBUG("Setting connection secret {} of length {}", secret, sizeof(uint32_t));
     }
-    if(rdma_connect(_conn->_id, &_cfg.conn_param)) {
+    if(rdma_connect(_conn->id(), &_cfg.conn_param)) {
       spdlog::error("Connection unsuccesful, reason {} {}", errno, strerror(errno));
+      _conn.reset();
+      _pd = nullptr;
       return false;
     } else {
-      spdlog::debug("Connection succesful to {}:{}, on device {}", _addr._port, _addr._port, ibv_get_device_name(this->_conn->_id->verbs->device));
+      spdlog::debug(
+        "[RDMAActive] Connection succesful to {}:{}, on device {}",
+        _addr._port, _addr._port, ibv_get_device_name(this->_conn->id()->verbs->device)
+      );
     }
 
     //struct ibv_qp_attr attr;
@@ -177,12 +187,10 @@ namespace rdmalib {
 
   void RDMAActive::disconnect()
   {
-    //SPDLOG_DEBUG("Disconnecting");
-    impl::expect_zero(rdma_disconnect(_conn->_id));
+    spdlog::debug("[RDMAActive] Disonnecting connection with id {}", fmt::ptr(_conn->id()));
+    impl::expect_zero(rdma_disconnect(_conn->id()));
     _conn.reset();
     _pd = nullptr;
-    //rdma_destroy_qp(_conn._id);
-    //_conn._qp = nullptr;
   }
 
   ibv_pd* RDMAActive::pd() const
@@ -193,6 +201,11 @@ namespace rdmalib {
   Connection & RDMAActive::connection()
   {
     return *this->_conn;
+  }
+
+  bool RDMAActive::is_connected()
+  {
+    return this->_conn.get();
   }
 
   RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize, int max_inline_data):
@@ -223,24 +236,27 @@ namespace rdmalib {
 
   RDMAPassive::~RDMAPassive()
   {
-    //ibv_dealloc_pd(this->_pd);
-    rdma_destroy_ep(this->_listen_id);
-    //ibv_dealloc_pd(this->_pd);
-    //rdma_destroy_id(this->_listen_id);
+    rdma_destroy_id(this->_listen_id);
+    rdma_destroy_event_channel(this->_ec);
   }
 
   void RDMAPassive::allocate()
   {
     // Start listening
-    impl::expect_zero(rdma_create_ep(&this->_listen_id, _addr.addrinfo, nullptr, nullptr));
-    impl::expect_zero(rdma_listen(this->_listen_id, 0));
+    impl::expect_nonzero(this->_ec = rdma_create_event_channel());
+    impl::expect_zero(rdma_create_id(this->_ec, &this->_listen_id, NULL, RDMA_PS_TCP));
+    impl::expect_zero(rdma_bind_addr(this->_listen_id, this->_addr.addrinfo->ai_src_addr));
+    impl::expect_zero(rdma_listen(this->_listen_id, 10));
     this->_addr._port = ntohs(rdma_get_src_port(this->_listen_id));
-    this->_ec = this->_listen_id->channel;
-    spdlog::info("Listening on device {}, port {}", ibv_get_device_name(this->_listen_id->verbs->device), this->_addr._port);
-
-    // Alocate protection domain
-    _pd = _listen_id->pd;
-    //impl::expect_nonnull(_pd = ibv_alloc_pd(_listen_id->verbs));
+    this->_pd = _listen_id->pd;
+    spdlog::info(
+      "Listening on device {}, port {}",
+      ibv_get_device_name(this->_listen_id->verbs->device), this->_addr._port
+    );
+    SPDLOG_DEBUG(
+      "[RDMAPassive]: listening id {}, protection domain {}",
+      fmt::ptr(this->_listen_id), _pd->handle
+    );
   }
 
   ibv_pd* RDMAPassive::pd() const
@@ -248,51 +264,132 @@ namespace rdmalib {
     return this->_pd;
   }
 
-  std::unique_ptr<Connection> RDMAPassive::poll_events(bool share_cqs)
+  void RDMAPassive::set_nonblocking_poll()
   {
-    rdma_cm_event* event;
-    if(rdma_get_cm_event(this->_ec, &event)) {
-      spdlog::error("Event poll unsuccesful, reason {} {}", errno, strerror(errno));
-      return nullptr;
+    int fd = this->_ec->fd;
+    int flags = fcntl(fd, F_GETFL);
+    int rc = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    if (rc < 0) {
+      spdlog::error("Failed to change file descriptor of rdmacm event channel");
+      return;
     }
-    if(event->event != RDMA_CM_EVENT_CONNECT_REQUEST){
-      spdlog::error("Event {} is not RDMA_CM_EVENT_CONNECT_REQUEST", rdma_event_str(event->event));
-      return nullptr;
-    }
-
-    // Now receive id for the communication
-    std::unique_ptr<Connection> connection{new Connection{true}};
-    connection->_id = event->id;
-    if(event->param.conn.private_data_len != 0) {
-      uint32_t data = *reinterpret_cast<const uint32_t*>(event->param.conn.private_data);
-      connection->_private_data = data;
-      SPDLOG_DEBUG("Connection request with private data {}", data);
-    }
-    else
-      SPDLOG_DEBUG("Connection request with no private data");
-    // destroys event
-    rdma_ack_cm_event(event);
-    SPDLOG_DEBUG("CREATE QP {} {} {}", fmt::ptr(connection->_id), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd));
-    if(!share_cqs)
-      _cfg.attr.send_cq = _cfg.attr.recv_cq = nullptr;
-    SPDLOG_DEBUG("used cq for creating a qp {} {}", fmt::ptr(_cfg.attr.send_cq),fmt::ptr(_cfg.attr.recv_cq));
-    impl::expect_zero(rdma_create_qp(connection->_id, _pd, &_cfg.attr));
-    SPDLOG_DEBUG("CREATE QP with qpn {}", connection->_id->qp->qp_num);
-    connection->_qp = connection->_id->qp;
-    SPDLOG_DEBUG(
-      "Created passive connection id {} qpnum {} qp {} send {} recv {}",
-      fmt::ptr(connection->_id), connection->_qp->qp_num, fmt::ptr(connection->_id->qp),
-      fmt::ptr(connection->_id->qp->send_cq), fmt::ptr(connection->_id->qp->recv_cq)
-    );
-    connection->initialize();
-    return connection;
   }
 
-  void RDMAPassive::accept(std::unique_ptr<Connection> & connection) {
-    if(rdma_accept(connection->_id, &_cfg.conn_param)) {
+  bool RDMAPassive::nonblocking_poll_events(int timeout)
+  {
+    pollfd my_pollfd;
+    my_pollfd.fd      = this->_ec->fd;
+    my_pollfd.events  = POLLIN;
+    my_pollfd.revents = 0;
+    int rc = poll(&my_pollfd, 1, timeout);
+    if (rc < 0) {
+      spdlog::error("RDMA event poll failed");
+      return false;
+    }
+    return rc > 0;
+  }
+
+  std::tuple<Connection*, ConnectionStatus> RDMAPassive::poll_events(bool share_cqs)
+  {
+    rdma_cm_event* event = nullptr;
+		Connection* connection = nullptr;
+    ConnectionStatus status = ConnectionStatus::UNKNOWN;
+
+    // Poll rdma cm events.
+    if(rdma_get_cm_event(this->_ec, &event)) {
+      spdlog::error("Event poll unsuccesful, reason {} {}", errno, strerror(errno));
+      return std::make_tuple(nullptr, ConnectionStatus::UNKNOWN);
+    }
+    SPDLOG_DEBUG(
+      "[RDMAPassive] received event: {}, status: {}",
+      rdma_event_str(event->event), event->status
+    );
+
+    switch (event->event) { 
+      case RDMA_CM_EVENT_CONNECT_REQUEST:
+        connection = new Connection{true};
+        if(event->param.conn.private_data_len != 0) {
+          uint32_t data = *reinterpret_cast<const uint32_t*>(event->param.conn.private_data);
+          connection->set_private_data(data);
+          SPDLOG_DEBUG("[RDMAPassive] Connection request with private data {}", data);
+        }
+        else
+          SPDLOG_DEBUG("[RDMAPassive] Connection request with no private data");
+
+        // Store connection ptr for future events. 
+        event->id->context = reinterpret_cast<void*>(connection);
+        SPDLOG_DEBUG(
+          "[RDMAPassive] Creating QP: id {} pd {} listener pd {}",
+          fmt::ptr(connection->id()), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd)
+        );
+
+        // Make sure to allocate new completion queue when they're not reused.
+        if(!share_cqs)
+          _cfg.attr.send_cq = _cfg.attr.recv_cq = nullptr;
+        SPDLOG_DEBUG(
+          "[RDMAPassive] Using CQ for creating a QP: send {} recv {}",
+          fmt::ptr(_cfg.attr.send_cq),fmt::ptr(_cfg.attr.recv_cq)
+        );
+
+        // Alocate queue pair for the new connection
+        impl::expect_zero(rdma_create_qp(event->id, _pd, &_cfg.attr));
+        connection->initialize(event->id);
+        SPDLOG_DEBUG(
+          "[RDMAPassive] Created connection id {} qpnum {} qp {} send {} recv {}",
+          fmt::ptr(connection->id()), connection->qp()->qp_num, fmt::ptr(connection->qp()),
+          fmt::ptr(connection->qp()->send_cq), fmt::ptr(connection->qp()->recv_cq)
+        );
+
+        status = ConnectionStatus::REQUESTED;
+        _active_connections.insert(connection);
+        break;
+      case RDMA_CM_EVENT_ESTABLISHED:
+        SPDLOG_DEBUG(
+          "[RDMAPassive] Connection is established for id {}, and connection {}",
+          fmt::ptr(event->id), fmt::ptr(event->id->context)
+        );
+        connection = reinterpret_cast<Connection*>(event->id->context);
+        status = ConnectionStatus::ESTABLISHED;
+        break;
+      case RDMA_CM_EVENT_DISCONNECTED:
+        SPDLOG_DEBUG(
+          "[RDMAPassive] Disconnect for id {}, and connection {}",
+          fmt::ptr(event->id), fmt::ptr(event->id->context)
+        );
+        connection = reinterpret_cast<Connection*>(event->id->context);
+        //connection->close();
+        status = ConnectionStatus::DISCONNECTED;
+        _active_connections.erase(connection);
+        break;
+      case RDMA_CM_EVENT_ADDR_ERROR:
+      case RDMA_CM_EVENT_ROUTE_ERROR:
+      case RDMA_CM_EVENT_CONNECT_ERROR:
+      case RDMA_CM_EVENT_UNREACHABLE:
+      case RDMA_CM_EVENT_REJECTED:
+      case RDMA_CM_EVENT_ADDR_RESOLVED:
+      case RDMA_CM_EVENT_ROUTE_RESOLVED:
+        SPDLOG_DEBUG(
+          "[RDMAPassive] Unexpected event: {}, status: {}\n",
+          rdma_event_str(event->event), event->status
+        );
+        break;
+      case RDMA_CM_EVENT_DEVICE_REMOVAL:
+        spdlog::error("[RDMAPassive] Not implemented support for device removal!");
+        throw std::runtime_error("Not implemented support for device removal");
+        break;
+      default:
+        break;
+    }
+    rdma_ack_cm_event(event);
+
+    return std::make_tuple(connection, status);
+  }
+
+  void RDMAPassive::accept(Connection* connection) {
+    if(rdma_accept(connection->id(), &_cfg.conn_param)) {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
       connection = nullptr;
     }
-    SPDLOG_DEBUG("Accepted {}", fmt::ptr(connection->_qp));
+    SPDLOG_DEBUG("[RDMAPassive] Connection accepted at QP {}", fmt::ptr(connection->qp()));
   }
 }

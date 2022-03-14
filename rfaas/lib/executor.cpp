@@ -16,14 +16,26 @@
 #include <dlfcn.h>
 #include <elf.h>
 #include <link.h>
+#include <poll.h>
 
 namespace rfaas {
 
-  executor_state::executor_state(std::unique_ptr<rdmalib::Connection> conn, int rcv_buf_size):
-    conn(std::move(conn)),
+  const polling_type polling_type::HOT_ALWAYS = polling_type{-1};
+  const polling_type polling_type::WARM_ALWAYS = polling_type{0};
+
+  polling_type::polling_type(int timeout):
+    _timeout(timeout)
+  {}
+
+  polling_type::operator int() const
+  {
+    return _timeout;
+  }
+
+  executor_state::executor_state(rdmalib::Connection* conn, int rcv_buf_size):
+    conn(conn),
     _rcv_buffer(rcv_buf_size)
   {
-
   }
 
   executor::executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
@@ -38,6 +50,18 @@ namespace rfaas {
     _max_inlined_msg(max_inlined_msg)
   {
     _execs_buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    events = 0;
+    _active_polling = false;
+    _end_requested = false;
+  }
+
+  executor::executor(device_data & dev):
+    executor(dev.ip_address, dev.port, dev.default_receive_buffer_size, dev.max_inline_data)
+  {}
+
+  executor::~executor()
+  {
+    this->deallocate();
   }
 
   rdmalib::Buffer<char> executor::load_library(std::string path)
@@ -49,8 +73,9 @@ namespace rfaas {
     size_t len = ftell(file);
     rewind(file);
     rdmalib::Buffer<char> functions(len);
-    fread(functions.data(), 1, len, file);
+    rdmalib::impl::expect_true(fread(functions.data(), 1, len, file) == len);
     functions.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
+    fclose(file);
 
     // FIXME: same function as in server/functions.cpp - merge?
     // https://stackoverflow.com/questions/25270275/get-functions-names-in-a-shared-library-programmatically
@@ -95,6 +120,7 @@ namespace rfaas {
       }
 		}
     std::sort(_func_names.begin(), _func_names.end());
+    dlclose(library_handle);
 
     return functions;
   }
@@ -102,11 +128,112 @@ namespace rfaas {
   void executor::deallocate()
   {
     if(_exec_manager) {
+      _end_requested = true;
+      // The background thread could be nullptr if we failed in the allocation process
+      if(_background_thread) {
+        _background_thread->join();
+        _background_thread.reset();
+      }
       _exec_manager->disconnect();
       _exec_manager.reset(nullptr);
-      _connections.clear();
       _state._cfg.attr.send_cq = _state._cfg.attr.recv_cq = 0;
+
+      // Clear up old connections
+      _connections.clear();
     }
+  }
+
+  void executor::poll_queue()
+  {
+    // FIXME: hide the details in rdmalib
+    spdlog::info("Background thread starts waiting for events");
+    _connections[0].conn->notify_events(true);
+    int flags = fcntl(_connections[0].conn->completion_channel()->fd, F_GETFL);
+    int rc = fcntl(_connections[0].conn->completion_channel()->fd, F_SETFL, flags | O_NONBLOCK);
+    if (rc < 0) {
+      fprintf(stderr, "Failed to change file descriptor of completion event channel\n");
+      return;
+    }
+
+    while(!_end_requested && _connections.size()) {
+      pollfd my_pollfd;
+      my_pollfd.fd      = _connections[0].conn->completion_channel()->fd;
+      my_pollfd.events  = POLLIN;
+      my_pollfd.revents = 0;
+      do {
+        rc = poll(&my_pollfd, 1, 100);
+        if(_end_requested) {
+          spdlog::info("Background thread stops waiting for events");
+          return;
+        }
+      } while (rc == 0);
+      if (rc < 0) {
+        fprintf(stderr, "poll failed\n");
+        return;
+      }
+      if(!_end_requested) {
+        auto cq = _connections[0].conn->wait_events();
+        _connections[0].conn->notify_events(true);
+        _connections[0].conn->ack_events(cq, 1);
+        auto wc = _connections[0]._rcv_buffer.poll(false);
+        for(int i = 0; i < std::get<1>(wc); ++i) {
+          uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
+          int return_val = val & 0x0000FFFF;
+          int finished_invoc_id = val >> 16;
+          auto it = _futures.find(finished_invoc_id);
+          // if it == end -> we have a bug, should never appear
+          //spdlog::info("Future for id {}", finished_invoc_id);
+          //(*it).second.set_value(return_val);
+          // FIXME: handle error
+          if(!--std::get<0>(it->second)) {
+            std::get<1>(it->second).set_value(return_val);
+            // FIXME
+            //
+            _connections[0]._rcv_buffer._requests += _connections.size() - 1;
+            for(size_t i = 1; i < _connections.size(); ++i)
+              _connections[i]._rcv_buffer._requests--;
+          }
+        }
+        // Poll completions from past sends
+        for(auto & conn : _connections)
+          conn.conn->poll_wc(rdmalib::QueueType::SEND, false);
+      }
+    }
+    spdlog::info("Background thread stops waiting for events");
+
+    // Wait for event
+    // Ask for next events
+    // Check if no one is polling
+    // Check data
+    //while(!_end_requested && _connections.size()) {
+      //std::cout << ("Sleep \n");
+      //auto cq = _connections[0].conn->wait_events();
+      //std::cout << ("Wake up + " + std::to_string(_end_requested) + "\n");
+      //if(_end_requested)
+      //  break; 
+      //if(_connections.size() > 0) {
+      //  //std::cout << ("Check connections\n");
+      //  _connections[0].conn->notify_events(true);
+      //  _connections[0].conn->ack_events(cq, 1);
+      //  //spdlog::info("wake up! {}", _active_polling);
+      //  if(!_active_polling) {
+      //    auto wc = _connections[0]._rcv_buffer.poll(false);
+      //    for(int i = 0; i < std::get<1>(wc); ++i) {
+      //      uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
+      //      int return_val = val & 0x0000FFFF;
+      //      int finished_invoc_id = val >> 16;
+      //      auto it = _futures.find(finished_invoc_id);
+      //      // if it == end -> we have a bug, should never appear
+      //      //spdlog::info("Future for id {}", finished_invoc_id);
+      //      (*it).second.set_value(return_val);
+      //      // FIXME: handle error
+      //    }
+      //    // Poll completions from past sends
+      //    _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, false);
+      //  }
+      //}
+    //}
+    //spdlog::info("Background thread stops waiting for events");
   }
 
   bool executor::allocate(std::string functions_path, int numcores, int max_input_size,
@@ -162,21 +289,44 @@ namespace rfaas {
     // Now receive the connections from executors
     uint32_t obj_size = sizeof(rdmalib::BufferInformation);
 
-    for(int i = 0; i < numcores; ++i) {
-      this->_connections.emplace_back(
-        _state.poll_events(
-          true
-        ),
-        _rcv_buf_size
-      );
-      this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, i*obj_size), i);
-      _state.accept(this->_connections.back().conn);
-      this->_connections.back().conn->post_send(functions);
-      SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", i + 1, numcores);
-      // FIXME: this should be in a function
-      // FIXME: here it won't work if rcv_bufer_size < numcores
-      this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn.get());
+    // Accept connect requests, fill receive buffers and accept them.
+    // When the connection is established, then send data.
+    this->_connections.reserve(numcores);
+    int requested = 0, established = 0;
+    while(established < numcores) {
+
+      //while(conn_status != rdmalib::ConnectionStatus::REQUESTED)
+      auto [conn, conn_status] = _state.poll_events(true);
+      if(conn_status == rdmalib::ConnectionStatus::REQUESTED) {
+        SPDLOG_DEBUG(
+          "[Executor] Requested connection from executor {}, connection {}",
+          requested + 1, fmt::ptr(conn)
+        );
+        this->_connections.emplace_back(
+          conn,
+          _rcv_buf_size
+        );
+        this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, requested*obj_size), requested);
+        // FIXME: this should be in a function
+        // FIXME: here it won't work if rcv_bufer_size < numcores
+        this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn.get());
+        _state.accept(this->_connections.back().conn.get());
+        ++requested;
+      } else if(conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
+        SPDLOG_DEBUG(
+          "[Executor] Established connection to executor {}, connection {}",
+          established + 1, fmt::ptr(conn)
+        );
+        conn->post_send(functions);
+        SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", established + 1, numcores);
+        ++established;
+      }
+      // FIXME: fix handling of disconnection
+      else {
+        spdlog::error("Unhandled connection event {} in executor allocation", conn_status);
+      }
     }
+
     // Measure process spawn time
     if(benchmarker) {
       benchmarker->end(2);
@@ -202,6 +352,17 @@ namespace rfaas {
     }
 
     received = 0;
+    _active_polling = false;
+    // Ensure that we are able to process asynchronous replies
+    // before we start any submissionk.
+    _connections[0].conn->notify_events(true);
+    // FIXME: extend to multiple connections
+    _background_thread.reset(
+      new std::thread{
+        &executor::poll_queue,
+        this
+      }
+    );
     while(received < numcores) {
       auto wcs = this->_connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
       received += std::get<1>(wcs);
@@ -211,6 +372,9 @@ namespace rfaas {
       benchmarker->end(3);
       benchmarker->start();
     }
+    //if(_background_thread) {
+    //  _background_thread->detach();
+    //}
     SPDLOG_DEBUG("Code submission for all threads is finished");
     return true;
   }
