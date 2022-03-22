@@ -63,6 +63,20 @@ else()
 endif()
 
 ###
+# Select the networking support
+###
+option(WITH_LIBFABRIC "Enable libfabric backend instead of ibverbs" Off)
+if(${WITH_LIBFABRIC}) 
+  message(STATUS "Enabling libfabric support")
+  add_definitions(-DUSE_LIBFABRIC)
+endif()
+option(WITH_GNI_AUTH "Enable the GNI authentication backend" Off)
+if(${WITH_GNI_AUTH})
+  message(STATUS "Enabling the GNI authentication backend")
+  add_definitions(-DUSE_GNI_AUTH)
+endif()
+
+###
 # Optional: use existing installations
 ###
 set(CXXOPTS_PATH "" CACHE STRING "Path to installation of cxxopts")
@@ -85,14 +99,30 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads)
 
 ###
-# librdmacm
+# Networking
 ###
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(rdmacm REQUIRED IMPORTED_TARGET librdmacm)
-###
-# libibverbs
-###
-pkg_check_modules(ibverbs REQUIRED IMPORTED_TARGET libibverbs)
+if (${WITH_LIBFABRIC})
+  ###
+  # libfabric
+  ###
+  pkg_check_modules(fabric REQUIRED IMPORTED_TARGET libfabric)
+  if (${WITH_GNI_AUTH})
+      ###
+      # cray-drc (aka rmda-credentials)
+      ###
+      pkg_check_modules(drc REQUIRED IMPORTED_TARGET cray-drc)
+  endif()
+else()
+  ###
+  # librdmacm
+  ###
+  pkg_check_modules(rdmacm REQUIRED IMPORTED_TARGET librdmacm)
+  ###
+  # libibverbs
+  ###
+  pkg_check_modules(ibverbs REQUIRED IMPORTED_TARGET libibverbs)
+endif()
 
 ###
 # pistache
@@ -112,14 +142,28 @@ add_library(rdmalib STATIC ${rdmalib_files})
 add_dependencies(rdmalib spdlog)
 add_dependencies(rdmalib cereal)
 target_include_directories(rdmalib PUBLIC "rdmalib/include")
-target_include_directories(rdmalib SYSTEM PUBLIC $<TARGET_PROPERTY:PkgConfig::rdmacm,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(rdmalib SYSTEM PUBLIC $<TARGET_PROPERTY:PkgConfig::ibverbs,INTERFACE_INCLUDE_DIRECTORIES>)
+if( ${WITH_LIBFABRIC} )
+  target_include_directories(rdmalib SYSTEM PUBLIC $<TARGET_PROPERTY:PkgConfig::fabric,INTERFACE_INCLUDE_DIRECTORIES>)
+  if( ${WITH_GNI_AUTH} )
+    target_include_directories(rdmalib SYSTEM PUBLIC $<TARGET_PROPERTY:PkgConfig::drc,INTERFACE_INCLUDE_DIRECTORIES>)
+  endif()
+else()
+  target_include_directories(rdmalib SYSTEM PUBLIC $<TARGET_PROPERTY:PkgConfig::rdmacm,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_include_directories(rdmalib SYSTEM PUBLIC $<TARGET_PROPERTY:PkgConfig::ibverbs,INTERFACE_INCLUDE_DIRECTORIES>)
+endif()
 target_include_directories(rdmalib SYSTEM PUBLIC $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(rdmalib SYSTEM PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(rdmalib PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(rdmalib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
-target_link_libraries(rdmalib PUBLIC PkgConfig::rdmacm)
-target_link_libraries(rdmalib PUBLIC PkgConfig::ibverbs)
+if( ${WITH_LIBFABRIC} )
+  target_link_libraries(rdmalib PUBLIC PkgConfig::fabric)
+  if( ${WITH_GNI_AUTH} )
+    target_link_libraries(rdmalib PUBLIC PkgConfig::drc)
+  endif()
+else()
+  target_link_libraries(rdmalib PUBLIC PkgConfig::rdmacm)
+  target_link_libraries(rdmalib PUBLIC PkgConfig::ibverbs)
+endif()
 target_link_libraries(rdmalib PRIVATE spdlog::spdlog)
 target_link_libraries(rdmalib PRIVATE cereal)
 
@@ -135,15 +179,19 @@ target_include_directories(rfaaslib PUBLIC "rfaas/include")
 target_include_directories(rfaaslib PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(rfaaslib SYSTEM PUBLIC $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(rfaaslib SYSTEM PUBLIC $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
+#if (${WITH_LIBFABRIC} AND ${WITH_GNI_AUTH})
+#target_include_directories(rfaaslib SYSTEM PUBLIC $<TARGET_PROPERTY:drc,INTERFACE_INCLUDE_DIRECTORIES>)
+#endif()
 set_target_properties(rfaaslib PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(rfaaslib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
 target_link_libraries(rfaaslib PUBLIC rdmalib)
-target_link_libraries(rfaaslib PUBLIC PkgConfig::rdmacm)
-target_link_libraries(rfaaslib PUBLIC PkgConfig::ibverbs)
 target_link_libraries(rfaaslib PUBLIC spdlog::spdlog)
 target_link_libraries(rfaaslib PRIVATE cereal)
 target_link_libraries(rfaaslib PUBLIC dl)
 target_link_libraries(rfaaslib PUBLIC Threads::Threads)
+#if (${WITH_LIBFABRIC} AND ${WITH_GNI_AUTH})
+#target_link_libraries(rfaaslib PUBLIC drc)
+#endif()
 
 ###
 # Server
