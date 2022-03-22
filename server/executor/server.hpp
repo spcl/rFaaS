@@ -1,4 +1,5 @@
 
+#include <rdma/fabric.h>
 #include <vector>
 #include <thread>
 #include <condition_variable>
@@ -133,10 +134,18 @@ namespace server {
     void register_buffer(rdmalib::Buffer<T> & buf, bool is_recv_buffer)
     {
       if(is_recv_buffer) {
+        #ifdef USE_LIBFABRIC
+        buf.register_memory(_state.pd(), FI_WRITE | FI_REMOTE_WRITE);
+        #else
         buf.register_memory(_state.pd(), IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE);
+        #endif
         _status.add_buffer(buf);
       } else {
+        #ifdef USE_LIBFABRIC
+        buf.register_memory(_state.pd(), FI_WRITE);
+        #else
         buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
+        #endif
       }
     }
 

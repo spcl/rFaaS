@@ -93,7 +93,9 @@ namespace rdmalib {
     Connection(Connection&&);
 
     void initialize_batched_recv(const rdmalib::impl::Buffer & sge, size_t offset);
+    #ifndef USE_LIBFABRIC
     void inlining(bool enable);
+    #endif
     #ifdef USE_LIBFABRIC
     void initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec);
     #else

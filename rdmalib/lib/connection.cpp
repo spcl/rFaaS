@@ -43,7 +43,9 @@ namespace rdmalib {
     _passive(passive),
     _status(ConnectionStatus::UNKNOWN)
   {
+    #ifndef USE_LIBFABRIC
     inlining(false);
+    #endif
 
     #ifdef USE_LIBFABRIC
     SPDLOG_DEBUG("Allocate a connection with qp fid {}", fmt::ptr(&_qp->fid));
@@ -278,8 +280,8 @@ namespace rdmalib {
     #ifdef USE_LIBFABRIC
     // FIXME: extend with multiple sges
     id = id == -1 ? _req_count++ - 1 : id;
-    SPDLOG_DEBUG("Post send to local Local QPN fid {}", &_qp->fid);
-    fi_addr_t temp;
+    SPDLOG_DEBUG("Post send to local Local QPN fid {}", fmt::ptr(&_qp->fid));
+    fi_addr_t temp = 0;
     if(fi_sendv(_qp, elems.array(), elems.lkeys(), elems.size(), temp, reinterpret_cast<void *>((uint64_t)id))) {
       spdlog::error("Post send unsuccessful, reason {} {}, sges_count {}, wr_id {}",
         errno, strerror(errno), elems.size(), id
@@ -321,10 +323,10 @@ namespace rdmalib {
     #ifdef USE_LIBFABRIC
     int loops = count / _rbatch;
     int reminder = count % _rbatch;
-    SPDLOG_DEBUG("Batch {} {} to local QPN fid {}", loops, reminder, &_qp->fid);
+    SPDLOG_DEBUG("Batch {} {} to local QPN fid {}", loops, reminder, fmt::ptr(&_qp->fid));
 
     int ret = 0;
-    fi_addr_t temp;
+    fi_addr_t temp = 0;
     for(int i = 0; i < loops; ++i) {
       for(int j = 0; j < _rbatch; ++j) {
         auto begin = _rwc_sges[j];
@@ -413,9 +415,9 @@ namespace rdmalib {
   int32_t Connection::post_recv(ScatterGatherElement && elem, int32_t id, int count)
   {
     #ifdef USE_LIBFABRIC
-    fi_addr_t temp;
+    fi_addr_t temp = 0;
     id = id == -1 ? _req_count++ : id;
-    SPDLOG_DEBUG("post recv to local Local QPN fid {}", &_qp->fid);
+    SPDLOG_DEBUG("post recv to local Local QPN fid {}", fmt::ptr(&_qp->fid));
 
     int ret;
     for(int i = 0; i < count; ++i) {
@@ -470,7 +472,7 @@ namespace rdmalib {
   #ifdef USE_LIBFABRIC
   int32_t Connection::_post_write(ScatterGatherElement && elems, fi_msg_rma &msg, bool force_inline, bool force_solicited)
   {
-    fi_addr_t temp;
+    fi_addr_t temp = 0;
     int32_t id = _req_count++;
     size_t count = elems.size();
     if(elems.size() == 1 && elems.array()[0].iov_len == 0)
@@ -590,7 +592,7 @@ namespace rdmalib {
   {
     #ifdef USE_LIBFABRIC
     // TODO check if 
-    fi_addr_t temp;
+    fi_addr_t temp = 0;
     int32_t id = _req_count++;
     memcpy(elems.array()[0].iov_base, &swap, sizeof(swap));
     memcpy(elems.array()[1].iov_base, &compare, sizeof(compare));
@@ -628,7 +630,7 @@ namespace rdmalib {
   int32_t Connection::post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add)
   {
     #ifdef USE_LIBFABRIC
-    fi_addr_t temp;
+    fi_addr_t temp = 0;
     int32_t id = _req_count++;
     memcpy(elems.array()[0].iov_base, &add, sizeof(add));
     int ret = fi_atomic(_qp, &elems.array()[0], 1, elems.lkeys()[0], temp, rbuf.addr, rbuf.rkey, FI_UINT64, FI_SUM, reinterpret_cast<void *>((uint64_t)id));

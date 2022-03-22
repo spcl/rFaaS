@@ -152,7 +152,7 @@ namespace rdmalib {
     void add(const Buffer<T> & buf)
     {
       #ifdef USE_LIBFABRIC
-      _sges.push_back({buf.address(), buf.bytes()});
+      _sges.push_back({(void *)buf.address(), (size_t)buf.bytes()});
       _lkeys.push_back(buf.lkey());
       #else
       //emplace_back for structs will be supported in C++20
@@ -164,7 +164,7 @@ namespace rdmalib {
     void add(const Buffer<T> & buf, uint32_t size, size_t offset = 0)
     {
       #ifdef USE_LIBFABRIC
-      _sges.push_back({buf.address() + offset, size});
+      _sges.push_back({(void *)(buf.address() + offset), (size_t)size});
       _lkeys.push_back(buf.lkey());
       #else
       //emplace_back for structs will be supported in C++20
