@@ -108,7 +108,7 @@ namespace rdmalib {
   Address::~Address()
   {
     #ifdef USE_LIBFABRIC
-    fi_close(&fabric->fid);
+    impl::expect_zero(fi_close(&fabric->fid));
     fi_freeinfo(addrinfo);
     #else
     rdma_freeaddrinfo(addrinfo);
@@ -155,8 +155,8 @@ namespace rdmalib {
   RDMAActive::~RDMAActive()
   {
     #ifdef USE_LIBFABRIC
-    fi_close(&_pd->fid);
-    fi_close(&_ec->fid);
+    impl::expect_zero(fi_close(&_pd->fid));
+    impl::expect_zero(fi_close(&_ec->fid));
     #else
     //ibv_dealloc_pd(this->_pd);
     #endif
@@ -172,7 +172,7 @@ namespace rdmalib {
       impl::expect_zero(fi_domain(_addr.fabric, _addr.addrinfo, &_pd, nullptr));
 
       // Create and enable the endpoint together with all the accompanying queues
-      _conn->initialize(_pd, _addr.addrinfo, _ec);
+      _conn->initialize(_addr.fabric, _pd, _addr.addrinfo, _ec);
       #else
       rdma_cm_id* id;
       impl::expect_zero(rdma_create_ep(&id, _addr.addrinfo, nullptr, nullptr));
@@ -352,8 +352,8 @@ namespace rdmalib {
   RDMAPassive::~RDMAPassive()
   {
     #ifdef USE_LIBFABRIC
-    fi_close(&_pd->fid);
-    fi_close(&_ec->fid);
+    impl::expect_zero(fi_close(&_pd->fid));
+    impl::expect_zero(fi_close(&_ec->fid));
     #else
     rdma_destroy_id(this->_listen_id);
     rdma_destroy_event_channel(this->_ec);
@@ -481,7 +481,7 @@ namespace rdmalib {
           fi_domain(_addr.fabric, entry.info, &_pd, NULL);
 
         // Enable the endpoint
-        connection->initialize(_pd, entry.info, _ec);
+        connection->initialize(_addr.fabric, _pd, entry.info, _ec);
         SPDLOG_DEBUG(
           "[RDMAPassive] Created connection fid {} qp {}",
           fmt::ptr(connection->id()), fmt::ptr(&connection->qp()->fid)
@@ -609,10 +609,17 @@ namespace rdmalib {
   }
 
   void RDMAPassive::accept(Connection* connection) {
+    #ifdef USE_LIBFABRIC
     if(fi_accept(connection->qp(), nullptr, 0)) {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
       connection = nullptr;
     }
+    #else
+    if(rdma_accept(connection->id(), &_cfg.conn_param)) {
+      spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
+      connection = nullptr;
+    }
+    #endif
     SPDLOG_DEBUG("[RDMAPassive] Connection accepted at QP {}", fmt::ptr(connection->qp()));
   }
 }

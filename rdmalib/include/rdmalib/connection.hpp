@@ -57,6 +57,7 @@ namespace rdmalib {
     fid_ep* _qp;
     fid_cq* _rcv_channel;
     fid_cq* _trx_channel;
+    fid_wait* _wait_set;
     #else
     rdma_cm_id* _id;
     ibv_qp* _qp; 
@@ -94,7 +95,7 @@ namespace rdmalib {
     void initialize_batched_recv(const rdmalib::impl::Buffer & sge, size_t offset);
     void inlining(bool enable);
     #ifdef USE_LIBFABRIC
-    void initialize(fid_domain* pd, fi_info* info, fid_eq* ec);
+    void initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec);
     #else
     void initialize(rdma_cm_id* id);
     #endif
@@ -102,6 +103,7 @@ namespace rdmalib {
     #ifdef USE_LIBFABRIC
     fid* id() const;
     fid_ep* qp() const;
+    fid_wait* wait_set() const;
     fid_cq* receive_completion_channel() const;
     fid_cq* transmit_completion_channel() const;
     #else

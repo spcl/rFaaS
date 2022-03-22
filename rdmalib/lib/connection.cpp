@@ -29,14 +29,15 @@ namespace rdmalib {
   #endif
 
   Connection::Connection(bool passive):
+    _qp(nullptr),
     #ifdef USE_LIBFABRIC
     _rcv_channel(nullptr),
     _trx_channel(nullptr),
+    _wait_set(nullptr),
     #else
     _id(nullptr),
     _channel(nullptr),
     #endif
-    _qp(nullptr),
     _req_count(0),
     _private_data(0),
     _passive(passive),
@@ -62,6 +63,10 @@ namespace rdmalib {
   {
     #ifdef USE_LIBFABRIC
     SPDLOG_DEBUG("Deallocate a connection with qp fid {}", fmt::ptr(&_qp->fid));
+    impl::expect_zero(fi_close(&_rcv_channel->fid));
+    impl::expect_zero(fi_close(&_trx_channel->fid));
+    impl::expect_zero(fi_close(&_wait_set->fid));
+    impl::expect_zero(fi_close(&_qp->fid));
     #else
     SPDLOG_DEBUG("Deallocate a connection with id {}", fmt::ptr(_id));
     #endif
@@ -69,14 +74,15 @@ namespace rdmalib {
   }
 
   Connection::Connection(Connection&& obj):
+    _qp(obj._qp),
     #ifdef USE_LIBFABRIC
     _rcv_channel(obj._rcv_channel),
     _trx_channel(obj._trx_channel),
+    _wait_set(nullptr),
     #else
     _id(obj._id),
     _channel(obj._channel),
     #endif
-    _qp(obj._qp),
     _req_count(obj._req_count),
     _private_data(obj._private_data),
     _passive(obj._passive),
@@ -114,22 +120,32 @@ namespace rdmalib {
   }
 
   #ifdef USE_LIBFABRIC
-  void Connection::initialize(fid_domain* pd, fi_info* info, fid_eq* ec)
+  void Connection::initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec)
   {
     // Create the endpoint
     impl::expect_zero(fi_endpoint(pd, info, &_qp, reinterpret_cast<void*>(this)));
 
+    // Open the waitset
+    fi_wait_attr wait_attr;
+    wait_attr.wait_obj = FI_WAIT_UNSPEC;
+    wait_attr.flags = 0;
+    fi_wait_open(fabric, &wait_attr, &_wait_set);
+
     // Bind with the completion queues and the event queue
     impl::expect_zero(fi_ep_bind(_qp, &ec->fid, 0));
-    fi_cq_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.format = FI_CQ_FORMAT_DATA;
-    attr.wait_obj = FI_WAIT_UNSPEC;
-    attr.wait_cond = FI_CQ_COND_NONE;
-    impl::expect_zero(fi_cq_open(pd, &attr, &_rcv_channel, nullptr));
-    impl::expect_zero(fi_ep_bind(_qp, &_rcv_channel->fid, FI_RECV));
-    impl::expect_zero(fi_cq_open(pd, &attr, &_trx_channel, nullptr));
+    fi_cq_attr cq_attr;
+    memset(&cq_attr, 0, sizeof(cq_attr));
+    cq_attr.format = FI_CQ_FORMAT_DATA;
+    cq_attr.wait_obj = FI_WAIT_UNSPEC;
+    cq_attr.wait_cond = FI_CQ_COND_NONE;
+    cq_attr.wait_set = nullptr;
+    impl::expect_zero(fi_cq_open(pd, &cq_attr, &_trx_channel, nullptr));
     impl::expect_zero(fi_ep_bind(_qp, &_trx_channel->fid, FI_TRANSMIT));
+
+    // Connect the wait set to the receive queue
+    cq_attr.wait_set = _wait_set;
+    impl::expect_zero(fi_cq_open(pd, &cq_attr, &_rcv_channel, nullptr));
+    impl::expect_zero(fi_ep_bind(_qp, &_rcv_channel->fid, FI_RECV));
 
     // Enable the endpoint
     impl::expect_zero(fi_enable(_qp));
@@ -211,6 +227,13 @@ namespace rdmalib {
   ibv_qp* Connection::qp() const
   {
     return this->_qp;
+  }
+  #endif
+
+  #ifdef USE_LIBFABRIC
+  fid_wait* Connection::wait_set() const
+  {
+    return this->_wait_set;
   }
   #endif
 
@@ -723,11 +746,7 @@ namespace rdmalib {
   #ifdef USE_LIBFABRIC
   void Connection::wait_events()
   {
-    int ret;
-    fi_cq_data_entry entry;
-    do {
-      ret = fi_cq_sread(_rcv_channel, &entry, 1, 0, -1);
-    } while (ret != 1 || entry.flags != FI_REMOTE_WRITE);
+    impl::expect_zero(fi_wait(_wait_set, -1));
   }
   #else
   ibv_cq* Connection::wait_events()
