@@ -1,6 +1,7 @@
 
 #include "rdmalib/connection.hpp"
 #include <cassert>
+#include <cstdint>
 // inet_ntoa
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -9,6 +10,13 @@
 #include <poll.h>
 #include <fcntl.h>
 
+#ifdef USE_LIBFABRIC
+#include <rdma/fabric.h>
+#include <rdma/fi_domain.h>
+#include <rdma/fi_cm.h>
+#include <rdma/fi_eq.h>
+#include <rdma/fi_errno.h>
+#endif
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bundled/format.h>
 
@@ -18,14 +26,33 @@
 
 namespace rdmalib {
 
+  // FIXME: Add credential support
   Address::Address(const std::string & ip, int port, bool passive)
   {
+    #ifdef USE_LIBFABRIC
+    // Set the hints and addrinfo to clear structures
+    hints = fi_allocinfo();
+    addrinfo = fi_allocinfo();
+
+    // Set the hints to have ability to conduct MSG, Atomic and RMA operations
+    hints->caps |= FI_MSG | FI_RMA | FI_ATOMIC;
+    // Set the hints to indicate that we will register the local buffers
+    hints->mode |= FI_LOCAL_MR; 
+    hints->addr_format = FI_SOCKADDR_IN; 
+    if(passive) 
+      impl::expect_zero(fi_getinfo(FI_VERSION(1, 13), ip.c_str(), std::to_string(port).c_str(), FI_SOURCE, hints, &addrinfo));
+    else
+      impl::expect_zero(fi_getinfo(FI_VERSION(1, 13), nullptr, nullptr, 0, hints, &addrinfo));
+    fi_freeinfo(hints);
+    fi_fabric(addrinfo->fabric_attr, &fabric, nullptr);
+    #else
     memset(&hints, 0, sizeof hints);
     hints.ai_port_space = RDMA_PS_TCP;
     if(passive)
       hints.ai_flags = RAI_PASSIVE;
 
     impl::expect_zero(rdma_getaddrinfo(ip.c_str(), std::to_string(port).c_str(), &hints, &addrinfo));
+    #endif
     this->_port = port;
   }
 
@@ -44,6 +71,27 @@ namespace rdmalib {
     local_in.sin_family = AF_INET; 
     inet_pton(AF_INET, sip.c_str(), &local_in.sin_addr);
 
+    #ifdef USE_LIBFABRIC
+    // Set the hints and addrinfo to clear structures
+    hints = fi_allocinfo();
+    addrinfo = fi_allocinfo();
+
+    // Set the hints to have ability to conduct MSG, Atomic and RMA operations
+    hints->caps |= FI_MSG | FI_RMA | FI_ATOMIC;
+    // Set the hints to indicate that we will register the local buffers
+    hints->mode |= FI_LOCAL_MR;  
+    
+    // Set addresses and their format
+    hints->addr_format = FI_SOCKADDR_IN;
+    hints->src_addrlen = sizeof(local_in);
+    hints->dest_addrlen = sizeof(server_in);
+    hints->src_addr = &local_in;
+    hints->dest_addr = &server_in;
+    
+    impl::expect_zero(fi_getinfo(FI_VERSION(1, 13), nullptr, nullptr, 0, hints, &addrinfo));
+    fi_freeinfo(hints);
+    fi_fabric(addrinfo->fabric_attr, &fabric, nullptr);
+    #else
     memset(&hints, 0, sizeof hints);
     hints.ai_port_space = RDMA_PS_TCP;
     hints.ai_src_len = sizeof(local_in);
@@ -52,13 +100,19 @@ namespace rdmalib {
     hints.ai_dst_addr = (struct sockaddr *)(&server_in);
 
     impl::expect_zero(rdma_getaddrinfo(NULL, NULL, &hints, &addrinfo));
+    #endif
     this->_port = port;
   }
 
 
   Address::~Address()
   {
+    #ifdef USE_LIBFABRIC
+    fi_close(&fabric->fid);
+    fi_freeinfo(addrinfo);
+    #else
     rdma_freeaddrinfo(addrinfo);
+    #endif
   }
 
   RDMAActive::RDMAActive(const std::string & ip, int port, int recv_buf, int max_inline_data):
@@ -67,6 +121,12 @@ namespace rdmalib {
     _ec(nullptr),
     _pd(nullptr)
   {
+    #ifdef USE_LIBFABRIC
+    memset(&_remote_addr, 0, sizeof(_remote_addr));
+    _remote_addr.sin_family = AF_INET;
+    _remote_addr.sin_port = htons(port);  
+    inet_pton(AF_INET, ip.c_str(), &_remote_addr.sin_addr);
+    #else
     // Size of Queue Pair
     // Maximum requests in send queue
     // FIXME: configurable -> parallel workers
@@ -88,12 +148,18 @@ namespace rdmalib {
     _cfg.conn_param.initiator_depth =  4;
     _cfg.conn_param.retry_count = 3;
     _cfg.conn_param.rnr_retry_count = 3;
+    #endif
     SPDLOG_DEBUG("Create RDMAActive");
   }
 
   RDMAActive::~RDMAActive()
   {
+    #ifdef USE_LIBFABRIC
+    fi_close(&_pd->fid);
+    fi_close(&_ec->fid);
+    #else
     //ibv_dealloc_pd(this->_pd);
+    #endif
     SPDLOG_DEBUG("Destroy RDMAActive");
   }
 
@@ -101,11 +167,19 @@ namespace rdmalib {
   {
     if(!_conn) {
       _conn = std::unique_ptr<Connection>(new Connection());
+      #ifdef USE_LIBFABRIC
+      // Create a domain
+      impl::expect_zero(fi_domain(_addr.fabric, _addr.addrinfo, &_pd, nullptr));
+
+      // Create and enable the endpoint together with all the accompanying queues
+      _conn->initialize(_pd, _addr.addrinfo, _ec);
+      #else
       rdma_cm_id* id;
       impl::expect_zero(rdma_create_ep(&id, _addr.addrinfo, nullptr, nullptr));
       impl::expect_zero(rdma_create_qp(id, _pd, &_cfg.attr));
       _conn->initialize(id);
       _pd = _conn->id()->pd;
+      #endif
 
       //struct ibv_qp_attr attr;
       //struct ibv_qp_init_attr init_attr;
@@ -160,6 +234,28 @@ namespace rdmalib {
   bool RDMAActive::connect(uint32_t secret)
   {
     allocate();
+    #ifdef USE_LIBFABRIC
+    uint32_t *param = nullptr;
+    size_t paramlen = 0;
+    if(secret) {
+      param = &secret;
+      paramlen = sizeof(secret);
+      SPDLOG_DEBUG("Setting connection secret {} of length {}", secret, sizeof(uint32_t));
+    }
+    if(fi_connect(_conn->qp(), &_remote_addr, param, paramlen)) {
+      spdlog::error("Connection unsuccesful, reason {} {}", errno, strerror(errno));
+      _conn.reset();
+      _pd = nullptr;
+      return false;
+    } else {
+      char address[INET_ADDRSTRLEN];
+      inet_ntop(AF_INET, &_remote_addr.sin_addr, address, INET_ADDRSTRLEN);
+      spdlog::debug(
+        "[RDMAActive] Connection succesful to {}:{}",
+        address, _addr._port
+      );
+    }
+    #else
     if(secret) {
       _cfg.conn_param.private_data = &secret;
       _cfg.conn_param.private_data_len = sizeof(uint32_t);
@@ -176,6 +272,7 @@ namespace rdmalib {
         _addr._port, _addr._port, ibv_get_device_name(this->_conn->id()->verbs->device)
       );
     }
+    #endif
 
     //struct ibv_qp_attr attr;
     //struct ibv_qp_init_attr init_attr;
@@ -187,16 +284,30 @@ namespace rdmalib {
 
   void RDMAActive::disconnect()
   {
-    spdlog::debug("[RDMAActive] Disonnecting connection with id {}", fmt::ptr(_conn->id()));
+    #ifdef USE_LIBFABRIC
+    // TODO: Add the disconnectin id
+    spdlog::debug("[RDMAActive] Disconnecting connection with id {}", fmt::ptr(&_conn->qp()->fid));
+    _conn.reset();
+    _pd = nullptr;
+    #else
+        spdlog::debug("[RDMAActive] Disonnecting connection with id {}", fmt::ptr(_conn->id()));
     impl::expect_zero(rdma_disconnect(_conn->id()));
     _conn.reset();
     _pd = nullptr;
+    #endif
   }
 
+  #ifdef USE_LIBFABRIC
+  fid_domain* RDMAActive::pd() const
+  {
+    return this->_pd;
+  }
+  #else
   ibv_pd* RDMAActive::pd() const
   {
     return this->_pd;
   }
+  #endif
 
   Connection & RDMAActive::connection()
   {
@@ -211,9 +322,12 @@ namespace rdmalib {
   RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize, int max_inline_data):
     _addr(ip, port, true),
     _ec(nullptr),
+    #ifndef USE_LIBFABRIC
     _listen_id(nullptr),
+    #endif
     _pd(nullptr)
   {
+    #ifndef USE_LIBFABRIC
     // Size of Queue Pair
     // FIXME: configurable -> parallel workers
     _cfg.attr.cap.max_send_wr = 40;
@@ -229,6 +343,7 @@ namespace rdmalib {
     _cfg.conn_param.initiator_depth = 4;
     _cfg.conn_param.retry_count = 3; 
     _cfg.conn_param.rnr_retry_count = 3;
+    #endif
 
     if(initialize)
       this->allocate();
@@ -236,13 +351,34 @@ namespace rdmalib {
 
   RDMAPassive::~RDMAPassive()
   {
+    #ifdef USE_LIBFABRIC
+    fi_close(&_pd->fid);
+    fi_close(&_ec->fid);
+    #else
     rdma_destroy_id(this->_listen_id);
     rdma_destroy_event_channel(this->_ec);
+    #endif
   }
 
   void RDMAPassive::allocate()
   {
+    #ifdef USE_LIBFABRIC
     // Start listening
+    fi_eq_attr attr;
+    memset(&attr, 0, sizeof(attr));
+    attr.size = 42;
+    attr.wait_obj = FI_WAIT_UNSPEC;
+    impl::expect_zero(fi_eq_open(_addr.fabric, nullptr, &_ec, nullptr));
+    impl::expect_zero(fi_pep_bind(_pep, &_ec->fid, 0));
+    impl::expect_zero(fi_listen(_pep));
+    char address[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, _addr.addrinfo->src_addr, address, INET_ADDRSTRLEN);
+    spdlog::info(
+      "Listening on address ",
+      address
+    );
+    #else
+        // Start listening
     impl::expect_nonzero(this->_ec = rdma_create_event_channel());
     impl::expect_zero(rdma_create_id(this->_ec, &this->_listen_id, NULL, RDMA_PS_TCP));
     impl::expect_zero(rdma_bind_addr(this->_listen_id, this->_addr.addrinfo->ai_src_addr));
@@ -257,13 +393,22 @@ namespace rdmalib {
       "[RDMAPassive]: listening id {}, protection domain {}",
       fmt::ptr(this->_listen_id), _pd->handle
     );
+    #endif
   }
 
+  #ifdef USE_LIBFABRIC
+  fid_domain* RDMAPassive::pd() const
+  {
+    return this->_pd;
+  }
+  #else
   ibv_pd* RDMAPassive::pd() const
   {
     return this->_pd;
   }
+  #endif
 
+  #ifndef USE_LIBFABRIC
   void RDMAPassive::set_nonblocking_poll()
   {
     int fd = this->_ec->fd;
@@ -274,9 +419,18 @@ namespace rdmalib {
       return;
     }
   }
+  #endif
 
   bool RDMAPassive::nonblocking_poll_events(int timeout)
   {
+    #ifdef USE_LIBFABRIC
+    uint32_t event;
+    fi_eq_entry entry;
+    int ret = fi_eq_read(_ec, &event, &entry, sizeof(entry), FI_PEEK);
+    if (ret < 0 && ret != -FI_EAGAIN && ret != -FI_EAVAIL) 
+      spdlog::error("RDMA event poll failed");
+    return ret > 0 || ret == -FI_EAVAIL;
+    #else
     pollfd my_pollfd;
     my_pollfd.fd      = this->_ec->fd;
     my_pollfd.events  = POLLIN;
@@ -287,10 +441,78 @@ namespace rdmalib {
       return false;
     }
     return rc > 0;
+    #endif
   }
 
   std::tuple<Connection*, ConnectionStatus> RDMAPassive::poll_events(bool share_cqs)
   {
+    #ifdef USE_LIBFABRIC
+    uint32_t event;
+    eventEntry entry;
+  	Connection* connection = nullptr;
+    ConnectionStatus status = ConnectionStatus::UNKNOWN;
+
+    // Poll rdma cm events.
+    int ret = fi_eq_read(_ec, &event, &entry, sizeof(entry), 0);
+    if(ret < 0 && ret != -FI_EAGAIN && ret != -FI_EAVAIL) {
+      spdlog::error("Event poll unsuccesful, reason {} {}", errno, strerror(errno));
+      return std::make_tuple(nullptr, ConnectionStatus::UNKNOWN);
+    }
+    SPDLOG_DEBUG(
+      "[RDMAPassive] received event: {}",
+      fi_tostr(&event, FI_TYPE_EQ_EVENT)
+    );
+
+    switch (event) { 
+      case FI_CONNREQ:
+        connection = new Connection{true};
+
+        // Read the secret
+        if(ret == sizeof(entry)) {
+          uint32_t data = *reinterpret_cast<const uint32_t*>(entry.secret);
+          connection->set_private_data(data);
+          SPDLOG_DEBUG("[RDMAPassive] Connection request with private data {}", data);
+        }
+        else
+          SPDLOG_DEBUG("[RDMAPassive] Connection request with no private data");
+
+        // Check if we have a domain open for the connection already
+        if (!entry.info->domain_attr->domain)
+          fi_domain(_addr.fabric, entry.info, &_pd, NULL);
+
+        // Enable the endpoint
+        connection->initialize(_pd, entry.info, _ec);
+        SPDLOG_DEBUG(
+          "[RDMAPassive] Created connection fid {} qp {}",
+          fmt::ptr(connection->id()), fmt::ptr(&connection->qp()->fid)
+        );
+
+        status = ConnectionStatus::REQUESTED;
+        _active_connections.insert(connection);
+        break;
+      case FI_CONNECTED:
+        SPDLOG_DEBUG(
+          "[RDMAPassive] Connection is established for id {}, and connection {}",
+          fmt::ptr(entry.fid), fmt::ptr(entry.fid->context)
+        );
+        connection = reinterpret_cast<Connection*>(entry.fid->context);
+        status = ConnectionStatus::ESTABLISHED;
+        break;
+      case FI_SHUTDOWN:
+        SPDLOG_DEBUG(
+          "[RDMAPassive] Disconnect for id {}, and connection {}",
+          fmt::ptr(entry.fid), fmt::ptr(entry.fid->context)
+        );
+        connection = reinterpret_cast<Connection*>(entry.fid->context);
+        //connection->close();
+        status = ConnectionStatus::DISCONNECTED;
+        _active_connections.erase(connection);
+        break;
+      default:
+        spdlog::error("[RDMAPassive] Not any interesting event");
+        break;
+    }
+    #else
     rdma_cm_event* event = nullptr;
 		Connection* connection = nullptr;
     ConnectionStatus status = ConnectionStatus::UNKNOWN;
@@ -381,12 +603,13 @@ namespace rdmalib {
         break;
     }
     rdma_ack_cm_event(event);
+    #endif
 
     return std::make_tuple(connection, status);
   }
 
   void RDMAPassive::accept(Connection* connection) {
-    if(rdma_accept(connection->id(), &_cfg.conn_param)) {
+    if(fi_accept(connection->qp(), nullptr, 0)) {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
       connection = nullptr;
     }

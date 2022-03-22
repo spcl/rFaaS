@@ -1,7 +1,13 @@
 
 // mmap
 #include <sys/mman.h>
+
+#ifdef USE_LIBFABRIC
+#include <rdma/fabric.h>
+#include <rdma/fi_domain.h>
+#else
 #include <infiniband/verbs.h>
+#endif
 
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/util.hpp>
@@ -89,11 +95,26 @@ namespace rdmalib { namespace impl {
       _bytes, fmt::ptr(_mr), fmt::ptr(_ptr)
     );
     if(_mr)
+      #ifdef USE_LIBFABRIC
+      fi_close(&_mr->fid);
+      #else
       ibv_dereg_mr(_mr);
+      #endif
     if(_own_memory)
       munmap(_ptr, _bytes);
   }
 
+  #ifdef USE_LIBFABRIC
+  void Buffer::register_memory(fid_domain *pd, int access)
+  {
+    int ret = fi_mr_reg(pd, _ptr, _bytes, access, 0, 0, 0, &_mr, nullptr);
+    impl::expect_zero(ret);
+    SPDLOG_DEBUG(
+      "Registered {} bytes, mr {}, address {}, lkey {}, rkey {}",
+      _bytes, fmt::ptr(_mr), fmt::ptr(_ptr), *(uint32_t *)fi_mr_desc(_mr), fi_mr_key(_mr)
+    );
+  }
+  #else
   void Buffer::register_memory(ibv_pd* pd, int access)
   {
     _mr = ibv_reg_mr(pd, _ptr, _bytes, access);
@@ -103,11 +124,19 @@ namespace rdmalib { namespace impl {
       _bytes, fmt::ptr(_mr), fmt::ptr(_mr->addr), _mr->lkey, _mr->rkey
     );
   }
+  #endif
 
+  #ifdef USE_LIBFABRIC
+  fid_mr* Buffer::mr() const
+  {
+    return this->_mr;
+  }
+  #else
   ibv_mr* Buffer::mr() const
   {
     return this->_mr;
   }
+  #endif
 
   uint32_t Buffer::data_size() const
   {
@@ -124,6 +153,13 @@ namespace rdmalib { namespace impl {
     return this->_bytes;
   }
 
+  #ifdef USE_LIBFABRIC
+  void *Buffer::lkey() const
+  {
+    assert(this->_mr);
+    return fi_mr_desc(this->_mr);
+  }
+  #else
   uint32_t Buffer::lkey() const
   {
     assert(this->_mr);
@@ -131,12 +167,21 @@ namespace rdmalib { namespace impl {
     return this->_mr->lkey;
     //return 0;
   }
+  #endif
 
+  #ifdef USE_LIBFABRIC
+  uint32_t Buffer::rkey() const
+  {
+    assert(this->_mr);
+    return fi_mr_key(this->_mr);
+  }
+  #else
   uint32_t Buffer::rkey() const
   {
     assert(this->_mr);
     return this->_mr->rkey;
   }
+  #endif
 
   uintptr_t Buffer::address() const
   {
@@ -162,20 +207,39 @@ namespace rdmalib {
   {
   }
 
+  #ifdef USE_LIBFABRIC
+  iovec *ScatterGatherElement::array() const
+  {
+    return _sges.data();
+  }
+  void **ScatterGatherElement::lkeys() const
+  {
+    return _lkeys.data();
+  }
+  #else
   ibv_sge * ScatterGatherElement::array() const
   {
     return _sges.data();
   }
+  #endif
 
   size_t ScatterGatherElement::size() const
   {
     return _sges.size();
   }
 
+  #ifdef USE_LIBFABRIC
+  ScatterGatherElement::ScatterGatherElement(uint64_t addr, uint32_t bytes, void *lkey)
+  {
+    _sges.push_back({(void *)addr, bytes});
+    _lkeys.push_back(lkey);
+  }
+  #else
   ScatterGatherElement::ScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey)
   {
     _sges.push_back({addr, bytes, lkey});
   }
+  #endif
 
   RemoteBuffer::RemoteBuffer():
     addr(0),

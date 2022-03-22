@@ -31,6 +31,16 @@ namespace rdmalib {
       refill();
     }
 
+    #ifdef USE_LIBFABRIC
+    inline std::tuple<fi_cq_data_entry *,int> poll(bool blocking = false)
+    {
+      auto wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);
+      if(std::get<1>(wc))
+        SPDLOG_DEBUG("Polled reqs {}, left {}", std::get<1>(wc), _requests);
+      _requests -= std::get<1>(wc);
+      return wc;
+    }
+    #else
     inline std::tuple<ibv_wc*,int> poll(bool blocking = false)
     {
       auto wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);
@@ -39,6 +49,7 @@ namespace rdmalib {
       _requests -= std::get<1>(wc);
       return wc;
     }
+    #endif
 
     inline bool refill()
     {
