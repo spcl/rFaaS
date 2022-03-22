@@ -129,14 +129,14 @@ namespace server {
     constexpr static int HOT_POLLING_VERIFICATION_PERIOD = 10000;
     PollingState _polling_state;
 
-    Thread(std::string addr, int port, int id, int functions_size,
-        int buf_size, int recv_buffer_size, int max_inline_data,
+    Thread(std::string addr_, int port_, int id_, int functions_size,
+        int buf_size, int recv_buffer_size, int max_inline_data_,
         const executor::ManagerConnection & mgr_conn):
       _functions(functions_size),
-      addr(addr),
-      port(port),
-      max_inline_data(max_inline_data),
-      id(id),
+      addr(addr_),
+      port(port_),
+      max_inline_data(max_inline_data_),
+      id(id_),
       repetitions(0),
       max_repetitions(0),
       sum(0),

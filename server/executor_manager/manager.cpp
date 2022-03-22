@@ -174,9 +174,13 @@ namespace rfaas::executor_manager {
           for(int j = 0; j < std::get<1>(wcs); ++j) {
 
             auto wc = std::get<0>(wcs)[j];
+            #ifdef USE_LIBFABRIC
+            uint64_t id = reinterpret_cast<uint64_t>(wc.op_context);
+            #else
             if(wc.status != 0)
               continue;
             uint64_t id = wc.wr_id;
+            #endif
             int16_t cores = client.allocation_requests.data()[id].cores;
             char * client_address = client.allocation_requests.data()[id].listen_address;
             int client_port = client.allocation_requests.data()[id].listen_port;

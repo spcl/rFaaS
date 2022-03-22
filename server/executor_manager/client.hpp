@@ -30,7 +30,11 @@ namespace rfaas::executor_manager {
     uint32_t allocation_time;
     bool _active;
 
+    #ifdef USE_LIBFABRIC
+    Client(rdmalib::Connection* conn, fid_domain* pd);
+    #else
     Client(rdmalib::Connection* conn, ibv_pd* pd);
+    #endif
     void reload_queue();
     void disable(int);
     bool active();

@@ -25,11 +25,13 @@ void signal_handler(int)
 
 int main(int argc, char ** argv)
 {
+  #ifndef USE_LIBFABRIC
   int rc = ibv_fork_init();
   if(rc) {
     spdlog::error("ibv_fork_init failed, cannot continue! Error code {}", rc);
     exit(rc);
   }
+  #endif
 
   auto opts = rfaas::executor_manager::opts(argc, argv);
   if(opts.verbose)

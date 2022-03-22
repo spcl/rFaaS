@@ -3,6 +3,7 @@
 #include <atomic>
 #include <ostream>
 #include <sys/time.h>
+#include <rdma/fabric.h>
 #include <sys/time.h>
 
 #include <spdlog/spdlog.h>
@@ -71,12 +72,17 @@ namespace server {
         for(int i = 0; i < std::get<1>(wcs); ++i) {
 
           //server_processing_times.start();
+          #ifdef USE_LIBFABRIC
+          fi_cq_data_entry* wc = &std::get<0>(wcs)[i];
+          int info = ntohl(wc->data);
+          #else
           ibv_wc* wc = &std::get<0>(wcs)[i];
           if(wc->status) {
             spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
             continue;
           }
           int info = ntohl(wc->imm_data);
+          #endif
           int func_id = info & invocation_mask;
           int invoc_id = info >> 16;
           bool solicited = info & solicited_mask;
@@ -87,9 +93,15 @@ namespace server {
 
           // Measure hot polling time until we started execution
           auto now = std::chrono::high_resolution_clock::now();
+          #ifdef USE_LIBFABRIC
+          auto func_end = work(invoc_id, func_id, solicited,
+              wc->len - rdmalib::functions::Submission::DATA_HEADER_SIZE
+          );
+          #else
           auto func_end = work(invoc_id, func_id, solicited,
               wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE
           );
+          #endif
           _accounting.update_polling_time(start, now);
           i = 0;
           start = func_end;
@@ -112,7 +124,9 @@ namespace server {
         if(_polling_state != PollingState::HOT_ALWAYS && time_passed >= timeout) {
           _polling_state = PollingState::WARM;
           // FIXME: can we miss an event here?
+          #ifndef USE_LIBFABRIC
           conn->notify_events();
+          #endif
           SPDLOG_DEBUG("Switching to warm polling after {} us with no invocations", time_passed);
           return;
         }
@@ -135,12 +149,17 @@ namespace server {
         for(int i = 0; i < std::get<1>(wcs); ++i) {
 
           //server_processing_times.start();
+          #ifdef USE_LIBFABRIC
+          fi_cq_data_entry* wc = &std::get<0>(wcs)[i];
+          int info = ntohl(wc->data);
+          #else
           ibv_wc* wc = &std::get<0>(wcs)[i];
           if(wc->status) {
             spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
             continue;
           }
           int info = ntohl(wc->imm_data);
+          #endif
           int func_id = info & invocation_mask;
           bool solicited = info & solicited_mask;
           int invoc_id = info >> 16;
@@ -149,7 +168,11 @@ namespace server {
             id, invoc_id, func_id, repetitions
           );
 
+          #ifdef USE_LIBFABRIC
+          work(invoc_id, func_id, solicited, wc->len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
+          #else
           work(invoc_id, func_id, solicited, wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
+          #endif
 
           //sum += server_processing_times.end();
           conn->poll_wc(rdmalib::QueueType::SEND, true);
@@ -166,9 +189,13 @@ namespace server {
       // Do waiting after a single polling - avoid missing an events that
       // arrived before we called notify_events
       if(repetitions < max_repetitions) {
+        #ifdef USE_LIBFABRIC
+        conn->wait_events();
+        #else
         auto cq = conn->wait_events();
         conn->ack_events(cq, 1);
         conn->notify_events();
+        #endif
       }
     }
     SPDLOG_DEBUG("Thread {} Stopped warm polling", id);
@@ -179,7 +206,11 @@ namespace server {
     rdmalib::RDMAActive mgr_connection(_mgr_conn.addr, _mgr_conn.port, wc_buffer._rcv_buf_size, max_inline_data);
     mgr_connection.allocate();
     this->_mgr_connection = &mgr_connection.connection();
+    #ifdef USE_LIBFABRIC
+    _accounting_buf.register_memory(mgr_connection.pd(), FI_WRITE | FI_REMOTE_WRITE);
+    #else
     _accounting_buf.register_memory(mgr_connection.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
+    #endif
     if(!mgr_connection.connect(_mgr_conn.secret))
       return;
     spdlog::info("Thread {} Established connection to the manager!", id);
@@ -192,7 +223,11 @@ namespace server {
     this->conn = &active.connection();
     // Receive function data from the client - this WC must be posted first
     // We do it before connection to ensure that client does not start sending before us
+    #ifdef USE_LIBFABRIC
+    func_buffer.register_memory(active.pd(), FI_WRITE | FI_REMOTE_WRITE);
+    #else
     func_buffer.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    #endif
     this->conn->post_recv(func_buffer);
 
     // Request notification before connecting - avoid missing a WC!
@@ -204,21 +239,32 @@ namespace server {
     } else {
       _polling_state = PollingState::HOT;
     }
+    #ifndef USE_LIBFABRIC
     if(_polling_state == PollingState::WARM_ALWAYS || _polling_state == PollingState::WARM)
       conn->notify_events();
+    #endif
 
     if(!active.connect())
       return;
 
     // Now generic receives for function invocations
+    #ifdef USE_LIBFABRIC
+    send.register_memory(active.pd(), FI_WRITE);
+    rcv.register_memory(active.pd(), FI_WRITE | FI_REMOTE_WRITE);
+    #else
     send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    #endif
     this->wc_buffer.connect(this->conn);
     spdlog::info("Thread {} Established connection to client!", id);
 
     // Send to the client information about thread buffer
     rdmalib::Buffer<rdmalib::BufferInformation> buf(1);
+    #ifdef USE_LIBFABRIC
+    buf.register_memory(active.pd(), FI_WRITE);
+    #else
     buf.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
+    #endif
     buf.data()[0].r_addr = rcv.address();
     buf.data()[0].r_key = rcv.rkey();
     SPDLOG_DEBUG("Thread {} Sends buffer details to client!", id);
