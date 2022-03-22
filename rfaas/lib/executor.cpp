@@ -49,7 +49,11 @@ namespace rfaas {
     _invoc_id(0),
     _max_inlined_msg(max_inlined_msg)
   {
+    #ifdef USE_LIBFABRIC
+    _execs_buf.register_memory(_state.pd(), FI_WRITE | FI_REMOTE_WRITE);
+    #else
     _execs_buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    #endif
     events = 0;
     _active_polling = false;
     _end_requested = false;
@@ -74,7 +78,11 @@ namespace rfaas {
     rewind(file);
     rdmalib::Buffer<char> functions(len);
     rdmalib::impl::expect_true(fread(functions.data(), 1, len, file) == len);
+    #ifdef USE_LIBFABRIC
+    functions.register_memory(_state.pd(), FI_WRITE);
+    #else
     functions.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
+    #endif
     fclose(file);
 
     // FIXME: same function as in server/functions.cpp - merge?
@@ -136,7 +144,9 @@ namespace rfaas {
       }
       _exec_manager->disconnect();
       _exec_manager.reset(nullptr);
+      #ifndef USE_LIBFABRIC
       _state._cfg.attr.send_cq = _state._cfg.attr.recv_cq = 0;
+      #endif
 
       // Clear up old connections
       _connections.clear();
@@ -147,6 +157,9 @@ namespace rfaas {
   {
     // FIXME: hide the details in rdmalib
     spdlog::info("Background thread starts waiting for events");
+    #ifdef USE_LIBFABRIC
+    int rc;
+    #else
     _connections[0].conn->notify_events(true);
     int flags = fcntl(_connections[0].conn->completion_channel()->fd, F_GETFL);
     int rc = fcntl(_connections[0].conn->completion_channel()->fd, F_SETFL, flags | O_NONBLOCK);
@@ -154,8 +167,19 @@ namespace rfaas {
       fprintf(stderr, "Failed to change file descriptor of completion event channel\n");
       return;
     }
+    #endif
 
     while(!_end_requested && _connections.size()) {
+      #ifdef USE_LIBFABRIC
+      fi_cq_data_entry entry;
+      do {
+        rc = fi_wait(_connections[0].conn->wait_set(), 100);
+        if(_end_requested) {
+          spdlog::info("Background thread stops waiting for events");
+          return;
+        }
+      } while (rc != 0);
+      #else
       pollfd my_pollfd;
       my_pollfd.fd      = _connections[0].conn->completion_channel()->fd;
       my_pollfd.events  = POLLIN;
@@ -167,17 +191,24 @@ namespace rfaas {
           return;
         }
       } while (rc == 0);
+      #endif
       if (rc < 0) {
         fprintf(stderr, "poll failed\n");
         return;
       }
       if(!_end_requested) {
+        #ifndef USE_LIBFABRIC
         auto cq = _connections[0].conn->wait_events();
         _connections[0].conn->notify_events(true);
         _connections[0].conn->ack_events(cq, 1);
+        #endif
         auto wc = _connections[0]._rcv_buffer.poll(false);
         for(int i = 0; i < std::get<1>(wc); ++i) {
+          #ifdef USE_LIBFABRIC
+          uint32_t val = ntohl(std::get<0>(wc)[i].data);
+          #else
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
+          #endif
           int return_val = val & 0x0000FFFF;
           int finished_invoc_id = val >> 16;
           auto it = _futures.find(finished_invoc_id);
@@ -338,7 +369,11 @@ namespace rfaas {
     while(received < numcores) {
       auto wcs = this->_connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true); 
       for(int i = 0; i < std::get<1>(wcs); ++i) {
+        #ifdef USE_LIBFABRIC
+        int id = reinterpret_cast<uint64_t>(std::get<0>(wcs)[i].op_context);
+        #else
         int id = std::get<0>(wcs)[i].wr_id;
+        #endif
         SPDLOG_DEBUG(
           "Received buffer details for thread, addr {}, rkey {}",
           _execs_buf.data()[id].r_addr, _execs_buf.data()[id].r_key
@@ -355,7 +390,9 @@ namespace rfaas {
     _active_polling = false;
     // Ensure that we are able to process asynchronous replies
     // before we start any submissionk.
+    #ifndef USE_LIBFABRIC
     _connections[0].conn->notify_events(true);
+    #endif
     // FIXME: extend to multiple connections
     _background_thread.reset(
       new std::thread{

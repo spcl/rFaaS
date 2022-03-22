@@ -174,7 +174,11 @@ namespace rfaas {
       _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
 
       auto wc = _connections[0]._rcv_buffer.poll(true);
+      #ifdef USE_LIBFABRIC
+      uint32_t val = ntohl(std::get<0>(wc)[0].data);
+      #else
       uint32_t val = ntohl(std::get<0>(wc)[0].imm_data);
+      #endif
       int return_val = val & 0x0000FFFF;
       int finished_invoc_id = val >> 16;
       if(return_val == 0) {
@@ -229,14 +233,22 @@ namespace rfaas {
       while(!found_result) {
         auto wc = _connections[0]._rcv_buffer.poll(true);
         for(int i = 0; i < std::get<1>(wc); ++i) {
+          #ifdef USE_LIBFABRIC
+          uint32_t val = ntohl(std::get<0>(wc)[i].data);
+          #else
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
+          #endif
           int return_val = val & 0x0000FFFF;
           int finished_invoc_id = val >> 16;
 
           if(finished_invoc_id == invoc_id) {
             found_result = true;
             return_value = return_val;
+            #ifdef USE_LIBFABRIC
+            out_size = std::get<0>(wc)[i].len;
+            #else
             out_size = std::get<0>(wc)[i].byte_len;
+            #endif
             //spdlog::info("Result for id {}", finished_invoc_id);
           } else {
             auto it = _futures.find(finished_invoc_id);
@@ -255,7 +267,11 @@ namespace rfaas {
           // because we still hold the atomic
           // Thus, we later unset the variable since we're done
           for(int i = 0; i < std::get<1>(wc); ++i) {
+            #ifdef USE_LIBFABRIC
+            uint32_t val = ntohl(std::get<0>(wc)[i].data);
+            #else
             uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
+            #endif
             int return_val = val & 0x0000FFFF;
             int finished_invoc_id = val >> 16;
             auto it = _futures.find(finished_invoc_id);
@@ -323,7 +339,11 @@ namespace rfaas {
         auto wc = _connections[0]._rcv_buffer.poll(true);
         expected -= std::get<1>(wc);
         for(int i = 0; i < std::get<1>(wc); ++i) {
+          #ifdef USE_LIBFABRIC
+          uint32_t val = ntohl(std::get<0>(wc)[i].data);
+          #else
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
+          #endif
           int return_val = val & 0x0000FFFF;
           int finished_invoc_id = val >> 16;
           if(return_val == 0) {
