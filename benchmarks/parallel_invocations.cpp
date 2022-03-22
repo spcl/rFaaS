@@ -1,5 +1,6 @@
 
 #include <chrono>
+#include <rdma/fabric.h>
 #include <thread>
 
 #include <spdlog/spdlog.h>
@@ -72,7 +73,11 @@ int main(int argc, char ** argv)
   std::vector<rdmalib::Buffer<char>> out;
   for(int i = 0; i < opts.numcores; ++i) {
     in.emplace_back(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE);
+    #ifdef USE_LIBFABRIC
+    in.back().register_memory(executor._state.pd(), FI_WRITE);
+    #else
     in.back().register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
+    #endif
     memset(in.back().data(), 0, opts.input_size);
     for(int i = 0; i < opts.input_size; ++i) {
       ((char*)in.back().data())[i] = 1;
@@ -80,7 +85,11 @@ int main(int argc, char ** argv)
   }
   for(int i = 0; i < opts.numcores; ++i) {
     out.emplace_back(opts.input_size);
+    #ifdef USE_LIBFABRIC
+    out.back().register_memory(executor._state.pd(), FI_WRITE | FI_REMOTE_WRITE);
+    #else
     out.back().register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    #endif
   }
 
   rdmalib::Benchmarker<1> benchmarker{settings.benchmark.repetitions};

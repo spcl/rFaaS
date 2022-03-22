@@ -1,5 +1,6 @@
 
 #include <chrono>
+#include <rdma/fabric.h>
 #include <thread>
 #include <fstream>
 
@@ -68,10 +69,17 @@ int main(int argc, char ** argv)
   }
   rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
   rdmalib::Buffer<char> in2(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out2(opts.input_size);
+  #ifdef USE_LIBFABRIC
+  in.register_memory(executor._state.pd(), FI_WRITE);
+  out.register_memory(executor._state.pd(), FI_WRITE | FI_REMOTE_WRITE);
+  in2.register_memory(executor._state.pd(), FI_WRITE);
+  out2.register_memory(executor._state.pd(), FI_WRITE | FI_REMOTE_WRITE);
+  #else
   in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
   out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
   in2.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
   out2.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+  #endif
   std::vector<rdmalib::Buffer<char>> ins;
   ins.push_back(std::move(in));
   ins.push_back(std::move(in2));
