@@ -22,13 +22,13 @@ namespace rfaas::executor_manager {
   Manager::Manager(Settings & settings, bool skip_rm):
     _q1(100), _q2(100),
     _ids(0),
+    _state(settings.device->ip_address, settings.rdma_device_port,
+        settings.device->default_receive_buffer_size, true),
     _res_mgr_connection(
         settings.resource_manager_address,
         settings.resource_manager_port,
         settings.device->default_receive_buffer_size
     ),
-    _state(settings.device->ip_address, settings.rdma_device_port,
-        settings.device->default_receive_buffer_size, true),
     _settings(settings),
     // FIXME: randomly generated
     _secret(0x1234),

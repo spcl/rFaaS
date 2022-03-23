@@ -39,10 +39,13 @@ namespace rdmalib {
     // Set the hints to indicate that we will register the local buffers
     hints->mode |= FI_LOCAL_MR; 
     hints->addr_format = FI_SOCKADDR_IN; 
+    free(hints->fabric_attr->prov_name);
+    hints->fabric_attr->prov_name = strdup("sockets");
+    std::cout << ip.c_str() << ":" << std::to_string(port).c_str() << " " << passive << std::endl;
     if(passive) 
-      impl::expect_zero(fi_getinfo(FI_VERSION(1, 13), ip.c_str(), std::to_string(port).c_str(), FI_SOURCE, hints, &addrinfo));
+      impl::expect_zero(fi_getinfo(FI_VERSION(1, 5), ip.c_str(), std::to_string(port).c_str(), FI_SOURCE, hints, &addrinfo));
     else
-      impl::expect_zero(fi_getinfo(FI_VERSION(1, 13), nullptr, nullptr, 0, hints, &addrinfo));
+      impl::expect_zero(fi_getinfo(FI_VERSION(1, 5), nullptr, nullptr, 0, hints, &addrinfo));
     fi_freeinfo(hints);
     fi_fabric(addrinfo->fabric_attr, &fabric, nullptr);
     #else
@@ -79,7 +82,9 @@ namespace rdmalib {
     // Set the hints to have ability to conduct MSG, Atomic and RMA operations
     hints->caps |= FI_MSG | FI_RMA | FI_ATOMIC;
     // Set the hints to indicate that we will register the local buffers
-    hints->mode |= FI_LOCAL_MR;  
+    hints->mode |= FI_LOCAL_MR; 
+    free(hints->fabric_attr->prov_name);
+    hints->fabric_attr->prov_name = strdup("verbs"); 
     
     // Set addresses and their format
     hints->addr_format = FI_SOCKADDR_IN;
@@ -126,6 +131,8 @@ namespace rdmalib {
     _remote_addr.sin_family = AF_INET;
     _remote_addr.sin_port = htons(port);  
     inet_pton(AF_INET, ip.c_str(), &_remote_addr.sin_addr);
+    // Create a domain
+    impl::expect_zero(fi_domain(_addr.fabric, _addr.addrinfo, &_pd, nullptr));
     #else
     // Size of Queue Pair
     // Maximum requests in send queue
@@ -168,9 +175,6 @@ namespace rdmalib {
     if(!_conn) {
       _conn = std::unique_ptr<Connection>(new Connection());
       #ifdef USE_LIBFABRIC
-      // Create a domain
-      impl::expect_zero(fi_domain(_addr.fabric, _addr.addrinfo, &_pd, nullptr));
-
       // Create and enable the endpoint together with all the accompanying queues
       _conn->initialize(_addr.fabric, _pd, _addr.addrinfo, _ec);
       #else
@@ -327,7 +331,9 @@ namespace rdmalib {
     #endif
     _pd(nullptr)
   {
-    #ifndef USE_LIBFABRIC
+    #ifdef USE_LIBFABRIC
+    impl::expect_zero(fi_domain(_addr.fabric, _addr.addrinfo, &_pd, nullptr));
+    #else
     // Size of Queue Pair
     // FIXME: configurable -> parallel workers
     _cfg.attr.cap.max_send_wr = 40;
@@ -364,17 +370,18 @@ namespace rdmalib {
   {
     #ifdef USE_LIBFABRIC
     // Start listening
-    fi_eq_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.size = 42;
-    attr.wait_obj = FI_WAIT_UNSPEC;
-    impl::expect_zero(fi_eq_open(_addr.fabric, nullptr, &_ec, nullptr));
-    impl::expect_zero(fi_pep_bind(_pep, &_ec->fid, 0));
+    fi_eq_attr eq_attr;
+    memset(&eq_attr, 0, sizeof(eq_attr));
+    eq_attr.size = 42;
+    eq_attr.wait_obj = FI_WAIT_UNSPEC;
+    impl::expect_zero(fi_eq_open(_addr.fabric, &eq_attr, &_ec, NULL));
+    impl::expect_zero(fi_passive_ep(_addr.fabric, _addr.addrinfo, &_pep, NULL));
+    impl::expect_zero(fi_pep_bind(_pep, &(_ec->fid), 0));
     impl::expect_zero(fi_listen(_pep));
     char address[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, _addr.addrinfo->src_addr, address, INET_ADDRSTRLEN);
     spdlog::info(
-      "Listening on address ",
+      "Listening on address {}",
       address
     );
     #else

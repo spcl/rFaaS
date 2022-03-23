@@ -2,6 +2,8 @@
 #ifndef __RDMALIB_UTIL_HPP__
 #define __RDMALIB_UTIL_HPP__
 
+#include <cstring>
+#include <rdma/fi_errno.h>
 #include <spdlog/spdlog.h>
 
 namespace rdmalib { namespace impl {
@@ -15,7 +17,11 @@ namespace rdmalib { namespace impl {
   void expect_zero(U && u)
   {
     if(u) {
+      #ifdef USE_LIBFABRIC
+      spdlog::error("Expected zero, found: {}, message {}, errno {}, message {}", u, fi_strerror(u), errno, strerror(errno));
+      #else
       spdlog::error("Expected zero, found: {}, errno {}, message {}", u, errno, strerror(errno));
+      #endif
       traceback();
     }
     assert(!u);

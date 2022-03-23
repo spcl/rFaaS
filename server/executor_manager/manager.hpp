@@ -47,14 +47,15 @@ namespace rfaas::executor_manager {
     std::mutex clients;
     std::map<int, Client> _clients;
     int _ids;
+    
+    rdmalib::RDMAPassive _state;
+    //rdmalib::server::ServerStatus _status;
 
     //std::vector<Client> _clients;
     //std::atomic<int> _clients_active;
     rdmalib::RDMAActive _res_mgr_connection;
     //std::unique_ptr<rdmalib::Connection> _res_mgr_connection;
 
-    rdmalib::RDMAPassive _state;
-    //rdmalib::server::ServerStatus _status;
     Settings _settings;
     //rdmalib::Buffer<Accounting> _accounting_data;
     uint32_t _secret;
