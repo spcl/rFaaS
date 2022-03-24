@@ -10,6 +10,8 @@
 
 // FIXME: works only on Linux
 #include <sys/mman.h>
+#include <linux/memfd.h>
+#include <sys/syscall.h>
 #include <dlfcn.h>
 #include <elf.h>
 #include <link.h>
@@ -59,7 +61,11 @@ namespace server {
     _library_handle(nullptr)
   {
     // FIXME: works only on Linux
+    #ifdef USE_LIBFABRIC#ifdef USE_LIBFABRIC
+    rdmalib::impl::expect_nonnegative(_fd = syscall(SYS_memfd_create, "test", MFD_CLOEXEC));
+    #else
     rdmalib::impl::expect_nonnegative(_fd = memfd_create("libfunction", 0));
+    #endif
     rdmalib::impl::expect_zero(ftruncate(_fd, size));
 
     rdmalib::impl::expect_nonnull(
