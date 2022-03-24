@@ -1,5 +1,7 @@
 
+#ifndef USE_LIBFABRIC
 #include <infiniband/verbs.h>
+#endif
 
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/functions.hpp>
@@ -30,7 +32,11 @@ namespace rfaas {
       return false;
     }
     _rcv_buffer.connect(&_active.connection());
-    _allocation_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE); 
+    #ifdef USE_LIBFABRIC
+    _allocation_buffer.register_memory(_active.pd(), FI_WRITE | FI_REMOTE_WRITE);
+    #else
+    _allocation_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    #endif
     // Initialize batch receive WCs
     _active.connection().initialize_batched_recv(_allocation_buffer, sizeof(rdmalib::AllocationRequest));
     return ret;
