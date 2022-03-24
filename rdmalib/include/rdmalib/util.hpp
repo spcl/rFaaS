@@ -18,7 +18,7 @@ namespace rdmalib { namespace impl {
   {
     if(u) {
       #ifdef USE_LIBFABRIC
-      spdlog::error("Expected zero, found: {}, message {}, errno {}, message {}", u, fi_strerror(u), errno, strerror(errno));
+      spdlog::error("Expected zero, found: {}, message {}, errno {}, message {}", u, fi_strerror(std::abs(u)), errno, strerror(errno));
       #else
       spdlog::error("Expected zero, found: {}, errno {}, message {}", u, errno, strerror(errno));
       #endif

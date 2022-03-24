@@ -37,17 +37,12 @@ namespace rdmalib {
     // Set the hints to have ability to conduct MSG, Atomic and RMA operations
     hints->caps |= FI_MSG | FI_RMA | FI_ATOMIC;
     // Set the hints to indicate that we will register the local buffers
-    hints->mode |= FI_LOCAL_MR; 
-    hints->addr_format = FI_SOCKADDR_IN; 
-    free(hints->fabric_attr->prov_name);
-    hints->fabric_attr->prov_name = strdup("sockets");
-    std::cout << ip.c_str() << ":" << std::to_string(port).c_str() << " " << passive << std::endl;
-    if(passive) 
-      impl::expect_zero(fi_getinfo(FI_VERSION(1, 5), ip.c_str(), std::to_string(port).c_str(), FI_SOURCE, hints, &addrinfo));
-    else
-      impl::expect_zero(fi_getinfo(FI_VERSION(1, 5), nullptr, nullptr, 0, hints, &addrinfo));
+    hints->domain_attr->mr_mode = FI_MR_BASIC; // FI_MR_LOCAL | FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY;
+    hints->ep_attr->type = FI_EP_MSG;
+    hints->fabric_attr->prov_name = strdup("GNI");
+    impl::expect_zero(fi_getinfo(FI_VERSION(1, 9), ip.c_str(), std::to_string(port).c_str(), passive ? FI_SOURCE : 0, hints, &addrinfo));
     fi_freeinfo(hints);
-    fi_fabric(addrinfo->fabric_attr, &fabric, nullptr);
+    impl::expect_zero(fi_fabric(addrinfo->fabric_attr, &fabric, nullptr));
     #else
     memset(&hints, 0, sizeof hints);
     hints.ai_port_space = RDMA_PS_TCP;
@@ -57,6 +52,7 @@ namespace rdmalib {
     impl::expect_zero(rdma_getaddrinfo(ip.c_str(), std::to_string(port).c_str(), &hints, &addrinfo));
     #endif
     this->_port = port;
+    this->_ip = ip;
   }
 
   Address::Address(const std::string & sip,  const std::string & dip, int port)
@@ -109,12 +105,15 @@ namespace rdmalib {
     this->_port = port;
   }
 
+  Address::Address() {}
 
   Address::~Address()
   {
     #ifdef USE_LIBFABRIC
-    impl::expect_zero(fi_close(&fabric->fid));
-    fi_freeinfo(addrinfo);
+    if (fabric)
+      impl::expect_zero(fi_close(&fabric->fid));
+    if (addrinfo)
+      fi_freeinfo(addrinfo); 
     #else
     rdma_freeaddrinfo(addrinfo);
     #endif
@@ -127,10 +126,6 @@ namespace rdmalib {
     _pd(nullptr)
   {
     #ifdef USE_LIBFABRIC
-    memset(&_remote_addr, 0, sizeof(_remote_addr));
-    _remote_addr.sin_family = AF_INET;
-    _remote_addr.sin_port = htons(port);  
-    inet_pton(AF_INET, ip.c_str(), &_remote_addr.sin_addr);
     // Create a domain
     impl::expect_zero(fi_domain(_addr.fabric, _addr.addrinfo, &_pd, nullptr));
     #else
@@ -159,11 +154,15 @@ namespace rdmalib {
     SPDLOG_DEBUG("Create RDMAActive");
   }
 
+  RDMAActive::RDMAActive() {}
+
   RDMAActive::~RDMAActive()
   {
     #ifdef USE_LIBFABRIC
-    impl::expect_zero(fi_close(&_pd->fid));
-    impl::expect_zero(fi_close(&_ec->fid));
+    if (_pd)
+      impl::expect_zero(fi_close(&_pd->fid));
+    if (_ec)
+      impl::expect_zero(fi_close(&_ec->fid));
     #else
     //ibv_dealloc_pd(this->_pd);
     #endif
@@ -246,17 +245,15 @@ namespace rdmalib {
       paramlen = sizeof(secret);
       SPDLOG_DEBUG("Setting connection secret {} of length {}", secret, sizeof(uint32_t));
     }
-    if(fi_connect(_conn->qp(), &_remote_addr, param, paramlen)) {
-      spdlog::error("Connection unsuccesful, reason {} {}", errno, strerror(errno));
+    if(fi_connect(_conn->qp(), &_addr.addrinfo->dest_addr, param, paramlen)) {
+      spdlog::error("Connection unsuccessful, reason {} {}", errno, strerror(errno));
       _conn.reset();
       _pd = nullptr;
       return false;
     } else {
-      char address[INET_ADDRSTRLEN];
-      inet_ntop(AF_INET, &_remote_addr.sin_addr, address, INET_ADDRSTRLEN);
       spdlog::debug(
-        "[RDMAActive] Connection succesful to {}:{}",
-        address, _addr._port
+        "[RDMAActive] Connection successful to {}:{}",
+        _addr._ip, _addr._port
       );
     }
     #else
@@ -358,8 +355,12 @@ namespace rdmalib {
   RDMAPassive::~RDMAPassive()
   {
     #ifdef USE_LIBFABRIC
-    impl::expect_zero(fi_close(&_pd->fid));
-    impl::expect_zero(fi_close(&_ec->fid));
+    if (_pd)
+      impl::expect_zero(fi_close(&_pd->fid));
+    if (_pep)
+      impl::expect_zero(fi_close(&_pep->fid));
+    if (_ec)
+      impl::expect_zero(fi_close(&_ec->fid));
     #else
     rdma_destroy_id(this->_listen_id);
     rdma_destroy_event_channel(this->_ec);
@@ -374,16 +375,21 @@ namespace rdmalib {
     memset(&eq_attr, 0, sizeof(eq_attr));
     eq_attr.size = 42;
     eq_attr.wait_obj = FI_WAIT_UNSPEC;
-    impl::expect_zero(fi_eq_open(_addr.fabric, &eq_attr, &_ec, NULL));
     impl::expect_zero(fi_passive_ep(_addr.fabric, _addr.addrinfo, &_pep, NULL));
+    impl::expect_zero(fi_eq_open(_addr.fabric, &eq_attr, &_ec, NULL));
     impl::expect_zero(fi_pep_bind(_pep, &(_ec->fid), 0));
     impl::expect_zero(fi_listen(_pep));
-    char address[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, _addr.addrinfo->src_addr, address, INET_ADDRSTRLEN);
+    size_t size = 100;
+    char address[size];
+    impl::expect_zero(fi_getname(&_pep->fid, address, &size));
     spdlog::info(
-      "Listening on address {}",
-      address
+      "Listening on address length {}:",
+      size
     );
+    std::cout << "\b \b";
+    for(size_t i = 0; i < size; ++i)
+      std::cout << std::hex << (int)address[i];
+    std::cout << std::endl;
     #else
         // Start listening
     impl::expect_nonzero(this->_ec = rdma_create_event_channel());

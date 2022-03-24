@@ -24,19 +24,27 @@ namespace rfaas::executor_manager {
     _ids(0),
     _state(settings.device->ip_address, settings.rdma_device_port,
         settings.device->default_receive_buffer_size, true),
+    #ifndef USE_LIBFABRIC
     _res_mgr_connection(
         settings.resource_manager_address,
         settings.resource_manager_port,
         settings.device->default_receive_buffer_size
     ),
+    #endif
     _settings(settings),
     // FIXME: randomly generated
     _secret(0x1234),
     _skip_rm(skip_rm),
     _shutdown(false)
   {
-    if(!_skip_rm)
+    if(!_skip_rm) {
+      rdmalib::RDMAActive _res_mgr_connection(
+        settings.resource_manager_address,
+        settings.resource_manager_port,
+        settings.device->default_receive_buffer_size
+      );
       _res_mgr_connection.allocate();
+    }
   }
 
   void Manager::shutdown()

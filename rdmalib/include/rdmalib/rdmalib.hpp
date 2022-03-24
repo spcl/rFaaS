@@ -24,9 +24,10 @@ namespace rdmalib {
   // Implemented as IPV4
   struct Address {
     #ifdef USE_LIBFABRIC
-    fi_info* addrinfo;
-    fi_info* hints;
-    fid_fabric* fabric;
+    fi_info* addrinfo = nullptr;
+    fi_info* hints = nullptr;
+    fid_fabric* fabric = nullptr;
+    std::string _ip;
     #else
     rdma_addrinfo *addrinfo;
     rdma_addrinfo hints;
@@ -35,6 +36,7 @@ namespace rdmalib {
 
     Address(const std::string & ip, int port, bool passive);
     Address(const std::string & sip, const std::string & dip, int port);
+    Address();
 
     ~Address();
   };
@@ -46,15 +48,15 @@ namespace rdmalib {
     std::unique_ptr<Connection> _conn;
     Address _addr;
     #ifdef USE_LIBFABRIC
-    sockaddr_in _remote_addr;
-    fid_eq* _ec;
-    fid_domain* _pd;
+    fid_eq* _ec = nullptr;
+    fid_domain* _pd = nullptr;
     #else
     rdma_event_channel * _ec;
     ibv_pd* _pd;
     #endif
 
     RDMAActive(const std::string & ip, int port, int recv_buf = 1, int max_inline_data = 0);
+    RDMAActive();
     ~RDMAActive();
     void allocate();
     bool connect(uint32_t secret = 0);
@@ -74,9 +76,9 @@ namespace rdmalib {
     #endif
     Address _addr;
     #ifdef USE_LIBFABRIC
-    fid_eq* _ec;
-    fid_domain* _pd;
-    fid_pep* _pep;
+    fid_eq* _ec = nullptr;
+    fid_domain* _pd = nullptr;
+    fid_pep* _pep = nullptr;
     #else
     rdma_event_channel * _ec;
     rdma_cm_id* _listen_id;
