@@ -4,6 +4,7 @@
 #include <cstdint>
 // inet_ntoa
 #include <arpa/inet.h>
+#include <iterator>
 #include <netdb.h>
 
 // poll on file descriptors
@@ -126,7 +127,7 @@ namespace rdmalib {
     _pd(nullptr)
   {
     #ifdef USE_LIBFABRIC
-    // Create a domain
+    // Create a domain (need to do that now so that we can register memory for the domain)
     impl::expect_zero(fi_domain(_addr.fabric, _addr.addrinfo, &_pd, nullptr));
     #else
     // Size of Queue Pair
@@ -174,6 +175,12 @@ namespace rdmalib {
     if(!_conn) {
       _conn = std::unique_ptr<Connection>(new Connection());
       #ifdef USE_LIBFABRIC
+      // Enable the event queue
+      fi_eq_attr eq_attr;
+      memset(&eq_attr, 0, sizeof(eq_attr));
+      eq_attr.size = 42;
+      eq_attr.wait_obj = FI_WAIT_UNSPEC;
+      impl::expect_zero(fi_eq_open(_addr.fabric, &eq_attr, &_ec, NULL));
       // Create and enable the endpoint together with all the accompanying queues
       _conn->initialize(_addr.fabric, _pd, _addr.addrinfo, _ec);
       #else
@@ -245,16 +252,28 @@ namespace rdmalib {
       paramlen = sizeof(secret);
       SPDLOG_DEBUG("Setting connection secret {} of length {}", secret, sizeof(uint32_t));
     }
-    if(fi_connect(_conn->qp(), &_addr.addrinfo->dest_addr, param, paramlen)) {
-      spdlog::error("Connection unsuccessful, reason {} {}", errno, strerror(errno));
+    int ret = fi_connect(_conn->qp(), _addr.addrinfo->dest_addr, param, paramlen);
+    if(ret) {
+      spdlog::error("Connection unsuccessful, reason {} message {} errno {} message {}", ret, fi_strerror(ret), errno, strerror(errno));
       _conn.reset();
       _pd = nullptr;
       return false;
-    } else {
+    }
+    uint32_t event;
+    fi_eq_entry entry;
+    do {
+      ret = fi_eq_read(_ec, &event, &entry, sizeof(entry), 0);
+    } while (ret == -FI_EAGAIN);
+    if (event == FI_CONNECTED)
       spdlog::debug(
         "[RDMAActive] Connection successful to {}:{}",
         _addr._ip, _addr._port
       );
+    else {
+      spdlog::error("Connection unsuccessful, reason {} message {} errno {} message {}", ret, fi_strerror(ret), errno, strerror(errno));
+      _conn.reset();
+      _pd = nullptr;
+      return false;
     }
     #else
     if(secret) {
@@ -375,8 +394,8 @@ namespace rdmalib {
     memset(&eq_attr, 0, sizeof(eq_attr));
     eq_attr.size = 42;
     eq_attr.wait_obj = FI_WAIT_UNSPEC;
-    impl::expect_zero(fi_passive_ep(_addr.fabric, _addr.addrinfo, &_pep, NULL));
     impl::expect_zero(fi_eq_open(_addr.fabric, &eq_attr, &_ec, NULL));
+    impl::expect_zero(fi_passive_ep(_addr.fabric, _addr.addrinfo, &_pep, NULL));
     impl::expect_zero(fi_pep_bind(_pep, &(_ec->fid), 0));
     impl::expect_zero(fi_listen(_pep));
     size_t size = 100;
@@ -466,14 +485,17 @@ namespace rdmalib {
     ConnectionStatus status = ConnectionStatus::UNKNOWN;
 
     // Poll rdma cm events.
-    int ret = fi_eq_read(_ec, &event, &entry, sizeof(entry), 0);
-    if(ret < 0 && ret != -FI_EAGAIN && ret != -FI_EAVAIL) {
-      spdlog::error("Event poll unsuccesful, reason {} {}", errno, strerror(errno));
+    int ret;
+    do
+      ret = fi_eq_read(_ec, &event, &entry, sizeof(entry), 0);
+    while (ret == -FI_EAGAIN);
+    if(ret < 0) {
+      spdlog::error("Event poll unsuccessful, return {} message {} errno {} message {}", ret, fi_strerror(ret), errno, strerror(errno));
       return std::make_tuple(nullptr, ConnectionStatus::UNKNOWN);
     }
     SPDLOG_DEBUG(
-      "[RDMAPassive] received event: {}",
-      fi_tostr(&event, FI_TYPE_EQ_EVENT)
+      "[RDMAPassive] received event: {} in text {}",
+      event, fi_tostr(&event, FI_TYPE_EQ_EVENT)
     );
 
     switch (event) { 

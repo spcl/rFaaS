@@ -251,6 +251,7 @@ namespace server {
     #ifdef USE_LIBFABRIC
     send.register_memory(active.pd(), FI_WRITE);
     rcv.register_memory(active.pd(), FI_WRITE | FI_REMOTE_WRITE);
+    conn->initialize_batched_recv(rcv, 0);
     #else
     send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
@@ -267,7 +268,7 @@ namespace server {
     #endif
     buf.data()[0].r_addr = rcv.address();
     buf.data()[0].r_key = rcv.rkey();
-    SPDLOG_DEBUG("Thread {} Sends buffer details to client!", id);
+    SPDLOG_DEBUG("Thread {} Sends buffer details to client! Addr {} rkey {}", id, buf.data()[0].r_addr, buf.data()[0].r_key);
     this->conn->post_send(buf, 0, buf.size() <= max_inline_data);
     this->conn->poll_wc(rdmalib::QueueType::SEND, true, 1);
     SPDLOG_DEBUG("Thread {} Sent buffer details to client!", id);

@@ -31,7 +31,6 @@ namespace rfaas {
       spdlog::error("Couldn't connect to manager at {}:{}", _address, _port);
       return false;
     }
-    _rcv_buffer.connect(&_active.connection());
     #ifdef USE_LIBFABRIC
     _allocation_buffer.register_memory(_active.pd(), FI_WRITE | FI_REMOTE_WRITE);
     #else
@@ -39,6 +38,7 @@ namespace rfaas {
     #endif
     // Initialize batch receive WCs
     _active.connection().initialize_batched_recv(_allocation_buffer, sizeof(rdmalib::AllocationRequest));
+    _rcv_buffer.connect(&_active.connection());
     return ret;
   }
 

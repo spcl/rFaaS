@@ -337,7 +337,12 @@ namespace rfaas {
           conn,
           _rcv_buf_size
         );
+        #ifdef USE_LIBFABRIC
         this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, requested*obj_size), requested);
+        this->_connections.back().conn->initialize_batched_recv(_execs_buf, 0);
+        #else
+        this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, requested*obj_size), requested);
+        #endif
         // FIXME: this should be in a function
         // FIXME: here it won't work if rcv_bufer_size < numcores
         this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn.get());
@@ -375,8 +380,8 @@ namespace rfaas {
         int id = std::get<0>(wcs)[i].wr_id;
         #endif
         SPDLOG_DEBUG(
-          "Received buffer details for thread, addr {}, rkey {}",
-          _execs_buf.data()[id].r_addr, _execs_buf.data()[id].r_key
+          "Received buffer details for thread, id {}, addr {}, rkey {}",
+          id, _execs_buf.data()[id].r_addr, _execs_buf.data()[id].r_key
         );
         _connections[id].remote_input = rdmalib::RemoteBuffer(
           _execs_buf.data()[id].r_addr,
