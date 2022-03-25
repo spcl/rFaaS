@@ -9,7 +9,11 @@ namespace rdmalib { namespace functions {
 
   struct Submission {
     uint64_t r_address;
+    #ifdef USE_LIBFABRIC
+    uint64_t r_key;
+    #else
     uint32_t r_key;
+    #endif
     static constexpr int DATA_HEADER_SIZE = 12;
   };
 

@@ -379,6 +379,9 @@ namespace rfaas {
         #else
         int id = std::get<0>(wcs)[i].wr_id;
         #endif
+        for (int j = 0; j < _execs_buf.data_size(); j++)
+          std::cout << std::hex << ((char *)_execs_buf.data())[j];
+        std::cout << std::endl;
         SPDLOG_DEBUG(
           "Received buffer details for thread, id {}, addr {}, rkey {}",
           id, _execs_buf.data()[id].r_addr, _execs_buf.data()[id].r_key

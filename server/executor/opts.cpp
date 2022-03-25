@@ -29,7 +29,11 @@ namespace server {
       ("mgr-port", "Use selected port", cxxopts::value<int>())
       ("mgr-secret", "Use selected port", cxxopts::value<int>())
       ("mgr-buf-addr", "Use selected port", cxxopts::value<uint64_t>())
+      #ifdef USE_LIBFABRIC
+      ("mgr-buf-rkey", "Use selected port", cxxopts::value<uint64_t>())
+      #else
       ("mgr-buf-rkey", "Use selected port", cxxopts::value<uint32_t>())
+      #endif
     ;
     auto parsed_options = options.parse(argc, argv);
 

@@ -111,7 +111,7 @@ namespace rdmalib { namespace impl {
     impl::expect_zero(ret);
     SPDLOG_DEBUG(
       "Registered {} bytes, mr {}, address {}, lkey {}, rkey {}",
-      _bytes, fmt::ptr(_mr), fmt::ptr(_ptr), *(uint32_t *)fi_mr_desc(_mr), fi_mr_key(_mr)
+      _bytes, fmt::ptr(_mr), fmt::ptr(_ptr), fmt::ptr(fi_mr_desc(_mr)), fi_mr_key(_mr)
     );
   }
   #else
@@ -170,7 +170,7 @@ namespace rdmalib { namespace impl {
   #endif
 
   #ifdef USE_LIBFABRIC
-  uint32_t Buffer::rkey() const
+  uint64_t Buffer::rkey() const
   {
     assert(this->_mr);
     return fi_mr_key(this->_mr);
@@ -247,10 +247,18 @@ namespace rdmalib {
     size(0)
   {}
 
-  RemoteBuffer::RemoteBuffer(uintptr_t addr, uint32_t rkey, uint32_t size):
+  #ifdef USE_LIBFABRIC
+  RemoteBuffer::RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size):
     addr(addr),
     rkey(rkey),
     size(size)
   {}
+  #else
+    RemoteBuffer::RemoteBuffer(uintptr_t addr, uint32_t rkey, uint32_t size):
+    addr(addr),
+    rkey(rkey),
+    size(size)
+  {}
+  #endif
 
 }

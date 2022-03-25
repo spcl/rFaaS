@@ -485,7 +485,8 @@ namespace rdmalib {
     msg.addr = temp;
     msg.context = reinterpret_cast<void *>((uint64_t)id);
 
-    int ret = fi_writemsg(_qp, &msg, 0);
+    // int ret = fi_writemsg(_qp, &msg, 0);
+    int ret = fi_writev(_qp, elems.array(), elems.lkeys(), count, temp, msg.rma_iov->addr, msg.rma_iov->key, reinterpret_cast<void *>((uint64_t)id));
     if(ret) {
       spdlog::error("Post write unsuccessful, reason {} {}, sges_count {}, wr_id {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
         ret, strerror(ret), count, id,  msg.rma_iov->addr, msg.rma_iov->key, ntohl(msg.data), fmt::ptr(this)

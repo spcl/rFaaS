@@ -23,7 +23,11 @@ namespace rdmalib {
   struct BufferInformation
   {
     uint64_t r_addr;
+    #ifdef USE_LIBFABRIC
+    uint64_t r_key;
+    #else
     uint32_t r_key;
+    #endif
   };
 
 }

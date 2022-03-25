@@ -249,7 +249,7 @@ namespace server {
 
     // Now generic receives for function invocations
     #ifdef USE_LIBFABRIC
-    send.register_memory(active.pd(), FI_WRITE);
+    send.register_memory(active.pd(), FI_WRITE | FI_READ);
     rcv.register_memory(active.pd(), FI_WRITE | FI_REMOTE_WRITE);
     conn->initialize_batched_recv(rcv, 0);
     #else
@@ -262,7 +262,7 @@ namespace server {
     // Send to the client information about thread buffer
     rdmalib::Buffer<rdmalib::BufferInformation> buf(1);
     #ifdef USE_LIBFABRIC
-    buf.register_memory(active.pd(), FI_WRITE);
+    buf.register_memory(active.pd(), FI_WRITE | FI_READ);
     #else
     buf.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     #endif

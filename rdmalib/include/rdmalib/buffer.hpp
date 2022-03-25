@@ -64,7 +64,7 @@ namespace rdmalib {
       #else
       uint32_t lkey() const;
       #endif
-      uint32_t rkey() const;
+      uint64_t rkey() const;
       ScatterGatherElement sge(uint32_t size, uint32_t offset) const;
     };
 
@@ -72,12 +72,12 @@ namespace rdmalib {
 
   struct RemoteBuffer {
     uintptr_t addr;
-    uint32_t rkey;
+    uint64_t rkey;
     uint32_t size;
 
     RemoteBuffer();
     // When accessing the remote buffer, we might not need to know the size.
-    RemoteBuffer(uintptr_t addr, uint32_t rkey, uint32_t size = 0);
+    RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size = 0);
 
     template<class Archive>
     void serialize(Archive & ar)

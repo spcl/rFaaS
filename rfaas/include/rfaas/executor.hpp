@@ -98,7 +98,11 @@ namespace rfaas {
       char* data = static_cast<char*>(in.ptr());
       // TODO: we assume here uintptr_t is 8 bytes
       *reinterpret_cast<uint64_t*>(data) = out.address();
+      #ifdef USE_LIBFABRIC
+      *reinterpret_cast<uint64_t*>(data + 8) = out.rkey();
+      #else
       *reinterpret_cast<uint32_t*>(data + 8) = out.rkey();
+      #endif
 
       int invoc_id = this->_invoc_id++;
       //_futures[invoc_id] = std::move(std::promise<int>{});
@@ -151,7 +155,11 @@ namespace rfaas {
         char* data = static_cast<char*>(in[i].ptr());
         // TODO: we assume here uintptr_t is 8 bytes
         *reinterpret_cast<uint64_t*>(data) = out[i].address();
+        #ifdef USE_LIBFABRIC
+        *reinterpret_cast<uint64_t*>(data + 8) = out[i].rkey();
+        #else
         *reinterpret_cast<uint32_t*>(data + 8) = out[i].rkey();
+        #endif
 
         SPDLOG_DEBUG("Invoke function {} with invocation id {}", func_idx, _invoc_id);
         _connections[i].conn->post_write(
@@ -211,7 +219,11 @@ namespace rfaas {
       char* data = static_cast<char*>(in.ptr());
       // TODO: we assume here uintptr_t is 8 bytes
       *reinterpret_cast<uint64_t*>(data) = out.address();
+      #ifdef USE_LIBFABRIC
+      *reinterpret_cast<uint64_t*>(data + 8) = out.rkey();
+      #else
       *reinterpret_cast<uint32_t*>(data + 8) = out.rkey();
+      #endif
 
       int invoc_id = this->_invoc_id++;
       SPDLOG_DEBUG(
@@ -312,7 +324,11 @@ namespace rfaas {
         char* data = static_cast<char*>(in[i].ptr());
         // TODO: we assume here uintptr_t is 8 bytes
         *reinterpret_cast<uint64_t*>(data) = out[i].address();
+        #ifdef USE_LIBFABRIC
+        *reinterpret_cast<uint64_t*>(data + 8) = out[i].rkey();
+        #else
         *reinterpret_cast<uint32_t*>(data + 8) = out[i].rkey();
+        #endif
 
         SPDLOG_DEBUG("Invoke function {} with invocation id {}", func_idx, _invoc_id);
         _connections[i].conn->post_write(
