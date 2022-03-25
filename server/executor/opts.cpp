@@ -56,7 +56,11 @@ namespace server {
     result.mgr_port = parsed_options["mgr-port"].as<int>();
     result.mgr_secret = parsed_options["mgr-secret"].as<int>();
     result.accounting_buffer_addr = parsed_options["mgr-buf-addr"].as<uint64_t>();
+    #ifdef USE_LIBFABRIC
+    result.accounting_buffer_rkey = parsed_options["mgr-buf-rkey"].as<uint64_t>();
+    #else
     result.accounting_buffer_rkey = parsed_options["mgr-buf-rkey"].as<uint32_t>();
+    #endif
 
     std::string polling_mgr = parsed_options["polling-mgr"].as<std::string>();
     if(polling_mgr == "server") {

@@ -121,8 +121,10 @@ namespace rdmalib {
   #ifdef USE_LIBFABRIC
   void Connection::initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec)
   {
-    // Create the endpoint
+    // Create the endpoint and set its flags up so that we get completions on RDM
     impl::expect_zero(fi_endpoint(pd, info, &_qp, reinterpret_cast<void*>(this)));
+    uint64_t flags = FI_RECV | FI_COMPLETION;
+    impl::expect_zero(fi_control(&_qp->fid, FI_SETOPSFLAG, (void *)&flags));
 
     // Open the waitset
     fi_wait_attr wait_attr;
@@ -144,7 +146,7 @@ namespace rdmalib {
     // Connect the wait set to the receive queue
     cq_attr.wait_set = _wait_set;
     impl::expect_zero(fi_cq_open(pd, &cq_attr, &_rcv_channel, nullptr));
-    impl::expect_zero(fi_ep_bind(_qp, &_rcv_channel->fid, FI_RECV));
+    impl::expect_zero(fi_ep_bind(_qp, &_rcv_channel->fid, FI_RECV | FI_SELECTIVE_COMPLETION));
 
     // Enable the endpoint
     impl::expect_zero(fi_enable(_qp));
@@ -476,17 +478,21 @@ namespace rdmalib {
     fi_addr_t temp = 0;
     int32_t id = _req_count++;
     size_t count = elems.size();
-    if(elems.size() == 1 && elems.array()[0].iov_len == 0)
+    if(elems.size() == 1 && elems.array()[0].iov_len == 0) {
       count = 0;
+      SPDLOG_DEBUG(
+          "Zero elems"
+      );
+    }
 
     msg.msg_iov = elems.array();
     msg.desc = elems.lkeys();
     msg.iov_count = count;
     msg.addr = temp;
     msg.context = reinterpret_cast<void *>((uint64_t)id);
+    msg.data = 100;
 
-    // int ret = fi_writemsg(_qp, &msg, 0);
-    int ret = fi_writev(_qp, elems.array(), elems.lkeys(), count, temp, msg.rma_iov->addr, msg.rma_iov->key, reinterpret_cast<void *>((uint64_t)id));
+    int ret = fi_writemsg(_qp, &msg, FI_COMPLETION);
     if(ret) {
       spdlog::error("Post write unsuccessful, reason {} {}, sges_count {}, wr_id {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
         ret, strerror(ret), count, id,  msg.rma_iov->addr, msg.rma_iov->key, ntohl(msg.data), fmt::ptr(this)
