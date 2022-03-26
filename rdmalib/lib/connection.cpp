@@ -123,8 +123,6 @@ namespace rdmalib {
   {
     // Create the endpoint and set its flags up so that we get completions on RDM
     impl::expect_zero(fi_endpoint(pd, info, &_qp, reinterpret_cast<void*>(this)));
-    uint64_t flags = FI_RECV | FI_COMPLETION;
-    impl::expect_zero(fi_control(&_qp->fid, FI_SETOPSFLAG, (void *)&flags));
 
     // Open the waitset
     fi_wait_attr wait_attr;
@@ -146,7 +144,7 @@ namespace rdmalib {
     // Connect the wait set to the receive queue
     cq_attr.wait_set = _wait_set;
     impl::expect_zero(fi_cq_open(pd, &cq_attr, &_rcv_channel, nullptr));
-    impl::expect_zero(fi_ep_bind(_qp, &_rcv_channel->fid, FI_RECV | FI_SELECTIVE_COMPLETION));
+    impl::expect_zero(fi_ep_bind(_qp, &_rcv_channel->fid, FI_RECV));
 
     // Enable the endpoint
     impl::expect_zero(fi_enable(_qp));
@@ -478,35 +476,34 @@ namespace rdmalib {
     fi_addr_t temp = 0;
     int32_t id = _req_count++;
     size_t count = elems.size();
-    if(elems.size() == 1 && elems.array()[0].iov_len == 0) {
-      count = 0;
-      SPDLOG_DEBUG(
-          "Zero elems"
-      );
-    }
-
+    // if(elems.size() == 1 && elems.array()[0].iov_len == 0) {
+    //   count = 0;
+    //   SPDLOG_DEBUG(
+    //       "Zero elems"
+    //   );
+    // }
     msg.msg_iov = elems.array();
     msg.desc = elems.lkeys();
     msg.iov_count = count;
     msg.addr = temp;
     msg.context = reinterpret_cast<void *>((uint64_t)id);
-    msg.data = 100;
-
-    int ret = fi_writemsg(_qp, &msg, FI_COMPLETION);
+    if (msg.data == 0)
+      spdlog::error("Data equal to zero will result in no completion on the receiver side!");
+    int ret = fi_writemsg(_qp, &msg, FI_COMPLETION | FI_REMOTE_CQ_DATA);
     if(ret) {
       spdlog::error("Post write unsuccessful, reason {} {}, sges_count {}, wr_id {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
-        ret, strerror(ret), count, id,  msg.rma_iov->addr, msg.rma_iov->key, ntohl(msg.data), fmt::ptr(this)
+        ret, strerror(ret), count, id,  msg.rma_iov->addr, msg.rma_iov->key, msg.data, fmt::ptr(this)
       );
       return -1;
     }
     if(elems.size() > 0)
       SPDLOG_DEBUG(
           "Post write succesfull id: {}, sge size: {}, first lkey {} len {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
-          count, elems.size(), elems.lkeys()[0], elems.array()[0].iov_len, msg.rma_iov->addr, msg.rma_iov->key, ntohl(msg.data), fmt::ptr(this)
+          count, elems.size(), elems.lkeys()[0], elems.array()[0].iov_len, msg.rma_iov->addr, msg.rma_iov->key, msg.data, fmt::ptr(this)
       );
     else
       SPDLOG_DEBUG(
-          "Post write succesfull id: {}, remote addr {}, remote rkey {}, imm data {}, connection {}", id,  msg.rma_iov->addr, msg.rma_iov->key, ntohl(msg.data), fmt::ptr(this)
+          "Post write succesfull id: {}, remote addr {}, remote rkey {}, imm data {}, connection {}", id,  msg.rma_iov->addr, msg.rma_iov->key, msg.data, fmt::ptr(this)
       );
     return _req_count - 1;
 
@@ -561,6 +558,8 @@ namespace rdmalib {
     iov.len = rbuf.size;
     msg.rma_iov = &iov;
     msg.rma_iov_count = 1;
+    // Add constant ignored at the other end as a data equal to zero here does not generate the completion event
+    msg.data = 0x1;
     return _post_write(std::forward<ScatterGatherElement>(elems), msg, force_inline, false);
     #else
     ibv_send_wr wr;
@@ -583,7 +582,7 @@ namespace rdmalib {
     iov.len = rbuf.size;
     msg.rma_iov = &iov;
     msg.rma_iov_count = 1;
-    msg.data = htonl(immediate);
+    msg.data = ((uint64_t) immediate << 32) + 0x1;
     return _post_write(std::forward<ScatterGatherElement>(elems), msg, force_inline, force_solicited);
     #else
     ibv_send_wr wr;

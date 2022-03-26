@@ -39,8 +39,10 @@ namespace rdmalib {
     hints->caps |= FI_MSG | FI_RMA | FI_ATOMIC | FI_RMA_EVENT;
     // Set the hints to indicate that we will register the local buffers
     hints->domain_attr->mr_mode = FI_MR_BASIC; // FI_MR_LOCAL | FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY;
-    hints->ep_attr->type = FI_EP_MSG;
-    hints->fabric_attr->prov_name = strdup("GNI");
+    hints->ep_attr->type = FI_EP_UNSPEC;
+    hints->tx_attr->caps = FI_MSG | FI_RMA | FI_ATOMIC;
+    hints->rx_attr->caps = FI_MSG | FI_RMA | FI_ATOMIC;
+    hints->fabric_attr->prov_name = strdup("sockets");
     impl::expect_zero(fi_getinfo(FI_VERSION(1, 9), ip.c_str(), std::to_string(port).c_str(), passive ? FI_SOURCE : 0, hints, &addrinfo));
     fi_freeinfo(hints);
     impl::expect_zero(fi_fabric(addrinfo->fabric_attr, &fabric, nullptr));
@@ -398,17 +400,6 @@ namespace rdmalib {
     impl::expect_zero(fi_passive_ep(_addr.fabric, _addr.addrinfo, &_pep, NULL));
     impl::expect_zero(fi_pep_bind(_pep, &(_ec->fid), 0));
     impl::expect_zero(fi_listen(_pep));
-    size_t size = 100;
-    char address[size];
-    impl::expect_zero(fi_getname(&_pep->fid, address, &size));
-    spdlog::info(
-      "Listening on address length {}:",
-      size
-    );
-    std::cout << "\b \b";
-    for(size_t i = 0; i < size; ++i)
-      std::cout << std::hex << (int)address[i];
-    std::cout << std::endl;
     #else
         // Start listening
     impl::expect_nonzero(this->_ec = rdma_create_event_channel());

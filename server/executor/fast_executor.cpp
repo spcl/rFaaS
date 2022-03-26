@@ -74,7 +74,7 @@ namespace server {
           //server_processing_times.start();
           #ifdef USE_LIBFABRIC
           fi_cq_data_entry* wc = &std::get<0>(wcs)[i];
-          int info = ntohl(wc->data);
+          int info = wc->data >> 32;
           #else
           ibv_wc* wc = &std::get<0>(wcs)[i];
           if(wc->status) {
@@ -151,7 +151,7 @@ namespace server {
           //server_processing_times.start();
           #ifdef USE_LIBFABRIC
           fi_cq_data_entry* wc = &std::get<0>(wcs)[i];
-          int info = ntohl(wc->data);
+          int info = wc->data >> 32;
           #else
           ibv_wc* wc = &std::get<0>(wcs)[i];
           if(wc->status) {

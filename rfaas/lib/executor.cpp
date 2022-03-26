@@ -46,7 +46,11 @@ namespace rfaas {
     _port(port),
     _rcv_buf_size(rcv_buf_size),
     _executions(0),
+    #ifdef USE_LIBFABRIC
+    _invoc_id(1),
+    #else
     _invoc_id(0),
+    #endif
     _max_inlined_msg(max_inlined_msg)
   {
     #ifdef USE_LIBFABRIC
@@ -205,7 +209,7 @@ namespace rfaas {
         auto wc = _connections[0]._rcv_buffer.poll(false);
         for(int i = 0; i < std::get<1>(wc); ++i) {
           #ifdef USE_LIBFABRIC
-          uint32_t val = ntohl(std::get<0>(wc)[i].data);
+          uint32_t val = std::get<0>(wc)[i].data >> 32;
           #else
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
           #endif
