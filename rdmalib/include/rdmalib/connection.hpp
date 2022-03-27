@@ -149,7 +149,7 @@ namespace rdmalib {
     #endif
   private:
     #ifdef USE_LIBFABRIC
-    int32_t _post_write(ScatterGatherElement && elems, fi_msg_rma & msg, bool force_inline, bool force_solicited);
+    int32_t _post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, const uint32_t immediate = 0);
     #else
     int32_t _post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
     #endif

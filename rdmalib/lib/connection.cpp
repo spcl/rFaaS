@@ -1,5 +1,6 @@
 
 #include <asm-generic/errno-base.h>
+#include <cstdint>
 #include <rdma/fi_cm.h>
 #include <rdma/fi_domain.h>
 #include <rdma/fi_errno.h>
@@ -471,39 +472,27 @@ namespace rdmalib {
   #endif
 
   #ifdef USE_LIBFABRIC
-  int32_t Connection::_post_write(ScatterGatherElement && elems, fi_msg_rma &msg, bool force_inline, bool force_solicited)
+  int32_t Connection::_post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, const uint32_t immediate)
   {
     fi_addr_t temp = 0;
     int32_t id = _req_count++;
     size_t count = elems.size();
-    // if(elems.size() == 1 && elems.array()[0].iov_len == 0) {
-    //   count = 0;
-    //   SPDLOG_DEBUG(
-    //       "Zero elems"
-    //   );
-    // }
-    msg.msg_iov = elems.array();
-    msg.desc = elems.lkeys();
-    msg.iov_count = count;
-    msg.addr = temp;
-    msg.context = reinterpret_cast<void *>((uint64_t)id);
-    if (msg.data == 0)
-      spdlog::error("Data equal to zero will result in no completion on the receiver side!");
-    int ret = fi_writemsg(_qp, &msg, FI_COMPLETION | FI_REMOTE_CQ_DATA);
+    uint64_t data = immediate + (elems.array()[0].iov_len << 32);
+    int ret = fi_writedata(_qp, elems.array()[0].iov_base, elems.array()[0].iov_len, elems.lkeys()[0], data, temp, rbuf.addr, rbuf.rkey, reinterpret_cast<void *>((uint64_t)id));
     if(ret) {
       spdlog::error("Post write unsuccessful, reason {} {}, sges_count {}, wr_id {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
-        ret, strerror(ret), count, id,  msg.rma_iov->addr, msg.rma_iov->key, msg.data, fmt::ptr(this)
+        ret, strerror(ret), count, id,  rbuf.addr, rbuf.rkey, data, fmt::ptr(this)
       );
       return -1;
     }
     if(elems.size() > 0)
       SPDLOG_DEBUG(
           "Post write succesfull id: {}, sge size: {}, first lkey {} len {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
-          count, elems.size(), elems.lkeys()[0], elems.array()[0].iov_len, msg.rma_iov->addr, msg.rma_iov->key, msg.data, fmt::ptr(this)
+          count, count, elems.lkeys()[0], elems.array()[0].iov_len, rbuf.addr, rbuf.rkey, data, fmt::ptr(this)
       );
     else
       SPDLOG_DEBUG(
-          "Post write succesfull id: {}, remote addr {}, remote rkey {}, imm data {}, connection {}", id,  msg.rma_iov->addr, msg.rma_iov->key, msg.data, fmt::ptr(this)
+          "Post write succesfull id: {}, remote addr {}, remote rkey {}, imm data {}, connection {}", id,  rbuf.addr, rbuf.rkey, data, fmt::ptr(this)
       );
     return _req_count - 1;
 
@@ -550,17 +539,11 @@ namespace rdmalib {
   int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, bool force_inline)
   {
     #ifdef USE_LIBFABRIC
-    fi_msg_rma msg;
-    fi_rma_iov iov;
-    memset(&msg, 0, sizeof(msg));
-    iov.addr = rbuf.addr;
-    iov.key = rbuf.rkey;
-    iov.len = rbuf.size;
-    msg.rma_iov = &iov;
-    msg.rma_iov_count = 1;
-    // Add constant ignored at the other end as a data equal to zero here does not generate the completion event
-    msg.data = 0x1;
-    return _post_write(std::forward<ScatterGatherElement>(elems), msg, force_inline, false);
+    if (elems.size() > 1) {
+      spdlog::error("Post write unsuccessful on connection {}, reason Function not implemented for multiple sges.", fmt::ptr(this));
+      return -1;
+    }
+    return _post_write(std::forward<ScatterGatherElement>(elems), rbuf);
     #else
     ibv_send_wr wr;
     memset(&wr, 0, sizeof(wr));
@@ -574,16 +557,11 @@ namespace rdmalib {
   int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint32_t immediate, bool force_inline, bool force_solicited)
   {
     #ifdef USE_LIBFABRIC
-    fi_msg_rma msg;
-    fi_rma_iov iov;
-    memset(&msg, 0, sizeof(msg));
-    iov.addr = rbuf.addr;
-    iov.key = rbuf.rkey;
-    iov.len = rbuf.size;
-    msg.rma_iov = &iov;
-    msg.rma_iov_count = 1;
-    msg.data = ((uint64_t) immediate << 32) + 0x1;
-    return _post_write(std::forward<ScatterGatherElement>(elems), msg, force_inline, force_solicited);
+    if (elems.size() > 1) {
+      spdlog::error("Post write unsuccessful on connection {}, reason Function not implemented for multiple sges.", fmt::ptr(this));
+      return -1;
+    }
+    return _post_write(std::forward<ScatterGatherElement>(elems), rbuf, immediate);
     #else
     ibv_send_wr wr;
     memset(&wr, 0, sizeof(wr));

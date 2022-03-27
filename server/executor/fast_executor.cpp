@@ -74,7 +74,10 @@ namespace server {
           //server_processing_times.start();
           #ifdef USE_LIBFABRIC
           fi_cq_data_entry* wc = &std::get<0>(wcs)[i];
-          int info = wc->data >> 32;
+          int func_id = wc->data & invocation_mask;
+          int invoc_id = (wc->data >> 16) & 0x0000FFFF;
+          bool solicited = wc->data & solicited_mask;
+          int len = wc->data >> 32;
           #else
           ibv_wc* wc = &std::get<0>(wcs)[i];
           if(wc->status) {
@@ -82,10 +85,10 @@ namespace server {
             continue;
           }
           int info = ntohl(wc->imm_data);
-          #endif
           int func_id = info & invocation_mask;
           int invoc_id = info >> 16;
           bool solicited = info & solicited_mask;
+          #endif
           SPDLOG_DEBUG(
             "Thread {} Invoc id {} Execute func {} Repetition {}",
             id, invoc_id, func_id, repetitions
@@ -95,7 +98,7 @@ namespace server {
           auto now = std::chrono::high_resolution_clock::now();
           #ifdef USE_LIBFABRIC
           auto func_end = work(invoc_id, func_id, solicited,
-              wc->len - rdmalib::functions::Submission::DATA_HEADER_SIZE
+              len - rdmalib::functions::Submission::DATA_HEADER_SIZE
           );
           #else
           auto func_end = work(invoc_id, func_id, solicited,
@@ -151,7 +154,10 @@ namespace server {
           //server_processing_times.start();
           #ifdef USE_LIBFABRIC
           fi_cq_data_entry* wc = &std::get<0>(wcs)[i];
-          int info = wc->data >> 32;
+          int func_id = wc->data & invocation_mask;
+          int invoc_id = (wc->data >> 16) & 0x0000FFFF;
+          bool solicited = wc->data & solicited_mask;
+          int len = wc->data >> 32;
           #else
           ibv_wc* wc = &std::get<0>(wcs)[i];
           if(wc->status) {
@@ -159,17 +165,17 @@ namespace server {
             continue;
           }
           int info = ntohl(wc->imm_data);
-          #endif
           int func_id = info & invocation_mask;
           bool solicited = info & solicited_mask;
           int invoc_id = info >> 16;
+          #endif
           SPDLOG_DEBUG(
             "Thread {} Invoc id {} Execute func {} Repetition {}",
             id, invoc_id, func_id, repetitions
           );
 
           #ifdef USE_LIBFABRIC
-          work(invoc_id, func_id, solicited, wc->len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
+          work(invoc_id, func_id, solicited, len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
           #else
           work(invoc_id, func_id, solicited, wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
           #endif

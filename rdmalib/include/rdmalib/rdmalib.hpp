@@ -106,14 +106,6 @@ namespace rdmalib {
     void accept(Connection* connection);
     void set_nonblocking_poll();
   };
-
-  #ifdef USE_LIBFABRIC
-  struct eventEntry {
-    fid_t fid;
-    struct fi_info *info;
-    uint32_t secret;
-  };
-  #endif
 }
 
 #endif

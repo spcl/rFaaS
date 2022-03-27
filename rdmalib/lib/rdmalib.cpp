@@ -4,12 +4,14 @@
 #include <cstdint>
 // inet_ntoa
 #include <arpa/inet.h>
+#include <cstdlib>
 #include <iterator>
 #include <netdb.h>
 
 // poll on file descriptors
 #include <poll.h>
 #include <fcntl.h>
+#include <rdma/fi_endpoint.h>
 
 #ifdef USE_LIBFABRIC
 #include <rdma/fabric.h>
@@ -250,7 +252,7 @@ namespace rdmalib {
     if(secret) {
       param = &secret;
       paramlen = sizeof(secret);
-      SPDLOG_DEBUG("Setting connection secret {} of length {}", secret, sizeof(uint32_t));
+      SPDLOG_DEBUG("Setting connection secret {} of length {}", *param, paramlen);
     }
     int ret = fi_connect(_conn->qp(), _addr.addrinfo->dest_addr, param, paramlen);
     if(ret) {
@@ -469,14 +471,16 @@ namespace rdmalib {
   {
     #ifdef USE_LIBFABRIC
     uint32_t event;
-    eventEntry entry;
+    // Need those additional bytes in fi_eq_cm_entry so that we can transfer the secret
+    int total_size = sizeof(fi_eq_cm_entry) + sizeof(uint32_t);
+    fi_eq_cm_entry *entry = (fi_eq_cm_entry *)malloc(total_size);
   	Connection* connection = nullptr;
     ConnectionStatus status = ConnectionStatus::UNKNOWN;
 
     // Poll rdma cm events.
     int ret;
     do
-      ret = fi_eq_read(_ec, &event, &entry, sizeof(entry), 0);
+      ret = fi_eq_read(_ec, &event, entry, total_size, 0);
     while (ret == -FI_EAGAIN);
     if(ret < 0) {
       spdlog::error("Event poll unsuccessful, return {} message {} errno {} message {}", ret, fi_strerror(ret), errno, strerror(errno));
@@ -491,9 +495,11 @@ namespace rdmalib {
       case FI_CONNREQ:
         connection = new Connection{true};
 
+        SPDLOG_DEBUG("[RDMAPassive] Connection request with ret {}", ret);
+
         // Read the secret
-        if(ret == sizeof(entry)) {
-          uint32_t data = *reinterpret_cast<const uint32_t*>(entry.secret);
+        if(ret == total_size) {
+          uint32_t data = *reinterpret_cast<const uint32_t*>(entry->data);
           connection->set_private_data(data);
           SPDLOG_DEBUG("[RDMAPassive] Connection request with private data {}", data);
         }
@@ -501,15 +507,18 @@ namespace rdmalib {
           SPDLOG_DEBUG("[RDMAPassive] Connection request with no private data");
 
         // Check if we have a domain open for the connection already
-        if (!entry.info->domain_attr->domain)
-          fi_domain(_addr.fabric, entry.info, &_pd, NULL);
+        // if (!entry.info->domain_attr->domain)
+        //  fi_domain(_addr.fabric, entry.info, &_pd, NULL);
 
         // Enable the endpoint
-        connection->initialize(_addr.fabric, _pd, entry.info, _ec);
+        connection->initialize(_addr.fabric, _pd, entry->info, _ec);
         SPDLOG_DEBUG(
           "[RDMAPassive] Created connection fid {} qp {}",
           fmt::ptr(connection->id()), fmt::ptr(&connection->qp()->fid)
         );
+
+        // Free the info
+        fi_freeinfo(entry->info);
 
         status = ConnectionStatus::REQUESTED;
         _active_connections.insert(connection);
@@ -517,17 +526,17 @@ namespace rdmalib {
       case FI_CONNECTED:
         SPDLOG_DEBUG(
           "[RDMAPassive] Connection is established for id {}, and connection {}",
-          fmt::ptr(entry.fid), fmt::ptr(entry.fid->context)
+          fmt::ptr(entry->fid), fmt::ptr(entry->fid->context)
         );
-        connection = reinterpret_cast<Connection*>(entry.fid->context);
+        connection = reinterpret_cast<Connection*>(entry->fid->context);
         status = ConnectionStatus::ESTABLISHED;
         break;
       case FI_SHUTDOWN:
         SPDLOG_DEBUG(
           "[RDMAPassive] Disconnect for id {}, and connection {}",
-          fmt::ptr(entry.fid), fmt::ptr(entry.fid->context)
+          fmt::ptr(entry->fid), fmt::ptr(entry->fid->context)
         );
-        connection = reinterpret_cast<Connection*>(entry.fid->context);
+        connection = reinterpret_cast<Connection*>(entry->fid->context);
         //connection->close();
         status = ConnectionStatus::DISCONNECTED;
         _active_connections.erase(connection);
@@ -635,7 +644,7 @@ namespace rdmalib {
   void RDMAPassive::accept(Connection* connection) {
     #ifdef USE_LIBFABRIC
     if(fi_accept(connection->qp(), nullptr, 0)) {
-      spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
+      spdlog::error("Conection accept unsuccessful, reason {} {}", errno, strerror(errno));
       connection = nullptr;
     }
     #else

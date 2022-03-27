@@ -246,22 +246,25 @@ namespace rfaas {
         auto wc = _connections[0]._rcv_buffer.poll(true);
         for(int i = 0; i < std::get<1>(wc); ++i) {
           #ifdef USE_LIBFABRIC
-          uint32_t val = std::get<0>(wc)[i].data >> 32;
+          uint64_t val = std::get<0>(wc)[i].data;
+          int return_val = val & 0x0000FFFF;
+          int finished_invoc_id = val >> 16 & 0x0000FFFF;
+          int len = val >> 32;
           #else
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
-          #endif
           int return_val = val & 0x0000FFFF;
           int finished_invoc_id = val >> 16;
+          #endif
 
           if(finished_invoc_id == invoc_id) {
             found_result = true;
             return_value = return_val;
             #ifdef USE_LIBFABRIC
-            out_size = std::get<0>(wc)[i].len;
+            out_size = len;
             #else
             out_size = std::get<0>(wc)[i].byte_len;
             #endif
-            spdlog::info("Result {} for id {}", return_val, finished_invoc_id);
+            // spdlog::info("Result {} for id {}", return_val, finished_invoc_id);
           } else {
             auto it = _futures.find(finished_invoc_id);
             //spdlog::info("Poll Future for id {}", finished_invoc_id);
