@@ -1,5 +1,6 @@
 
 #include <asm-generic/errno-base.h>
+#include <cstddef>
 #include <cstdint>
 #include <rdma/fi_cm.h>
 #include <rdma/fi_domain.h>
@@ -176,15 +177,24 @@ namespace rdmalib {
     #ifdef USE_LIBFABRIC
     SPDLOG_DEBUG("Connection close called for {} with qp fid {}", fmt::ptr(this), fmt::ptr(&this->_qp->fid));
     // We need to close the transmit and receive channels and the endpoint
-    if (_rcv_channel)
-      impl::expect_zero(fi_close(&_rcv_channel->fid));
-    if (_trx_channel)
-      impl::expect_zero(fi_close(&_trx_channel->fid));
-    if (_wait_set)
-      impl::expect_zero(fi_close(&_wait_set->fid));
-    if (_qp) {
-      impl::expect_zero(fi_shutdown(_qp, 0));
-      impl::expect_zero(fi_close(&_qp->fid));
+    if (_status != ConnectionStatus::DISCONNECTED) {
+      if (_rcv_channel) {
+        impl::expect_zero(fi_close(&_rcv_channel->fid));
+        _rcv_channel = nullptr;
+      }
+      if (_trx_channel) {
+        impl::expect_zero(fi_close(&_trx_channel->fid));
+        _trx_channel = nullptr;
+      }
+      if (_wait_set) {
+        impl::expect_zero(fi_close(&_wait_set->fid));
+        _wait_set = nullptr;
+      }
+      if (_qp) {
+        impl::expect_zero(fi_shutdown(_qp, 0));
+        impl::expect_zero(fi_close(&_qp->fid));
+        _qp = nullptr;
+      }
       _status = ConnectionStatus::DISCONNECTED;
     }
     #else
