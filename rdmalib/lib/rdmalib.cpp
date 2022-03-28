@@ -309,6 +309,7 @@ namespace rdmalib {
     #ifdef USE_LIBFABRIC
     // TODO: Add the disconnectin id
     spdlog::debug("[RDMAActive] Disconnecting connection with id {}", fmt::ptr(&_conn->qp()->fid));
+    _conn->close();
     _conn.reset();
     _pd = nullptr;
     #else

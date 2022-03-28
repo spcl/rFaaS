@@ -58,7 +58,11 @@ namespace server {
     int mgr_port;
     int mgr_secret;
     uint64_t accounting_buffer_addr;
+    #ifdef USE_LIBFABRIC
+    uint64_t accounting_buffer_rkey;
+    #else
     uint32_t accounting_buffer_rkey;
+    #endif
   };
 
   Options opts(int argc, char ** argv);

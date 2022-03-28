@@ -137,7 +137,11 @@ namespace rdmalib {
       bool solicited = false
     );
     int32_t post_cas(ScatterGatherElement && elems, const RemoteBuffer & buf, uint64_t compare, uint64_t swap);
+    #ifdef USE_LIBFABRIC
+    int32_t post_atomic_fadd(const Buffer<uint64_t> & _accounting_buf, const RemoteBuffer & rbuf, uint64_t add);
+    #else
     int32_t post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add);
+    #endif
 
     // Register to be notified about all events, including unsolicited ones
     #ifdef USE_LIBFABRIC

@@ -338,7 +338,7 @@ namespace rdmalib {
           } else
             SPDLOG_DEBUG("Batched receive on connection {} num_sge {}", fmt::ptr(this), begin.size());
         }
-        ret = fi_recvv(_qp, begin.array(), begin.lkeys(), begin.size(), NULL, nullptr);
+        ret = fi_recv(_qp, begin.array()->iov_base, begin.array()->iov_len, begin.lkeys()[0], NULL, reinterpret_cast<void *>(j));
         if(ret)
           break;
       }
@@ -355,7 +355,7 @@ namespace rdmalib {
           } else
             SPDLOG_DEBUG("Batched receive on connection {} num_sge {}", fmt::ptr(this), begin.size());
         }
-        ret = fi_recvv(_qp, begin.array(), begin.lkeys(), begin.size(), NULL, nullptr);
+        ret = fi_recv(_qp, begin.array()->iov_base, begin.array()->iov_len, begin.lkeys()[0], NULL, reinterpret_cast<void *>(j));
         if(ret)
           break;
       }
@@ -488,7 +488,7 @@ namespace rdmalib {
     if(elems.size() > 0)
       SPDLOG_DEBUG(
           "Post write succesfull id: {}, sge size: {}, first lkey {} len {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
-          count, count, elems.lkeys()[0], elems.array()[0].iov_len, rbuf.addr, rbuf.rkey, data, fmt::ptr(this)
+          id, count, elems.lkeys()[0], elems.array()[0].iov_len, rbuf.addr, rbuf.rkey, data, fmt::ptr(this)
       );
     else
       SPDLOG_DEBUG(
@@ -612,22 +612,24 @@ namespace rdmalib {
     #endif
   }
 
-  int32_t Connection::post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add)
+  #ifdef USE_LIBFABRIC
+  int32_t Connection::post_atomic_fadd(const Buffer<uint64_t> & _accounting_buf, const RemoteBuffer & rbuf, uint64_t add)
   {
-    #ifdef USE_LIBFABRIC
-    fi_addr_t temp = 0;
     int32_t id = _req_count++;
-    memcpy(elems.array()[0].iov_base, &add, sizeof(add));
-    int ret = fi_atomic(_qp, &elems.array()[0], 1, elems.lkeys()[0], temp, rbuf.addr, rbuf.rkey, FI_UINT64, FI_SUM, reinterpret_cast<void *>((uint64_t)id));
+    memcpy(_accounting_buf.data(), &add, sizeof(add));
+    int ret = fi_atomic(_qp, _accounting_buf.data(), 1, _accounting_buf.lkey(), NULL, rbuf.addr, rbuf.rkey, FI_UINT64, FI_SUM, reinterpret_cast<void *>((uint64_t)id));
     if(ret) {
       spdlog::error("Post write unsuccesful, reason {} {}", errno, strerror(errno));
       return -1;
     }
     SPDLOG_DEBUG(
-        "Post atomic fadd succesfull id: {}, remote addr {}, remote rkey {}, val {}, connection {}", id, rbuf.addr, rbuf.rkey, add, fmt::ptr(this)
+        "Post atomic fadd succesfull id: {}, remote addr {}, remote rkey {}, val {}, connection {}", id, rbuf.addr, rbuf.rkey, *_accounting_buf.data(), fmt::ptr(this)
     );
     return _req_count - 1;
-    #else
+  }
+  #else
+  int32_t Connection::post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add)
+  {
     ibv_send_wr wr, *bad;
     memset(&wr, 0, sizeof(wr));
     wr.wr_id = _req_count++;
@@ -649,8 +651,9 @@ namespace rdmalib {
         "Post atomic fadd succesfull id: {}, remote addr {}, remote rkey {}, val {}", wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, wr.wr.atomic.compare_add
     );
     return _req_count - 1;
-    #endif
   }
+  #endif
+
 
   #ifdef USE_LIBFABRIC
   std::tuple<fi_cq_data_entry *, int> Connection::poll_wc(QueueType type, bool blocking, int count)

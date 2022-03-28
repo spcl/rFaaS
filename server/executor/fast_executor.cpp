@@ -213,7 +213,7 @@ namespace server {
     mgr_connection.allocate();
     this->_mgr_connection = &mgr_connection.connection();
     #ifdef USE_LIBFABRIC
-    _accounting_buf.register_memory(mgr_connection.pd(), FI_WRITE | FI_REMOTE_WRITE);
+    _accounting_buf.register_memory(mgr_connection.pd(), FI_READ | FI_WRITE | FI_REMOTE_WRITE);
     #else
     _accounting_buf.register_memory(mgr_connection.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
     #endif
@@ -230,7 +230,7 @@ namespace server {
     // Receive function data from the client - this WC must be posted first
     // We do it before connection to ensure that client does not start sending before us
     #ifdef USE_LIBFABRIC
-    func_buffer.register_memory(active.pd(), FI_WRITE | FI_REMOTE_WRITE);
+    func_buffer.register_memory(active.pd(), FI_READ | FI_WRITE | FI_REMOTE_WRITE);
     #else
     func_buffer.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     #endif
@@ -296,13 +296,15 @@ namespace server {
     // Submit final accounting information
     _accounting.send_updated_execution(_mgr_connection, _accounting_buf, _mgr_conn, true, false);
     _accounting.send_updated_polling(_mgr_connection, _accounting_buf, _mgr_conn, true, false);
+    #ifndef USE_LIBFABRIC
     mgr_connection.connection().poll_wc(rdmalib::QueueType::SEND, true, 2);
+    #endif
     spdlog::info(
       "Thread {} finished work, spent {} ns hot polling and {} ns computation, {} executions.",
       id, _accounting.total_hot_polling_time , _accounting.total_execution_time, repetitions
     );
     // FIXME: revert after manager starts to detect disconnection events
-    //mgr_connection.disconnect();
+    // mgr_connection.disconnect();
   }
 
   FastExecutors::FastExecutors(std::string client_addr, int port,

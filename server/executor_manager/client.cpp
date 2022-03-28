@@ -30,13 +30,13 @@ namespace rfaas::executor_manager {
     // Make the buffer accessible to clients
     memset(accounting.data(), 0, accounting.data_size());
     #ifdef USE_LIBFABRIC
-    accounting.register_memory(pd, FI_WRITE | FI_REMOTE_WRITE);
+    accounting.register_memory(pd, FI_READ | FI_WRITE | FI_REMOTE_WRITE);
     #else
     accounting.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
     #endif
     // Make the buffer accessible to clients
     #ifdef USE_LIBFABRIC
-    allocation_requests.register_memory(pd, FI_WRITE | FI_REMOTE_WRITE);
+    allocation_requests.register_memory(pd, FI_READ | FI_WRITE | FI_REMOTE_WRITE);
     #else
     allocation_requests.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     #endif
@@ -60,9 +60,7 @@ namespace rfaas::executor_manager {
 
   void Client::disable(int id)
   {
-    #ifdef USE_LIBFABRIC
-    fi_shutdown(connection->qp(), 0);
-    #else
+    #ifndef USE_LIBFABRIC
     rdma_disconnect(connection->id());
     #endif
     SPDLOG_DEBUG(
@@ -89,7 +87,9 @@ namespace rfaas::executor_manager {
     //acc.hot_polling_time = acc.execution_time = 0;
     // SEGFAULT?
     //ibv_dereg_mr(allocation_requests._mr);
+    #ifndef USE_LIBFABRIC
     connection->close();
+    #endif
     delete connection;
     connection = nullptr;
     _active=false;
