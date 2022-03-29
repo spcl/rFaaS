@@ -51,7 +51,8 @@ namespace rfaas {
     #else
     _invoc_id(0),
     #endif
-    _max_inlined_msg(max_inlined_msg)
+    _max_inlined_msg(max_inlined_msg),
+    _perf(1000)
   {
     #ifdef USE_LIBFABRIC
     _execs_buf.register_memory(_state.pd(), FI_WRITE | FI_REMOTE_WRITE);
@@ -70,6 +71,7 @@ namespace rfaas {
   executor::~executor()
   {
     this->deallocate();
+    _perf.export_csv("client_perf.csv", {"start", "function parsed", "function post written", "buffer refilled", "received result", "parsed result", "catched unlikely case", "polled send"});
   }
 
   rdmalib::Buffer<char> executor::load_library(std::string path)
@@ -383,9 +385,6 @@ namespace rfaas {
         #else
         int id = std::get<0>(wcs)[i].wr_id;
         #endif
-        for (int j = 0; j < _execs_buf.data_size(); j++)
-          std::cout << std::hex << ((char *)_execs_buf.data())[j];
-        std::cout << std::endl;
         SPDLOG_DEBUG(
           "Received buffer details for thread, id {}, addr {}, rkey {}",
           id, _execs_buf.data()[id].r_addr, _execs_buf.data()[id].r_key

@@ -13,6 +13,7 @@
 #ifdef USE_LIBFABRIC
 #include <rdma/fi_endpoint.h>
 #include <rdma/fi_rma.h>
+#include <spdlog/spdlog.h>
 #else
 #include <infiniband/verbs.h>
 
@@ -138,6 +139,25 @@ namespace rdmalib {
     );
     int32_t post_cas(ScatterGatherElement && elems, const RemoteBuffer & buf, uint64_t compare, uint64_t swap);
     #ifdef USE_LIBFABRIC
+    template<typename T> inline int32_t post_write(const Buffer<T> & buf, const size_t size, const uint64_t offset, const RemoteBuffer & rbuf, const uint32_t immediate) {
+      int ret = fi_writedata(_qp, (void *)(buf.address() + offset), size, buf.lkey(), immediate + (size << 32), NULL, rbuf.addr, rbuf.rkey, (void *)(_req_count++));
+      if(ret) {
+        spdlog::error("Post write unsuccessful, reason {} {}, buf size {}, id {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
+          ret, strerror(ret), size, _req_count,  rbuf.addr, rbuf.rkey, immediate + (size << 32), fmt::ptr(this)
+        );
+        return -1;
+      }
+      if(size > 0)
+        SPDLOG_DEBUG(
+            "Post write succesfull id: {}, buf size: {}, lkey {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
+            _req_count, buf.bytes(), fmt::ptr(buf.lkey()), rbuf.addr, rbuf.rkey, immediate + (size << 32), fmt::ptr(this)
+        );
+      else
+        SPDLOG_DEBUG(
+            "Post write succesfull id: {}, remote addr {}, remote rkey {}, imm data {}, connection {}", _req_count,  rbuf.addr, rbuf.rkey, immediate + (size << 32), fmt::ptr(this)
+        );
+      return _req_count - 1;
+    }
     int32_t post_atomic_fadd(const Buffer<uint64_t> & _accounting_buf, const RemoteBuffer & rbuf, uint64_t add);
     #else
     int32_t post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add);

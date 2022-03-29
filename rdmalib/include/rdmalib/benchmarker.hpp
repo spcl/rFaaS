@@ -84,6 +84,41 @@ namespace rdmalib {
 
   };
 
+template<int Cols>
+  struct PerfBenchmarker {
+    std::vector<std::array<uint64_t, Cols>> _measurements;
+    std::chrono::time_point<std::chrono::high_resolution_clock> _point;
+
+    PerfBenchmarker(int measurements)
+    {
+      _measurements.reserve(measurements);
+    }
+
+    inline void point(int col = 0)
+    {
+      if(col == 0)
+        _measurements.emplace_back();
+      _measurements.back()[col] = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    }
+
+    void export_csv(std::string fname, const std::array<std::string, Cols> & headers)
+    {
+      std::ofstream of(fname);
+      of << "id";
+      for(int j = 0; j < Cols; ++j)
+        of << ',' << headers[j];
+      of << '\n'; 
+
+      for(size_t i = 0; i < _measurements.size(); ++i) {
+        of << i;
+        for(int j = 0; j < Cols; ++j)
+          of <<  ',' << _measurements[i][j];
+        of << '\n';
+      }
+    }
+
+  };
+
 }
 
 #endif

@@ -2,6 +2,7 @@
 #ifndef __SERVER_FASTEXECUTORS_HPP__
 #define __SERVER_FASTEXECUTORS_HPP__
 
+#include "rdmalib/benchmarker.hpp"
 #include "rdmalib/rdmalib.hpp"
 #include <chrono>
 #include <vector>
@@ -125,6 +126,7 @@ namespace server {
     const executor::ManagerConnection & _mgr_conn;
     Accounting _accounting;
     rdmalib::Buffer<uint64_t> _accounting_buf;
+    rdmalib::PerfBenchmarker<9> _perf;
     // FIXME: Adjust to billing granularity
     constexpr static int HOT_POLLING_VERIFICATION_PERIOD = 10000;
     PollingState _polling_state;
@@ -147,7 +149,8 @@ namespace server {
       conn(nullptr),
       _mgr_conn(mgr_conn),
       _accounting({0,0,0,0}),
-      _accounting_buf(1)
+      _accounting_buf(1),
+      _perf(1000)
     {
     }
 
