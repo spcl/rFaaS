@@ -36,7 +36,7 @@ namespace rdmalib {
     #ifdef USE_LIBFABRIC
     _rcv_channel(nullptr),
     _trx_channel(nullptr),
-    _wait_set(nullptr),
+    _write_counter(nullptr),
     #else
     _id(nullptr),
     _channel(nullptr),
@@ -79,7 +79,7 @@ namespace rdmalib {
     #ifdef USE_LIBFABRIC
     _rcv_channel(obj._rcv_channel),
     _trx_channel(obj._trx_channel),
-    _wait_set(nullptr),
+    _write_counter(nullptr),
     #else
     _id(obj._id),
     _channel(obj._channel),
@@ -126,25 +126,27 @@ namespace rdmalib {
     // Create the endpoint and set its flags up so that we get completions on RDM
     impl::expect_zero(fi_endpoint(pd, info, &_qp, reinterpret_cast<void*>(this)));
 
-    // Open the waitset
-    fi_wait_attr wait_attr;
-    wait_attr.wait_obj = FI_WAIT_UNSPEC;
-    wait_attr.flags = 0;
-    fi_wait_open(fabric, &wait_attr, &_wait_set);
+    // Open the counter for write operations
+    fi_cntr_attr cntr_attr;
+    cntr_attr.events = FI_CNTR_EVENTS_COMP;
+    cntr_attr.wait_obj = FI_WAIT_UNSPEC;
+    cntr_attr.wait_set = nullptr;
+    cntr_attr.flags = 0;
+    impl::expect_zero(fi_cntr_open(pd, &cntr_attr, &_write_counter, nullptr));
+    impl::expect_zero(fi_cntr_set(_write_counter, 0));
+    impl::expect_zero(fi_ep_bind(_qp, &_write_counter->fid, FI_REMOTE_WRITE));
 
     // Bind with the completion queues and the event queue
     impl::expect_zero(fi_ep_bind(_qp, &ec->fid, 0));
     fi_cq_attr cq_attr;
     memset(&cq_attr, 0, sizeof(cq_attr));
     cq_attr.format = FI_CQ_FORMAT_DATA;
-    cq_attr.wait_obj = FI_WAIT_UNSPEC;
+    cq_attr.wait_obj = FI_WAIT_NONE;
     cq_attr.wait_cond = FI_CQ_COND_NONE;
     cq_attr.wait_set = nullptr;
+    cq_attr.size = info->rx_attr->size;
     impl::expect_zero(fi_cq_open(pd, &cq_attr, &_trx_channel, nullptr));
     impl::expect_zero(fi_ep_bind(_qp, &_trx_channel->fid, FI_TRANSMIT));
-
-    // Connect the wait set to the receive queue
-    cq_attr.wait_set = _wait_set;
     impl::expect_zero(fi_cq_open(pd, &cq_attr, &_rcv_channel, nullptr));
     impl::expect_zero(fi_ep_bind(_qp, &_rcv_channel->fid, FI_RECV));
 
@@ -186,9 +188,9 @@ namespace rdmalib {
         impl::expect_zero(fi_close(&_trx_channel->fid));
         _trx_channel = nullptr;
       }
-      if (_wait_set) {
-        impl::expect_zero(fi_close(&_wait_set->fid));
-        _wait_set = nullptr;
+      if (_write_counter) {
+        impl::expect_zero(fi_close(&_write_counter->fid));
+        _write_counter = nullptr;
       }
       if (_qp) {
         impl::expect_zero(fi_shutdown(_qp, 0));
@@ -242,13 +244,6 @@ namespace rdmalib {
   ibv_qp* Connection::qp() const
   {
     return this->_qp;
-  }
-  #endif
-
-  #ifdef USE_LIBFABRIC
-  fid_wait* Connection::wait_set() const
-  {
-    return this->_wait_set;
   }
   #endif
 
@@ -696,10 +691,12 @@ namespace rdmalib {
       spdlog::error("Failure of polling events from: {} queue connection {}! Return value {} message {} errno {}", type == QueueType::RECV ? "recv" : "send", fmt::ptr(this), ret, fi_strerror(std::abs(ret)), errno);
       return std::make_tuple(nullptr, -1);
     }
-    if(ret > 0)
+    if(ret > 0) {
+      _counter += ret;
       for(int i = 0; i < ret; ++i) {
         SPDLOG_DEBUG("Connection {} Queue {} Ret {}/{} WC {}", fmt::ptr(this), type == QueueType::RECV ? "recv" : "send", i + 1, ret, reinterpret_cast<uint64_t>(wcs[i].op_context));
       }
+    }
     return std::make_tuple(wcs, ret == -EAGAIN ? 0 : ret);
   }
   #else
@@ -744,9 +741,9 @@ namespace rdmalib {
   #endif
 
   #ifdef USE_LIBFABRIC
-  void Connection::wait_events()
+  int Connection::wait_events(int timeout)
   {
-    impl::expect_zero(fi_wait(_wait_set, -1));
+    return fi_cntr_wait(_write_counter, _counter+1, timeout);
   }
   #else
   ibv_cq* Connection::wait_events()

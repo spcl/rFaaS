@@ -1,5 +1,6 @@
 
 #include "rdmalib/rdmalib.hpp"
+#include <chrono>
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/allocation.hpp>
@@ -17,6 +18,7 @@
 #include <elf.h>
 #include <link.h>
 #include <poll.h>
+#include <thread>
 
 namespace rfaas {
 
@@ -177,9 +179,11 @@ namespace rfaas {
 
     while(!_end_requested && _connections.size()) {
       #ifdef USE_LIBFABRIC
-      fi_cq_data_entry entry;
       do {
-        rc = fi_wait(_connections[0].conn->wait_set(), 100);
+        if(_active_polling)
+          std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        else
+          rc = _connections[0].conn->wait_events(100);
         if(_end_requested) {
           spdlog::info("Background thread stops waiting for events");
           return;
@@ -202,16 +206,20 @@ namespace rfaas {
         fprintf(stderr, "poll failed\n");
         return;
       }
-      if(!_end_requested) {
+      if(!_end_requested && !_active_polling) {
         #ifndef USE_LIBFABRIC
         auto cq = _connections[0].conn->wait_events();
         _connections[0].conn->notify_events(true);
         _connections[0].conn->ack_events(cq, 1);
         #endif
+        #ifdef USE_LIBFABRIC
+        auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, false);
+        #else
         auto wc = _connections[0]._rcv_buffer.poll(false);
+        #endif
         for(int i = 0; i < std::get<1>(wc); ++i) {
           #ifdef USE_LIBFABRIC
-          uint32_t val = std::get<0>(wc)[i].data >> 32;
+          uint32_t val = std::get<0>(wc)[i].data;
           #else
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
           #endif
@@ -345,13 +353,12 @@ namespace rfaas {
         );
         #ifdef USE_LIBFABRIC
         this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, requested*obj_size), requested);
-        this->_connections.back().conn->initialize_batched_recv(_execs_buf, 0);
         #else
         this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, requested*obj_size), requested);
-        #endif
         // FIXME: this should be in a function
         // FIXME: here it won't work if rcv_bufer_size < numcores
         this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn.get());
+        #endif
         _state.accept(this->_connections.back().conn.get());
         ++requested;
       } else if(conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {

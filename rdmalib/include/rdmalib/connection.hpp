@@ -58,7 +58,8 @@ namespace rdmalib {
     fid_ep* _qp;
     fid_cq* _rcv_channel;
     fid_cq* _trx_channel;
-    fid_wait* _wait_set;
+    fid_cntr* _write_counter;
+    uint64_t _counter;
     #else
     rdma_cm_id* _id;
     ibv_qp* _qp; 
@@ -165,7 +166,7 @@ namespace rdmalib {
 
     // Register to be notified about all events, including unsolicited ones
     #ifdef USE_LIBFABRIC
-    void wait_events();
+    int wait_events(int timeout = -1);
     #else
     void notify_events(bool only_solicited = false);
     ibv_cq* wait_events();

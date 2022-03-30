@@ -40,9 +40,12 @@ namespace rdmalib {
     // Set the hints to have ability to conduct MSG, Atomic and RMA operations
     hints->caps |= FI_MSG | FI_RMA | FI_ATOMIC | FI_RMA_EVENT;
     // Set the hints to indicate that we will register the local buffers
-    hints->domain_attr->mr_mode = FI_MR_BASIC; // FI_MR_LOCAL | FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY;
+    hints->domain_attr->mr_mode = FI_MR_LOCAL | FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY;
     hints->ep_attr->type = FI_EP_MSG;
     hints->fabric_attr->prov_name = strdup("GNI");
+    hints->domain_attr->threading = FI_THREAD_DOMAIN;
+    hints->domain_attr->resource_mgmt = FI_RM_ENABLED;
+    hints->tx_attr->tclass = FI_TC_LOW_LATENCY;
     impl::expect_zero(fi_getinfo(FI_VERSION(1, 9), ip.c_str(), std::to_string(port).c_str(), passive ? FI_SOURCE : 0, hints, &addrinfo));
     fi_freeinfo(hints);
     impl::expect_zero(fi_fabric(addrinfo->fabric_attr, &fabric, nullptr));
@@ -180,8 +183,7 @@ namespace rdmalib {
       // Enable the event queue
       fi_eq_attr eq_attr;
       memset(&eq_attr, 0, sizeof(eq_attr));
-      eq_attr.size = 42;
-      eq_attr.wait_obj = FI_WAIT_UNSPEC;
+      eq_attr.wait_obj = FI_WAIT_NONE;
       impl::expect_zero(fi_eq_open(_addr.fabric, &eq_attr, &_ec, NULL));
       // Create and enable the endpoint together with all the accompanying queues
       _conn->initialize(_addr.fabric, _pd, _addr.addrinfo, _ec);

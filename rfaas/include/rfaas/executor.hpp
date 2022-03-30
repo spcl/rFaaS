@@ -154,7 +154,9 @@ namespace rfaas {
         );
         #endif
       }
+      #ifndef USE_LIBFABRIC
       _connections[0]._rcv_buffer.refill();
+      #endif
       return std::get<1>(_futures[invoc_id]).get_future();
     }
 
@@ -204,9 +206,11 @@ namespace rfaas {
         #endif
       }
 
+      #ifndef USE_LIBFABRIC
       for(int i = 0; i < numcores; ++i) {
         _connections[i]._rcv_buffer.refill();
       }
+      #endif
       return std::get<1>(_futures[invoc_id]).get_future();
     }
 
@@ -214,9 +218,13 @@ namespace rfaas {
     {
       _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
 
-      auto wc = _connections[0]._rcv_buffer.poll(true);
       #ifdef USE_LIBFABRIC
-      uint32_t val = std::get<0>(wc)[0].data >> 32;
+      auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true);
+      #else
+      auto wc = _connections[0]._rcv_buffer.poll(true);
+      #endif
+      #ifdef USE_LIBFABRIC
+      uint32_t val = std::get<0>(wc)[0].data;
       #else
       uint32_t val = ntohl(std::get<0>(wc)[0].imm_data);
       #endif
@@ -283,14 +291,20 @@ namespace rfaas {
       #endif
       _active_polling = true;
       _perf.point(2);
+      #ifndef USE_LIBFABRIC
       _connections[0]._rcv_buffer.refill();
+      #endif
       _perf.point(3);
 
       bool found_result = false;
       int return_value = 0;
       int out_size = 0;
       while(!found_result) {
+        #ifdef USE_LIBFABRIC
+        auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true);
+        #else
         auto wc = _connections[0]._rcv_buffer.poll(true);
+        #endif
         for(int i = 0; i < std::get<1>(wc); ++i) {
           #ifdef USE_LIBFABRIC
           _perf.point(4);
@@ -325,6 +339,7 @@ namespace rfaas {
         if(found_result) {
           _perf.point(5);
           _active_polling = false;
+          #ifndef USE_LIBFABRIC
           auto wc = _connections[0]._rcv_buffer.poll(false);
           // Catch very unlikely interleaving
           // Event arrives after we poll while the background thread is skipping
@@ -332,7 +347,7 @@ namespace rfaas {
           // Thus, we later unset the variable since we're done
           for(int i = 0; i < std::get<1>(wc); ++i) {
             #ifdef USE_LIBFABRIC
-            uint32_t val = std::get<0>(wc)[i].data >> 32;
+            uint32_t val = std::get<0>(wc)[i].data;
             #else
             uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
             #endif
@@ -345,6 +360,7 @@ namespace rfaas {
             if(!--std::get<0>(it->second))
               std::get<1>(it->second).set_value(return_val);
           }
+          #endif
           _perf.point(6);
         }
       }
@@ -403,9 +419,11 @@ namespace rfaas {
         #endif
       }
 
+      #ifndef USE_LIBFABRIC
       for(int i = 0; i < numcores; ++i) {
         _connections[i]._rcv_buffer.refill();
       }
+      #endif
       int expected = numcores;
       while(expected) {
         auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
@@ -416,12 +434,16 @@ namespace rfaas {
       bool correct = true;
       _active_polling = true;
       while(expected) {
+        #ifdef USE_LIBFABRIC
+        auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true);
+        #else
         auto wc = _connections[0]._rcv_buffer.poll(true);
+        #endif
         SPDLOG_DEBUG("Found data");
         expected -= std::get<1>(wc);
         for(int i = 0; i < std::get<1>(wc); ++i) {
           #ifdef USE_LIBFABRIC
-          uint32_t val = std::get<0>(wc)[i].data >> 32;
+          uint32_t val = std::get<0>(wc)[i].data;
           #else
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
           #endif

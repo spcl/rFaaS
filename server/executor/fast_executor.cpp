@@ -79,7 +79,11 @@ namespace server {
     while(repetitions < max_repetitions) {
 
       // if we block, we never handle the interruption
+      #ifdef USE_LIBFABRIC
+      auto wcs = conn->poll_wc(rdmalib::QueueType::RECV, false);
+      #else
       auto wcs = wc_buffer.poll();
+      #endif
       if(std::get<1>(wcs)) {
         for(int i = 0; i < std::get<1>(wcs); ++i) {
           _perf.point();
@@ -126,7 +130,9 @@ namespace server {
           repetitions += 1;
           _perf.point(7);
         }
+        #ifndef USE_LIBFABRIC
         wc_buffer.refill();
+        #endif
         _perf.point(8);
       }
       ++i;
@@ -161,7 +167,11 @@ namespace server {
     while(repetitions < max_repetitions) {
 
       // if we block, we never handle the interruption
+      #ifdef USE_LIBFABRIC
+      auto wcs = conn->poll_wc(rdmalib::QueueType::RECV, false);
+      #else
       auto wcs = wc_buffer.poll();
+      #endif
       if(std::get<1>(wcs)) {
         for(int i = 0; i < std::get<1>(wcs); ++i) {
 
@@ -198,7 +208,9 @@ namespace server {
           conn->poll_wc(rdmalib::QueueType::SEND, true);
           repetitions += 1;
         }
+        #ifndef USE_LIBFABRIC
         wc_buffer.refill();
+        #endif
         if(_polling_state != PollingState::WARM_ALWAYS) {
           SPDLOG_DEBUG("Switching to hot polling after invocation!");
           _polling_state = PollingState::HOT;
@@ -210,7 +222,7 @@ namespace server {
       // arrived before we called notify_events
       if(repetitions < max_repetitions) {
         #ifdef USE_LIBFABRIC
-        conn->wait_events();
+        rdmalib::impl::expect_zero(conn->wait_events());
         #else
         auto cq = conn->wait_events();
         conn->ack_events(cq, 1);
@@ -271,12 +283,11 @@ namespace server {
     #ifdef USE_LIBFABRIC
     send.register_memory(active.pd(), FI_WRITE | FI_READ);
     rcv.register_memory(active.pd(), FI_WRITE | FI_REMOTE_WRITE);
-    conn->initialize_batched_recv(rcv, 0);
     #else
     send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    #endif
     this->wc_buffer.connect(this->conn);
+    #endif
     spdlog::info("Thread {} Established connection to client!", id);
 
     // Send to the client information about thread buffer
