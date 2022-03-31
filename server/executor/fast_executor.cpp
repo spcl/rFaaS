@@ -5,6 +5,8 @@
 #include <sys/time.h>
 #include <rdma/fabric.h>
 #include <sys/time.h>
+#include <csignal>
+#include <signal.h>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/common.h>
@@ -24,6 +26,23 @@
 #include <sched.h>
 
 namespace server {
+
+  bool SignalHandler::closing = false;
+
+  SignalHandler::SignalHandler()
+  {
+    struct sigaction sigIntHandler;
+    sigIntHandler.sa_handler = &SignalHandler::handler;
+    sigemptyset(&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
+    //FIXME: disable signals to avoid potential interrupts
+    sigaction(SIGINT, &sigIntHandler, nullptr);
+  }
+
+  void SignalHandler::handler(int)
+  {
+    SignalHandler::closing = true;
+  }
 
   Accounting::timepoint_t Thread::work(int invoc_id, int func_id, bool solicited, uint32_t in_size)
   {
@@ -76,7 +95,7 @@ namespace server {
     SPDLOG_DEBUG("Thread {} Begins hot polling", id);
     auto start = std::chrono::high_resolution_clock::now();
     int i = 0;
-    while(repetitions < max_repetitions) {
+    while(repetitions < max_repetitions && !SignalHandler::closing) {
 
       // if we block, we never handle the interruption
       #ifdef USE_LIBFABRIC
@@ -164,7 +183,7 @@ namespace server {
     // FIXME: this should be automatic
     SPDLOG_DEBUG("Thread {} Begins warm polling", id);
 
-    while(repetitions < max_repetitions) {
+    while(repetitions < max_repetitions && !SignalHandler::closing) {
 
       // if we block, we never handle the interruption
       #ifdef USE_LIBFABRIC
@@ -220,7 +239,7 @@ namespace server {
 
       // Do waiting after a single polling - avoid missing an events that
       // arrived before we called notify_events
-      if(repetitions < max_repetitions) {
+      if(repetitions < max_repetitions && !SignalHandler::closing) {
         #ifdef USE_LIBFABRIC
         rdmalib::impl::expect_zero(conn->wait_events());
         #else
@@ -311,7 +330,7 @@ namespace server {
     spdlog::info("Thread {} begins work with timeout {}", id, timeout);
 
     // FIXME: catch interrupt handler here
-    while(repetitions < max_repetitions) {
+    while(repetitions < max_repetitions && !SignalHandler::closing) {
       if(_polling_state == PollingState::HOT || _polling_state == PollingState::HOT_ALWAYS)
         hot(timeout);
       else

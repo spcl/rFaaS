@@ -12,6 +12,7 @@
 #ifdef USE_LIBFABRIC
 #include <rdma/fabric.h>
 #include <arpa/inet.h>
+// #include <rdma/fi_ext_gni.h>
 #else
 #include <rdma/rdma_cma.h>
 #endif
@@ -79,6 +80,7 @@ namespace rdmalib {
     fid_eq* _ec = nullptr;
     fid_domain* _pd = nullptr;
     fid_pep* _pep = nullptr;
+    // fi_gni_ops_domain* _ops;
     #else
     rdma_event_channel * _ec;
     rdma_cm_id* _listen_id;

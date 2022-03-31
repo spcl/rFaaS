@@ -105,6 +105,7 @@ namespace rdmalib {
     #endif
     void close();
     #ifdef USE_LIBFABRIC
+    fid_domain* _domain = nullptr;
     fid* id() const;
     fid_ep* qp() const;
     fid_wait* wait_set() const;

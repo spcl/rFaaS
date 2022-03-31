@@ -96,7 +96,7 @@ namespace rdmalib { namespace impl {
     );
     if(_mr)
       #ifdef USE_LIBFABRIC
-      fi_close(&_mr->fid);
+      impl::expect_zero(fi_close(&_mr->fid));
       #else
       ibv_dereg_mr(_mr);
       #endif

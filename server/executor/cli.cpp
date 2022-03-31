@@ -17,7 +17,9 @@
 
 int main(int argc, char ** argv)
 {
-  //server::SignalHandler sighandler;
+  // Register a SIGINT handler so that we can gracefully exit
+  server::SignalHandler sighandler;
+
   auto opts = server::opts(argc, argv);
   if(opts.verbose)
     spdlog::set_level(spdlog::level::debug);

@@ -197,6 +197,10 @@ namespace rdmalib {
         impl::expect_zero(fi_close(&_qp->fid));
         _qp = nullptr;
       }
+      if (_domain) {
+        impl::expect_zero(fi_close(&_domain->fid));
+        _domain = nullptr;
+      }
       _status = ConnectionStatus::DISCONNECTED;
     }
     #else

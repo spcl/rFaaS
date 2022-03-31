@@ -397,12 +397,17 @@ namespace rdmalib {
     // Start listening
     fi_eq_attr eq_attr;
     memset(&eq_attr, 0, sizeof(eq_attr));
-    eq_attr.size = 42;
-    eq_attr.wait_obj = FI_WAIT_UNSPEC;
+    eq_attr.size = 0;
+    eq_attr.wait_obj = FI_WAIT_NONE;
     impl::expect_zero(fi_eq_open(_addr.fabric, &eq_attr, &_ec, NULL));
     impl::expect_zero(fi_passive_ep(_addr.fabric, _addr.addrinfo, &_pep, NULL));
     impl::expect_zero(fi_pep_bind(_pep, &(_ec->fid), 0));
     impl::expect_zero(fi_listen(_pep));
+    // _ops = (fi_gni_ops_domain *)malloc(sizeof(fi_gni_ops_domain));
+    // fi_open_ops(&_pd->fid, "FI_GNI_DOMAIN_OPS_1", 0, (void **)*_ops, nullptr);
+    // uint32_t val;
+    // _ops->get_val(&_pd->fid, GNI_CONN_TABLE_MAX_SIZE, &val);
+    // std::cout << "MAXIMUM VALUE: " << val << std::endl;
     #else
         // Start listening
     impl::expect_nonzero(this->_ec = rdma_create_event_channel());
@@ -510,11 +515,11 @@ namespace rdmalib {
           SPDLOG_DEBUG("[RDMAPassive] Connection request with no private data");
 
         // Check if we have a domain open for the connection already
-        // if (!entry.info->domain_attr->domain)
-        //  fi_domain(_addr.fabric, entry.info, &_pd, NULL);
+        if (!entry->info->domain_attr->domain)
+          fi_domain(_addr.fabric, entry->info, &connection->_domain, NULL);
 
         // Enable the endpoint
-        connection->initialize(_addr.fabric, _pd, entry->info, _ec);
+        connection->initialize(_addr.fabric, connection->_domain, entry->info, _ec);
         SPDLOG_DEBUG(
           "[RDMAPassive] Created connection fid {} qp {}",
           fmt::ptr(connection->id()), fmt::ptr(&connection->qp()->fid)
@@ -548,6 +553,7 @@ namespace rdmalib {
         spdlog::error("[RDMAPassive] Not any interesting event");
         break;
     }
+    free(entry);
     #else
     rdma_cm_event* event = nullptr;
 		Connection* connection = nullptr;
