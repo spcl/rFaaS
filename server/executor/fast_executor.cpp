@@ -36,10 +36,10 @@ namespace server {
     );
     auto start = std::chrono::high_resolution_clock::now();
     // Data to ignore header passed in the buffer
-    _perf.point(2);
+    //_perf.point(2);
     uint32_t out_size = (*ptr)(rcv.data(), in_size, send.ptr());
     SPDLOG_DEBUG("Thread {} finished work!", id);
-    _perf.point(3);
+    //_perf.point(3);
     // Send back: the value of immediate write
     // first 16 bytes - invocation id
     // second 16 bytes - return value (0 on no error)
@@ -60,11 +60,11 @@ namespace server {
       solicited
     );
     #endif
-    _perf.point(4);
+    //_perf.point(4);
     auto end = std::chrono::high_resolution_clock::now();
     _accounting.update_execution_time(start, end);
     _accounting.send_updated_execution(_mgr_connection, _accounting_buf, _mgr_conn);
-    _perf.point(5);
+    //_perf.point(5);
     //int cpu = sched_getcpu();
     //spdlog::info("Execution + sent took {} us on {} CPU", std::chrono::duration_cast<std::chrono::microseconds>(end-start).count(), cpu);
     return end;
@@ -80,13 +80,13 @@ namespace server {
 
       // if we block, we never handle the interruption
       #ifdef USE_LIBFABRIC
-      auto wcs = conn->poll_wc(rdmalib::QueueType::RECV, false);
+      auto wcs = conn->poll_wc(rdmalib::QueueType::RECV, false, -1, true);
       #else
       auto wcs = wc_buffer.poll();
       #endif
       if(std::get<1>(wcs)) {
         for(int i = 0; i < std::get<1>(wcs); ++i) {
-          _perf.point();
+          //_perf.point();
           //server_processing_times.start();
           #ifdef USE_LIBFABRIC
           fi_cq_data_entry* wc = &std::get<0>(wcs)[i];
@@ -109,7 +109,7 @@ namespace server {
             "Thread {} Invoc id {} Execute func {} Repetition {}",
             id, invoc_id, func_id, repetitions
           );
-          _perf.point(1);
+          //_perf.point(1);
           // Measure hot polling time until we started execution
           auto now = std::chrono::high_resolution_clock::now();
           #ifdef USE_LIBFABRIC
@@ -124,16 +124,16 @@ namespace server {
           _accounting.update_polling_time(start, now);
           i = 0;
           start = func_end;
-          _perf.point(6);
+          //_perf.point(6);
           //sum += server_processing_times.end();
           conn->poll_wc(rdmalib::QueueType::SEND, true);
           repetitions += 1;
-          _perf.point(7);
+          //_perf.point(7);
         }
         #ifndef USE_LIBFABRIC
         wc_buffer.refill();
         #endif
-        _perf.point(8);
+        //_perf.point(8);
       }
       ++i;
 
@@ -168,7 +168,7 @@ namespace server {
 
       // if we block, we never handle the interruption
       #ifdef USE_LIBFABRIC
-      auto wcs = conn->poll_wc(rdmalib::QueueType::RECV, false);
+      auto wcs = conn->poll_wc(rdmalib::QueueType::RECV, false, -1, true);
       #else
       auto wcs = wc_buffer.poll();
       #endif

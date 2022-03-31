@@ -122,7 +122,7 @@ namespace rdmalib {
 
     // Blocking, no timeout
     #ifdef USE_LIBFABRIC
-    std::tuple<fi_cq_data_entry*, int> poll_wc(QueueType, bool blocking = true, int count = -1);
+    std::tuple<fi_cq_data_entry*, int> poll_wc(QueueType, bool blocking = true, int count = -1, bool update = false);
     #else
     std::tuple<ibv_wc*, int> poll_wc(QueueType, bool blocking = true, int count = -1);
     #endif

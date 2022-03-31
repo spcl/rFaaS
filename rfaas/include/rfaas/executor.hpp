@@ -219,7 +219,7 @@ namespace rfaas {
       _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
 
       #ifdef USE_LIBFABRIC
-      auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true);
+      auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true, -1, true);
       #else
       auto wc = _connections[0]._rcv_buffer.poll(true);
       #endif
@@ -249,7 +249,7 @@ namespace rfaas {
     template<typename T, typename U>
     std::tuple<bool, int> execute(std::string fname, const rdmalib::Buffer<T> & in, rdmalib::Buffer<U> & out)
     {
-      _perf.point();
+      //_perf.point();
       auto it = std::find(_func_names.begin(), _func_names.end(), fname);
       if(it == _func_names.end()) {
         spdlog::error("Function {} not found in the deployed library!", fname);
@@ -272,7 +272,7 @@ namespace rfaas {
         "Invoke function {} with invocation id {}, submission id {}",
         func_idx, invoc_id, (invoc_id << 16) | func_idx
       );
-      _perf.point(1);
+      //_perf.point(1);
       #ifdef USE_LIBFABRIC
       _connections[0].conn->post_write(
         in,
@@ -290,24 +290,24 @@ namespace rfaas {
       );
       #endif
       _active_polling = true;
-      _perf.point(2);
+      //_perf.point(2);
       #ifndef USE_LIBFABRIC
       _connections[0]._rcv_buffer.refill();
       #endif
-      _perf.point(3);
+      //_perf.point(3);
 
       bool found_result = false;
       int return_value = 0;
       int out_size = 0;
       while(!found_result) {
         #ifdef USE_LIBFABRIC
-        auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true);
+        auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true, -1, true);
         #else
         auto wc = _connections[0]._rcv_buffer.poll(true);
         #endif
         for(int i = 0; i < std::get<1>(wc); ++i) {
           #ifdef USE_LIBFABRIC
-          _perf.point(4);
+          //_perf.point(4);
           uint64_t val = std::get<0>(wc)[i].data;
           int return_val = val & 0x0000FFFF;
           int finished_invoc_id = val >> 16 & 0x0000FFFF;
@@ -337,7 +337,7 @@ namespace rfaas {
           }
         }
         if(found_result) {
-          _perf.point(5);
+          //_perf.point(5);
           _active_polling = false;
           #ifndef USE_LIBFABRIC
           auto wc = _connections[0]._rcv_buffer.poll(false);
@@ -361,11 +361,11 @@ namespace rfaas {
               std::get<1>(it->second).set_value(return_val);
           }
           #endif
-          _perf.point(6);
+          //_perf.point(6);
         }
       }
       _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, false);
-      _perf.point(7);
+      //_perf.point(7);
       if(return_value == 0) {
         SPDLOG_DEBUG("Finished invocation {} succesfully", invoc_id);
         return std::make_tuple(true, out_size);
@@ -435,7 +435,7 @@ namespace rfaas {
       _active_polling = true;
       while(expected) {
         #ifdef USE_LIBFABRIC
-        auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true);
+        auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true, -1, true);
         #else
         auto wc = _connections[0]._rcv_buffer.poll(true);
         #endif

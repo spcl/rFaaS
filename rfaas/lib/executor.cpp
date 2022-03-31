@@ -166,7 +166,7 @@ namespace rfaas {
     // FIXME: hide the details in rdmalib
     spdlog::info("Background thread starts waiting for events");
     #ifdef USE_LIBFABRIC
-    int rc;
+    int rc = 1;
     #else
     _connections[0].conn->notify_events(true);
     int flags = fcntl(_connections[0].conn->completion_channel()->fd, F_GETFL);
@@ -213,7 +213,7 @@ namespace rfaas {
         _connections[0].conn->ack_events(cq, 1);
         #endif
         #ifdef USE_LIBFABRIC
-        auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, false);
+        auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, false, -1, true);
         #else
         auto wc = _connections[0]._rcv_buffer.poll(false);
         #endif

@@ -661,7 +661,7 @@ namespace rdmalib {
 
 
   #ifdef USE_LIBFABRIC
-  std::tuple<fi_cq_data_entry *, int> Connection::poll_wc(QueueType type, bool blocking, int count)
+  std::tuple<fi_cq_data_entry *, int> Connection::poll_wc(QueueType type, bool blocking, int count, bool update)
   {
     int ret = 0;
     fi_cq_data_entry* wcs = (type == QueueType::RECV ? _rwc.data() : _swc.data());
@@ -685,14 +685,15 @@ namespace rdmalib {
               fi_strerror(_ewc.err)
             );
       }
-    } while(blocking && (ret == 0 || ret == -EAGAIN));
+    } while(blocking && (ret == -EAGAIN || ret == 0));
 
     if(ret < 0 && ret != -EAGAIN) {
       spdlog::error("Failure of polling events from: {} queue connection {}! Return value {} message {} errno {}", type == QueueType::RECV ? "recv" : "send", fmt::ptr(this), ret, fi_strerror(std::abs(ret)), errno);
       return std::make_tuple(nullptr, -1);
     }
     if(ret > 0) {
-      _counter += ret;
+      if (update)
+        _counter += ret;
       for(int i = 0; i < ret; ++i) {
         SPDLOG_DEBUG("Connection {} Queue {} Ret {}/{} WC {}", fmt::ptr(this), type == QueueType::RECV ? "recv" : "send", i + 1, ret, reinterpret_cast<uint64_t>(wcs[i].op_context));
       }
