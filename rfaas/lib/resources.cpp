@@ -3,7 +3,9 @@
 
 #include <cereal/archives/json.hpp>
 
+#include <cstdlib>
 #include <rfaas/resources.hpp>
+#include <unistd.h>
 
 namespace rfaas {
 
@@ -23,6 +25,7 @@ namespace rfaas {
 
   servers::servers(int positions)
   {
+    _gen = std::mt19937(getpid());
     if(positions)
       _data.resize(positions);
   }
@@ -36,7 +39,8 @@ namespace rfaas {
   {
     // FIXME: random walk
     // FIXME: take size of server in account
-    return {0};
+    std::uniform_int_distribution<int> dist(0, _data.size()-1);
+    return {dist(_gen)};
   }
 
   servers & servers::instance()

@@ -44,6 +44,11 @@ namespace rfaas::executor_manager {
     moodycamel::ReaderWriterQueue<std::pair<int, rdmalib::Connection*>> _q1;
     moodycamel::ReaderWriterQueue<std::pair<int, Client>> _q2;
 
+    #ifdef USE_LIBFABRIC
+    bool _established_connection = false;
+    
+    #endif
+    
     std::mutex clients;
     std::map<int, Client> _clients;
     int _ids;

@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <cstring>
+#include <random>
 
 #include <cereal/types/vector.hpp> 
 #include <cereal/types/string.hpp>
@@ -42,7 +43,7 @@ namespace rfaas {
   {
     static std::unique_ptr<servers> _instance;
     std::vector<server_data> _data; 
-
+    std::mt19937 _gen;
     servers(int positions = 0);
 
     server_data & server(int idx);

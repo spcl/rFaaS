@@ -341,7 +341,11 @@ namespace rfaas {
     while(established < numcores) {
 
       //while(conn_status != rdmalib::ConnectionStatus::REQUESTED)
+      #ifdef USE_LIBFABRIC
+      auto [conn, conn_status] = _state.poll_events(false);
+      #else
       auto [conn, conn_status] = _state.poll_events(true);
+      #endif
       if(conn_status == rdmalib::ConnectionStatus::REQUESTED) {
         SPDLOG_DEBUG(
           "[Executor] Requested connection from executor {}, connection {}",

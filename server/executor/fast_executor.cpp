@@ -29,20 +29,20 @@ namespace server {
 
   bool SignalHandler::closing = false;
 
-  SignalHandler::SignalHandler()
-  {
-    struct sigaction sigIntHandler;
-    sigIntHandler.sa_handler = &SignalHandler::handler;
-    sigemptyset(&sigIntHandler.sa_mask);
-    sigIntHandler.sa_flags = 0;
-    //FIXME: disable signals to avoid potential interrupts
-    sigaction(SIGINT, &sigIntHandler, nullptr);
-  }
+  // SignalHandler::SignalHandler()
+  // {
+  //   struct sigaction sigIntHandler;
+  //   sigIntHandler.sa_handler = &SignalHandler::handler;
+  //   sigemptyset(&sigIntHandler.sa_mask);
+  //   sigIntHandler.sa_flags = 0;
+  //   //FIXME: disable signals to avoid potential interrupts
+  //   sigaction(SIGINT, &sigIntHandler, nullptr);
+  // }
 
-  void SignalHandler::handler(int)
-  {
-    SignalHandler::closing = true;
-  }
+  // void SignalHandler::handler(int)
+  // {
+  //   SignalHandler::closing = true;
+  // }
 
   Accounting::timepoint_t Thread::work(int invoc_id, int func_id, bool solicited, uint32_t in_size)
   {

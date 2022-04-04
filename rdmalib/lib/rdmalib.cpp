@@ -183,6 +183,7 @@ namespace rdmalib {
       // Enable the event queue
       fi_eq_attr eq_attr;
       memset(&eq_attr, 0, sizeof(eq_attr));
+      eq_attr.size = 0;
       eq_attr.wait_obj = FI_WAIT_NONE;
       impl::expect_zero(fi_eq_open(_addr.fabric, &eq_attr, &_ec, NULL));
       // Create and enable the endpoint together with all the accompanying queues
@@ -398,7 +399,7 @@ namespace rdmalib {
     fi_eq_attr eq_attr;
     memset(&eq_attr, 0, sizeof(eq_attr));
     eq_attr.size = 0;
-    eq_attr.wait_obj = FI_WAIT_NONE;
+    eq_attr.wait_obj = FI_WAIT_UNSPEC;
     impl::expect_zero(fi_eq_open(_addr.fabric, &eq_attr, &_ec, NULL));
     impl::expect_zero(fi_passive_ep(_addr.fabric, _addr.addrinfo, &_pep, NULL));
     impl::expect_zero(fi_pep_bind(_pep, &(_ec->fid), 0));
@@ -457,7 +458,7 @@ namespace rdmalib {
     #ifdef USE_LIBFABRIC
     uint32_t event;
     fi_eq_entry entry;
-    int ret = fi_eq_read(_ec, &event, &entry, sizeof(entry), FI_PEEK);
+    int ret = fi_eq_sread(_ec, &event, &entry, sizeof(entry), timeout, FI_PEEK);
     if (ret < 0 && ret != -FI_EAGAIN && ret != -FI_EAVAIL) 
       spdlog::error("RDMA event poll failed");
     return ret > 0 || ret == -FI_EAVAIL;
@@ -475,7 +476,11 @@ namespace rdmalib {
     #endif
   }
 
+  #ifdef USE_LIBFABRIC
   std::tuple<Connection*, ConnectionStatus> RDMAPassive::poll_events(bool share_cqs)
+  #else
+  std::tuple<Connection*, ConnectionStatus> RDMAPassive::poll_events(bool share_cqs)
+  #endif
   {
     #ifdef USE_LIBFABRIC
     uint32_t event;
@@ -514,22 +519,36 @@ namespace rdmalib {
         else
           SPDLOG_DEBUG("[RDMAPassive] Connection request with no private data");
 
-        // Check if we have a domain open for the connection already
-        if (!entry->info->domain_attr->domain)
-          fi_domain(_addr.fabric, entry->info, &connection->_domain, NULL);
+        #ifdef USE_LIBFABRIC
+        // Used here as determinator of whether we have already established a connection
+        if (!share_cqs || ret == total_size) {
+        #endif
+          // Check if we have a domain open for the connection already
+          if (!entry->info->domain_attr->domain)
+            fi_domain(_addr.fabric, entry->info, &connection->_domain, NULL);
 
-        // Enable the endpoint
-        connection->initialize(_addr.fabric, connection->_domain, entry->info, _ec);
-        SPDLOG_DEBUG(
-          "[RDMAPassive] Created connection fid {} qp {}",
-          fmt::ptr(connection->id()), fmt::ptr(&connection->qp()->fid)
-        );
+          // Enable the endpoint
+          connection->initialize(_addr.fabric, connection->_domain, entry->info, _ec);
+          SPDLOG_DEBUG(
+            "[RDMAPassive] Created connection fid {} qp {}",
+            fmt::ptr(connection->id()), fmt::ptr(&connection->qp()->fid)
+          );
 
-        // Free the info
-        fi_freeinfo(entry->info);
+          // Free the info
+          fi_freeinfo(entry->info);
 
-        status = ConnectionStatus::REQUESTED;
-        _active_connections.insert(connection);
+          status = ConnectionStatus::REQUESTED;
+          _active_connections.insert(connection);
+        #ifdef USE_LIBFABRIC
+        } else {
+          free(connection);
+          connection = nullptr;
+          impl::expect_zero(fi_reject(_pep, entry->info->handle, nullptr, 0));
+          SPDLOG_DEBUG(
+            "[RDMAPassive] Rejected connection because we are already taken"
+          );
+        }
+        #endif
         break;
       case FI_CONNECTED:
         SPDLOG_DEBUG(

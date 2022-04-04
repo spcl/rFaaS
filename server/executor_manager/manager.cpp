@@ -91,9 +91,15 @@ namespace rfaas::executor_manager {
         continue;
       spdlog::debug("[Manager-listen] Polled new rdmacm event");
 
+      #ifdef USE_LIBFABRIC
+      auto [conn, conn_status] = _state.poll_events(
+        _established_connection
+      );
+      #else
       auto [conn, conn_status] = _state.poll_events(
         false
       );
+      #endif
       spdlog::debug(
         "[Manager-listen] New rdmacm connection event - connection {}, status {}",
         fmt::ptr(conn), conn_status
@@ -105,6 +111,9 @@ namespace rfaas::executor_manager {
       if(conn_status == rdmalib::ConnectionStatus::DISCONNECTED) {
         // FIXME: handle disconnect
         spdlog::debug("[Manager-listen] Disconnection on connection {}", fmt::ptr(conn));
+        #ifdef USE_LIBFABRIC
+        _established_connection = false;
+        #endif
         continue;
       }
       // When client connects, we need to fill the receive queue with work requests before
@@ -121,6 +130,9 @@ namespace rfaas::executor_manager {
 
           SPDLOG_DEBUG("send to another thread\n");
           atomic_thread_fence(std::memory_order_release);
+          #ifdef USE_LIBFABRIC
+          _established_connection = true;
+          #endif
         } else
           _state.accept(conn);
         continue;
@@ -227,6 +239,9 @@ namespace rfaas::executor_manager {
               );
             } else {
               spdlog::info("Client {} disconnects", i);
+              #ifdef USE_LIBFABRIC
+              _established_connection = false;
+              #endif
               if(client.executor) {
                 auto now = std::chrono::high_resolution_clock::now();
                 client.allocation_time +=
@@ -248,6 +263,9 @@ namespace rfaas::executor_manager {
           if(client.executor) {
             auto status = client.executor->check();
             if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
+              #ifdef USE_LIBFABRIC
+              _established_connection = false;
+              #endif
               auto now = std::chrono::high_resolution_clock::now();
               client.allocation_time +=
                 std::chrono::duration_cast<std::chrono::microseconds>(
