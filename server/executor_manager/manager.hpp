@@ -17,17 +17,12 @@
 #include <rdmalib/recv_buffer.hpp>
 
 #include "client.hpp"
-#include "executor_manager/executor_process.hpp"
-#include "rdmalib/allocation.hpp"
 #include "settings.hpp"
 #include "../common.hpp"
 #include "../common/readerwriterqueue.h"
 
 namespace rdmalib {
   struct AllocationRequest;
-  #ifdef USE_LIBFABRIC
-  struct ClientAddress;
-  #endif
 }
 
 namespace rfaas::executor_manager {
