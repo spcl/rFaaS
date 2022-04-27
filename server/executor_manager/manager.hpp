@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 #include <mutex>
@@ -16,12 +17,17 @@
 #include <rdmalib/recv_buffer.hpp>
 
 #include "client.hpp"
+#include "executor_manager/executor_process.hpp"
+#include "rdmalib/allocation.hpp"
 #include "settings.hpp"
 #include "../common.hpp"
 #include "../common/readerwriterqueue.h"
 
 namespace rdmalib {
   struct AllocationRequest;
+  #ifdef USE_LIBFABRIC
+  struct ClientAddress;
+  #endif
 }
 
 namespace rfaas::executor_manager {
@@ -43,11 +49,6 @@ namespace rfaas::executor_manager {
     static constexpr int POLLING_TIMEOUT_MS = 100;
     moodycamel::ReaderWriterQueue<std::pair<int, rdmalib::Connection*>> _q1;
     moodycamel::ReaderWriterQueue<std::pair<int, Client>> _q2;
-
-    #ifdef USE_LIBFABRIC
-    bool _established_connection = false;
-    
-    #endif
     
     std::mutex clients;
     std::map<int, Client> _clients;

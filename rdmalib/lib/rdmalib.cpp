@@ -476,11 +476,7 @@ namespace rdmalib {
     #endif
   }
 
-  #ifdef USE_LIBFABRIC
   std::tuple<Connection*, ConnectionStatus> RDMAPassive::poll_events(bool share_cqs)
-  #else
-  std::tuple<Connection*, ConnectionStatus> RDMAPassive::poll_events(bool share_cqs)
-  #endif
   {
     #ifdef USE_LIBFABRIC
     uint32_t event;
@@ -519,36 +515,22 @@ namespace rdmalib {
         else
           SPDLOG_DEBUG("[RDMAPassive] Connection request with no private data");
 
-        #ifdef USE_LIBFABRIC
-        // Used here as determinator of whether we have already established a connection
-        if (!share_cqs || ret == total_size) {
-        #endif
-          // Check if we have a domain open for the connection already
-          if (!entry->info->domain_attr->domain)
-            fi_domain(_addr.fabric, entry->info, &connection->_domain, NULL);
+        // Check if we have a domain open for the connection already
+        // if (!entry->info->domain_attr->domain)
+        //   fi_domain(_addr.fabric, entry->info, &connection->_domain, NULL);
 
-          // Enable the endpoint
-          connection->initialize(_addr.fabric, connection->_domain, entry->info, _ec);
-          SPDLOG_DEBUG(
-            "[RDMAPassive] Created connection fid {} qp {}",
-            fmt::ptr(connection->id()), fmt::ptr(&connection->qp()->fid)
-          );
+        // Enable the endpoint
+        connection->initialize(_addr.fabric, _pd, entry->info, _ec);
+        SPDLOG_DEBUG(
+          "[RDMAPassive] Created connection fid {} qp {}",
+          fmt::ptr(connection->id()), fmt::ptr(&connection->qp()->fid)
+        );
 
-          // Free the info
-          fi_freeinfo(entry->info);
+        // Free the info
+        fi_freeinfo(entry->info);
 
-          status = ConnectionStatus::REQUESTED;
-          _active_connections.insert(connection);
-        #ifdef USE_LIBFABRIC
-        } else {
-          free(connection);
-          connection = nullptr;
-          impl::expect_zero(fi_reject(_pep, entry->info->handle, nullptr, 0));
-          SPDLOG_DEBUG(
-            "[RDMAPassive] Rejected connection because we are already taken"
-          );
-        }
-        #endif
+        status = ConnectionStatus::REQUESTED;
+        _active_connections.insert(connection);
         break;
       case FI_CONNECTED:
         SPDLOG_DEBUG(

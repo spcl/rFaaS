@@ -26,11 +26,7 @@ namespace rfaas::executor_manager {
     rdmalib::Connection* connection;
     rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
     rdmalib::RecvBuffer rcv_buffer;
-    #ifdef USE_LIBFABRIC
-    std::unique_ptr<ActiveExecutor> executor = nullptr;
-    #else
     std::unique_ptr<ActiveExecutor> executor;
-    #endif
     rdmalib::Buffer<Accounting> accounting;
     uint32_t allocation_time;
     bool _active;
