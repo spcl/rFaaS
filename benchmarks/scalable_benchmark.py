@@ -164,6 +164,6 @@ command = f"""srun -l -t 00:02:00 -ntasks-per-node {P_client} -n {N_client*P_cli
 print("Running the clients with command\n")
 print(f"{command}\n")
 client_process = subprocess.Popen(command, shell=True)
-srun_process.wait()
+client_process.wait()
 manager_process.kill()
 
