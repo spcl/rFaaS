@@ -19,7 +19,7 @@
 
 #include "scalable_benchmark.hpp"
 #include "settings.hpp"
-
+#include <mpi.h>
 
 int get_second() {
   std::time_t t = std::time(0); 
@@ -60,6 +60,14 @@ int main(int argc, char ** argv)
     return 1;
   }
 
+  // Initialize the MPI and the comm world
+  MPI_Init(nullptr, nullptr);
+  int world_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  int world_size;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  spdlog::info("Running as rank %d within the world of size %d", world_rank, world_size);
+
   rfaas::executor executor(
     settings.device->ip_address,
     settings.device->port,
@@ -99,6 +107,7 @@ int main(int argc, char ** argv)
     while ((get_second() % 5) != 0) {}
     int j;
     for(j = 0; j < opts.fail; j++) {
+      MPI_Barrier(MPI_COMM_WORLD);
       if(executor.allocate(
         opts.flib, opts.cores, opts.input_size, 
         settings.benchmark.hot_timeout, false, &benchmarker
@@ -122,6 +131,7 @@ int main(int argc, char ** argv)
     benchmarker._measurements.size(),
     std::chrono::duration_cast<std::chrono::microseconds>(end-start).count() / 1000.0
   );
+  MPI_Finalize();
 
   auto [median, avg] = benchmarker.summary();
   spdlog::info(

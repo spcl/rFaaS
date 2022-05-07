@@ -61,7 +61,7 @@ namespace server {
     _library_handle(nullptr)
   {
     // FIXME: works only on Linux
-    #ifdef USE_LIBFABRIC#ifdef USE_LIBFABRIC
+    #ifdef USE_LIBFABRIC
     rdmalib::impl::expect_nonnegative(_fd = syscall(SYS_memfd_create, "test", MFD_CLOEXEC));
     #else
     rdmalib::impl::expect_nonnegative(_fd = memfd_create("libfunction", 0));
