@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <cstdlib>
 #include <iterator>
+#include <mutex>
 #include <netdb.h>
 
 // poll on file descriptors
@@ -19,6 +20,11 @@
 #include <rdma/fi_cm.h>
 #include <rdma/fi_eq.h>
 #include <rdma/fi_errno.h>
+#ifdef USE_GNI_AUTH
+extern "C" {
+#include "rdmacred.h"
+}
+#endif
 #endif
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bundled/format.h>
@@ -49,6 +55,19 @@ namespace rdmalib {
     impl::expect_zero(fi_getinfo(FI_VERSION(1, 9), ip.c_str(), std::to_string(port).c_str(), passive ? FI_SOURCE : 0, hints, &addrinfo));
     fi_freeinfo(hints);
     impl::expect_zero(fi_fabric(addrinfo->fabric_attr, &fabric, nullptr));
+    #ifdef USE_GNI_AUTH
+    // Obtain the cookies once per process
+    std::call_once(access_flag, &Address::obtain_cookies, this);
+
+    // Set the hints to have the cookies
+    addrinfo->domain_attr->auth_key = (uint8_t *)malloc(sizeof(cookie));
+    memcpy(addrinfo->domain_attr->auth_key, &cookie, sizeof(cookie));
+    addrinfo->domain_attr->auth_key_size = sizeof(cookie);
+    addrinfo->ep_attr->auth_key = (uint8_t *)malloc(sizeof(cookie));
+    memcpy(addrinfo->ep_attr->auth_key, &cookie, sizeof(cookie));
+    addrinfo->ep_attr->auth_key_size = sizeof(cookie);
+    spdlog::info("Saved cookie {}", cookie);
+    #endif
     #else
     memset(&hints, 0, sizeof hints);
     hints.ai_port_space = RDMA_PS_TCP;
@@ -60,6 +79,24 @@ namespace rdmalib {
     this->_port = port;
     this->_ip = ip;
   }
+
+  #ifdef USE_GNI_AUTH
+  void Address::obtain_cookies() {
+    // Access the credentials and obtain the credential cookie
+    char buffer[11];
+    FILE *file;
+    impl::expect_nonnull(file = fopen("credential.txt", "r"));
+    impl::expect_nonnull(fgets(buffer, 11, file));
+    fclose(file);
+    uint32_t credential = (uint32_t)atoi(buffer);
+    impl::expect_zero(drc_access(credential, 0, &credential_info));
+
+    // Obtain the cookie
+    cookie = (uint64_t)drc_get_first_cookie(credential_info)<<32;
+  }
+  drc_info_handle_t Address::credential_info;
+  uint64_t Address::cookie;
+  #endif  
 
   Address::Address(const std::string & sip,  const std::string & dip, int port)
   {
@@ -120,6 +157,9 @@ namespace rdmalib {
       impl::expect_zero(fi_close(&fabric->fid));
     if (addrinfo)
       fi_freeinfo(addrinfo); 
+    #ifdef USE_GNI_AUTH
+    std::call_once(release_flag, drc_release_local, &credential_info);
+    #endif
     #else
     rdma_freeaddrinfo(addrinfo);
     #endif
@@ -520,6 +560,14 @@ namespace rdmalib {
         //   fi_domain(_addr.fabric, entry->info, &connection->_domain, NULL);
 
         // Enable the endpoint
+        #ifdef USE_GNI_AUTH
+        entry->info->domain_attr->auth_key = (uint8_t *)malloc(sizeof(_addr.cookie));
+        memcpy(entry->info->domain_attr->auth_key, &_addr.cookie, sizeof(_addr.cookie));
+        entry->info->domain_attr->auth_key_size = sizeof(_addr.cookie);
+        entry->info->ep_attr->auth_key = (uint8_t *)malloc(sizeof(_addr.cookie));
+        memcpy(entry->info->ep_attr->auth_key, &_addr.cookie, sizeof(_addr.cookie));
+        entry->info->ep_attr->auth_key_size = sizeof(_addr.cookie);
+        #endif
         connection->initialize(_addr.fabric, _pd, entry->info, _ec);
         SPDLOG_DEBUG(
           "[RDMAPassive] Created connection fid {} qp {}",

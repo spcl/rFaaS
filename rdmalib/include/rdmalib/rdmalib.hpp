@@ -13,6 +13,12 @@
 #include <rdma/fabric.h>
 #include <arpa/inet.h>
 // #include <rdma/fi_ext_gni.h>
+#ifdef USE_GNI_AUTH
+#include <mutex>
+extern "C" {
+#include "rdmacred.h"
+}
+#endif
 #else
 #include <rdma/rdma_cma.h>
 #endif
@@ -28,6 +34,13 @@ namespace rdmalib {
     fi_info* addrinfo = nullptr;
     fi_info* hints = nullptr;
     fid_fabric* fabric = nullptr;
+    #ifdef USE_GNI_AUTH
+    std::once_flag access_flag;
+    std::once_flag release_flag;
+    void obtain_cookies();
+    static drc_info_handle_t credential_info;
+    static uint64_t cookie;
+    #endif
     std::string _ip;
     #else
     rdma_addrinfo *addrinfo;

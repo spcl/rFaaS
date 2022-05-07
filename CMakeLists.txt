@@ -77,6 +77,16 @@ if(${WITH_GNI_AUTH})
 endif()
 
 ###
+# Select whether we should compile the MPI scalability experiment
+###
+option(WITH_SCALABILITY "Compile the scalability experiment" Off)
+if(${WITH_SCALABILITY})
+  message(STATUS "Enabling the compilation of the scalability experiment")
+  add_definitions(-DWITH_SCALABILITY)
+  find_package(MPI REQUIRED)
+endif()
+
+###
 # Optional: use existing installations
 ###
 set(CXXOPTS_PATH "" CACHE STRING "Path to installation of cxxopts")
@@ -184,9 +194,6 @@ target_include_directories(rfaaslib PUBLIC "rfaas/include")
 target_include_directories(rfaaslib PRIVATE $<TARGET_PROPERTY:rdmalib,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(rfaaslib SYSTEM PUBLIC $<TARGET_PROPERTY:cereal,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(rfaaslib SYSTEM PUBLIC $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
-#if (${WITH_LIBFABRIC} AND ${WITH_GNI_AUTH})
-#target_include_directories(rfaaslib SYSTEM PUBLIC $<TARGET_PROPERTY:drc,INTERFACE_INCLUDE_DIRECTORIES>)
-#endif()
 set_target_properties(rfaaslib PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(rfaaslib PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
 target_link_libraries(rfaaslib PUBLIC rdmalib)
@@ -194,9 +201,6 @@ target_link_libraries(rfaaslib PUBLIC spdlog::spdlog)
 target_link_libraries(rfaaslib PRIVATE cereal)
 target_link_libraries(rfaaslib PUBLIC dl)
 target_link_libraries(rfaaslib PUBLIC Threads::Threads)
-#if (${WITH_LIBFABRIC} AND ${WITH_GNI_AUTH})
-#target_link_libraries(rfaaslib PUBLIC drc)
-#endif()
 
 ###
 # Server
