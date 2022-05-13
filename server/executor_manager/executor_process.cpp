@@ -88,7 +88,7 @@ namespace rfaas::executor_manager {
     std::string mgr_buf_addr = std::to_string(conn.r_addr);
     std::string mgr_buf_rkey = std::to_string(conn.r_key);
 
-    int mypid = fork();
+    int mypid = vfork();
     if(mypid < 0) {
       spdlog::error("Fork failed! {}", mypid);
     }

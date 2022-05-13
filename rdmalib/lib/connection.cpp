@@ -180,27 +180,30 @@ namespace rdmalib {
     SPDLOG_DEBUG("Connection close called for {} with qp fid {}", fmt::ptr(this), fmt::ptr(&this->_qp->fid));
     // We need to close the transmit and receive channels and the endpoint
     if (_status != ConnectionStatus::DISCONNECTED) {
-      if (_rcv_channel) {
-        impl::expect_zero(fi_close(&_rcv_channel->fid));
-        _rcv_channel = nullptr;
-      }
-      if (_trx_channel) {
-        impl::expect_zero(fi_close(&_trx_channel->fid));
-        _trx_channel = nullptr;
-      }
-      if (_write_counter) {
-        impl::expect_zero(fi_close(&_write_counter->fid));
-        _write_counter = nullptr;
-      }
-      if (_qp) {
-        impl::expect_zero(fi_shutdown(_qp, 0));
-        impl::expect_zero(fi_close(&_qp->fid));
-        _qp = nullptr;
-      }
-      if (_domain) {
-        impl::expect_zero(fi_close(&_domain->fid));
-        _domain = nullptr;
-      }
+      // TODO Check how to free those and if it's necessary at all.
+      //      When closing the endpoint we obtain a corrupted double-linked list problem
+      //      within gnix.
+      // if (_rcv_channel) {
+      //   impl::expect_zero(fi_close(&_rcv_channel->fid));
+      //   _rcv_channel = nullptr;
+      // }
+      // if (_trx_channel) {
+      //   impl::expect_zero(fi_close(&_trx_channel->fid));
+      //   _trx_channel = nullptr;
+      // }
+      // if (_write_counter) {
+      //   impl::expect_zero(fi_close(&_write_counter->fid));
+      //   _write_counter = nullptr;
+      // }
+      // if (_qp) {
+      //   impl::expect_zero(fi_shutdown(_qp, 0));
+      //   impl::expect_zero(fi_close(&_qp->fid));
+      //   _qp = nullptr;
+      // }
+      // if (_domain) {
+      //   impl::expect_zero(fi_close(&_domain->fid));
+      //   _domain = nullptr;
+      // }
       _status = ConnectionStatus::DISCONNECTED;
     }
     #else

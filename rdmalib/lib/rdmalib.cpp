@@ -153,10 +153,13 @@ namespace rdmalib {
   Address::~Address()
   {
     #ifdef USE_LIBFABRIC
-    if (fabric)
-      impl::expect_zero(fi_close(&fabric->fid));
-    if (addrinfo)
-      fi_freeinfo(addrinfo); 
+    // TODO Check how to free those and if it's necessary at all.
+    //      When closing the addringo we obtain a double free or corruption problem.
+    //      It seems that the problem is coming from the the ep_attr.
+    // if (fabric)
+    //   impl::expect_zero(fi_close(&fabric->fid));
+    // if (addrinfo)
+    //   fi_freeinfo(addrinfo); 
     #ifdef USE_GNI_AUTH
     std::call_once(release_flag, drc_release_local, &credential_info);
     #endif
