@@ -46,7 +46,7 @@ namespace rdmalib {
     // Set the hints to have ability to conduct MSG, Atomic and RMA operations
     hints->caps |= FI_MSG | FI_RMA | FI_ATOMIC | FI_RMA_EVENT;
     // Set the hints to indicate that we will register the local buffers
-    hints->domain_attr->mr_mode = FI_MR_LOCAL | FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY;
+    hints->domain_attr->mr_mode = FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY;
     hints->ep_attr->type = FI_EP_MSG;
     hints->fabric_attr->prov_name = strdup("GNI");
     hints->domain_attr->threading = FI_THREAD_DOMAIN;
