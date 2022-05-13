@@ -1,4 +1,5 @@
 #include <iostream>
+#include "gni_pub.h"
 
 extern "C" {
 #include "rdmacred.h"
