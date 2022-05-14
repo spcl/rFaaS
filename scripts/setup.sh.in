@@ -1,0 +1,6 @@
+
+module load rdma-credentials
+srun -l -N1 -n1 ${CMAKE_CURRENT_BINARY_DIR}/benchmarks/credentials
+COOKIE=$(cat "credential.txt")
+export CRAY_CREDENTIALS=$COOKIE
+

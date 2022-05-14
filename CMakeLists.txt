@@ -269,3 +269,7 @@ if( ${RFAAS_WITH_TESTING} )
   include(testing)
 endif()
 
+if( ${WITH_LIBFABRIC} AND ${WITH_GNI_AUTH})
+  configure_file(scripts/setup.sh.in scripts/setup.sh)
+endif()
+

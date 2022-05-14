@@ -139,7 +139,6 @@ namespace rfaas::executor_manager {
           "--mount=type=bind,source=/etc/alternatives/cray-udreg,destination=/etc/alternatives/cray-udreg",
           "--mount=type=bind,source=/etc/alternatives/cray-wlm_detect,destination=/etc/alternatives/cray-wlm_detect",
           "-e", "LD_LIBRARY_PATH=/opt/cray/xpmem/default/lib64/;/opt/cray/udreg/default/lib64;/opt/cray/alps/default/lib64;/opt/cray/wlm_detect/default/lib64/",
-          "-e", "CREDENTIAL=7029",
           "spcleth/hpc-disagg:rfaas-executor-daint",
           "/scratch/snx3000/mcopik/serverless_hpc/artifact/software/rfaas_libfabric/build_rfaas_debug/bin/executor",
           "-a", client_addr.c_str(),

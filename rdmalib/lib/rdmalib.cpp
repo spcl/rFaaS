@@ -66,7 +66,7 @@ namespace rdmalib {
     addrinfo->ep_attr->auth_key = (uint8_t *)malloc(sizeof(cookie));
     memcpy(addrinfo->ep_attr->auth_key, &cookie, sizeof(cookie));
     addrinfo->ep_attr->auth_key_size = sizeof(cookie);
-    spdlog::info("Saved cookie {}", cookie);
+    spdlog::info("Saved Cray credentials cookie {}", cookie);
     #endif
     #else
     memset(&hints, 0, sizeof hints);
@@ -81,18 +81,18 @@ namespace rdmalib {
   }
 
   #ifdef USE_GNI_AUTH
-  void Address::obtain_cookies() {
+  void Address::obtain_cookies()
+  {
+
     // Access the credentials and obtain the credential cookie
-    char buffer[11];
-    FILE *file;
-    impl::expect_nonnull(file = fopen("credential.txt", "r"));
-    impl::expect_nonnull(fgets(buffer, 11, file));
-    fclose(file);
+    // FIXME: this should be passed explicitly as a paramter
+    char* buffer = getenv("CRAY_CREDENTIALS");
     uint32_t credential = (uint32_t)atoi(buffer);
     impl::expect_zero(drc_access(credential, 0, &credential_info));
 
     // Obtain the cookie
     cookie = (uint64_t)drc_get_first_cookie(credential_info)<<32;
+
   }
   drc_info_handle_t Address::credential_info;
   uint64_t Address::cookie;
