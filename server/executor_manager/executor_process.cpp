@@ -81,7 +81,7 @@ namespace rfaas::executor_manager {
       executor_pin_threads = std::to_string(0);//counter++);
     else
       executor_pin_threads = std::to_string(exec.pin_threads);
-    bool use_docker = exec.use_docker;
+    auto sandbox_type = exec.sandbox_type;
 
     std::string mgr_port = std::to_string(conn.port);
     std::string mgr_secret = std::to_string(conn.secret);
@@ -96,12 +96,14 @@ namespace rfaas::executor_manager {
       mypid = getpid();
       auto out_file = ("executor_" + std::to_string(mypid));
 
-      spdlog::info("Child fork begins work on PID {}, using Docker? {}", mypid, use_docker);
+      spdlog::info("Child fork begins work on PID {}, using sandbox {}", mypid, sandbox_serialize(sandbox_type));
       int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
       dup2(fd, 1);
       dup2(fd, 2);
-      if(!use_docker) {
-        const char * argv[] = {
+
+      std::vector<const char*> argv;
+      if(sandbox_type == SandboxType::PROCESS) {
+        argv = {
           "executor",
           "-a", client_addr.c_str(),
           "-p", client_port.c_str(),
@@ -122,13 +124,44 @@ namespace rfaas::executor_manager {
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
           nullptr
         };
-        int ret = execvp(argv[0], const_cast<char**>(&argv[0]));
-        if(ret == -1) {
-          spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
-          close(fd);
-          exit(1);
-        }
-      } else {
+      } else if(sandbox_type == SandboxType::SARUS) {
+        argv = {
+          "sarus", "run",
+          "--device=/dev/kgni0",
+          "--device=/dev/kdreg",
+          "--mount=type=bind,source=/opt/cray,destination=/opt/cray",
+          "--mount=type=bind,source=/tmp/drcc.sock,destination=/tmp/drcc.sock",
+          "--mount=type=bind,source=/etc/opt/cray/rdma-credentials,destination=/etc/opt/cray/rdma-credentials",
+          "--mount=type=bind,source=/scratch/snx3000/mcopik,destination=/scratch/snx3000/mcopik",
+          "--mount=type=bind,source=/etc/alternatives/cray-ugni,destination=/etc/alternatives/cray-ugni",
+          "--mount=type=bind,source=/etc/alternatives/cray-xpmem,destination=/etc/alternatives/cray-xpmem",
+          "--mount=type=bind,source=/etc/alternatives/cray-alps,destination=/etc/alternatives/cray-alps",
+          "--mount=type=bind,source=/etc/alternatives/cray-udreg,destination=/etc/alternatives/cray-udreg",
+          "--mount=type=bind,source=/etc/alternatives/cray-wlm_detect,destination=/etc/alternatives/cray-wlm_detect",
+          "-e", "LD_LIBRARY_PATH=/opt/cray/xpmem/default/lib64/;/opt/cray/udreg/default/lib64;/opt/cray/alps/default/lib64;/opt/cray/wlm_detect/default/lib64/",
+          "-e", "CREDENTIAL=7029",
+          "spcleth/hpc-disagg:rfaas-executor-daint",
+          "/scratch/snx3000/mcopik/serverless_hpc/artifact/software/rfaas_libfabric/build_rfaas_debug/bin/executor",
+          "-a", client_addr.c_str(),
+          "-p", client_port.c_str(),
+          "--polling-mgr", "thread",
+          "-r", executor_repetitions.c_str(),
+          "-x", executor_recv_buf.c_str(),
+          "-s", client_in_size.c_str(),
+          "--pin-threads", executor_pin_threads.c_str(),
+          "--fast", client_cores.c_str(),
+          "--warmup-iters", executor_warmups.c_str(),
+          "--max-inline-data", executor_max_inline.c_str(),
+          "--func-size", client_func_size.c_str(),
+          "--timeout", client_timeout.c_str(),
+          "--mgr-address", conn.addr.c_str(),
+          "--mgr-port", mgr_port.c_str(),
+          "--mgr-secret", mgr_secret.c_str(),
+          "--mgr-buf-addr", mgr_buf_addr.c_str(),
+          "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
+          nullptr
+        };
+      } else if(sandbox_type == SandboxType::DOCKER) {
         //const char * argv[] = {
         //  "docker_rdma_sriov", "run",
         //  "--rm",
@@ -159,7 +192,7 @@ namespace rfaas::executor_manager {
         //  "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
         //  nullptr
         //};
-        const char * argv[] = {
+        argv = {
           "docker_rdma_sriov", "run",
           "--rm",
           "--net=mynet", "-i", //"-it",
@@ -189,14 +222,15 @@ namespace rfaas::executor_manager {
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
           nullptr
         };
-        int ret = execvp(argv[0], const_cast<char**>(&argv[0]));
-        if(ret == -1) {
-          spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
-          close(fd);
-          exit(1);
-        }
-
       }
+
+      int ret = execvp(argv.data()[0], const_cast<char**>(&argv.data()[0]));
+      if(ret == -1) {
+        spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
+        close(fd);
+        exit(1);
+      }
+
       //close(fd);
       exit(0);
     }

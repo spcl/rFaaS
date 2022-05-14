@@ -7,7 +7,7 @@
     "resource_manager_secret": 0
   },
   "executor": {
-    "use_docker": false,
+    "sandbox-type": "process",
     "repetitions": 100,
     "warmup_iters": 0,
     "pin_threads": false

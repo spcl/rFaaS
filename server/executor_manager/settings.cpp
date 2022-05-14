@@ -5,6 +5,26 @@
 
 namespace rfaas::executor_manager {
 
+  SandboxType sandbox_deserialize(std::string type)
+  {
+    static std::map<std::string, SandboxType> sandboxes = {
+      {"process", SandboxType::PROCESS},
+      {"docker", SandboxType::DOCKER},
+      {"sarus", SandboxType::SARUS}
+    };
+    return sandboxes.at(type);
+  }
+
+  std::string sandbox_serialize(SandboxType type)
+  {
+    static std::map<SandboxType, std::string> sandboxes = {
+      {SandboxType::PROCESS, "process"},
+      {SandboxType::DOCKER, "docker"},
+      {SandboxType::SARUS, "sarus"}
+    };
+    return sandboxes.at(type);
+  }
+
   Settings Settings::deserialize(std::istream & in)
   {
     Settings settings{};

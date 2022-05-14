@@ -3,6 +3,7 @@
 #ifndef __RFAAS_EXECUTOR_MANAGER_SETTINGS_HPP__
 #define __RFAAS_EXECUTOR_MANAGER_SETTINGS_HPP__
 
+#include <map>
 #include <string>
 
 #include <rfaas/devices.hpp>
@@ -11,9 +12,19 @@
 
 namespace rfaas::executor_manager {
 
+  enum class SandboxType {
+    PROCESS = 0,
+    DOCKER = 1,
+    SARUS = 2
+  };
+
+  SandboxType sandbox_deserialize(std::string type);
+
+  std::string sandbox_serialize(SandboxType type);
+
   struct ExecutorSettings
   {
-    bool use_docker;
+    SandboxType sandbox_type;
     int repetitions;
     int warmup_iters;
     int recv_buffer_size;
@@ -23,10 +34,12 @@ namespace rfaas::executor_manager {
     template <class Archive>
     void load(Archive & ar )
     {
+      std::string sandbox_type;
       ar(
-        CEREAL_NVP(use_docker), CEREAL_NVP(repetitions),
+        CEREAL_NVP(sandbox_type), CEREAL_NVP(repetitions),
         CEREAL_NVP(warmup_iters), CEREAL_NVP(pin_threads)
       );
+      this->sandbox_type = sandbox_deserialize(sandbox_type);
     }
   };
 
