@@ -2,6 +2,7 @@
 #ifndef __RFAAS_RESOURCES_HPP__
 #define __RFAAS_RESOURCES_HPP__
 
+#include <cstddef>
 #include <iostream>
 #include <vector>
 #include <cstdint>
@@ -42,6 +43,7 @@ namespace rfaas {
   struct servers
   {
     static std::unique_ptr<servers> _instance;
+    static int current_index;
     std::vector<server_data> _data; 
     std::mt19937 _gen;
     servers(int positions = 0);

@@ -25,7 +25,11 @@ namespace rfaas {
 
   servers::servers(int positions)
   {
-    _gen = std::mt19937(getpid());
+    #ifdef WITH_SCALABILITY
+    _gen = std::mt19937(0 + std::getenv("SLURM_PROCID"));
+    #else
+    _gen = std::mt19937(0);
+    #endif
     if(positions)
       _data.resize(positions);
   }
@@ -39,12 +43,14 @@ namespace rfaas {
   {
     // FIXME: random walk
     // FIXME: take size of server in account
-    std::uniform_int_distribution<int> dist(0, _data.size()-1);
-    return {dist(_gen)};
+    current_index %= _data.size();
+    return { current_index++ };
   }
 
   servers & servers::instance()
   {
+    // Shuffle the servers
+    std::shuffle(_instance.get()->_data.begin(), _instance.get()->_data.end(), _instance.get()->_gen);
     return *_instance.get();
   }
 
