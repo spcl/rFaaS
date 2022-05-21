@@ -64,6 +64,8 @@ namespace rdmalib {
     #ifdef USE_LIBFABRIC
     fid_eq* _ec = nullptr;
     fid_domain* _pd = nullptr;
+    fid_cq* _rcv_channel = nullptr;
+    fid_cq* _trx_channel = nullptr;
     #else
     rdma_event_channel * _ec;
     ibv_pd* _pd;
@@ -93,6 +95,8 @@ namespace rdmalib {
     fid_eq* _ec = nullptr;
     fid_domain* _pd = nullptr;
     fid_pep* _pep = nullptr;
+    fid_cq* _rcv_channel;
+    fid_cq* _trx_channel;
     // fi_gni_ops_domain* _ops;
     #else
     rdma_event_channel * _ec;

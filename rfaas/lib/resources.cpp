@@ -10,6 +10,7 @@
 namespace rfaas {
 
   std::unique_ptr<servers> servers::_instance = nullptr;
+  int servers::current_index = 0;
 
   server_data::server_data():
     port(-1),
@@ -26,7 +27,7 @@ namespace rfaas {
   servers::servers(int positions)
   {
     #ifdef WITH_SCALABILITY
-    _gen = std::mt19937(0 + std::getenv("SLURM_PROCID"));
+    _gen = std::mt19937(0 + atoi(std::getenv("SLURM_PROCID")));
     #else
     _gen = std::mt19937(0);
     #endif
