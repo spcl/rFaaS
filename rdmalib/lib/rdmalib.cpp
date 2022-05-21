@@ -49,7 +49,7 @@ namespace rdmalib {
     hints->domain_attr->mr_mode = FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY;
     hints->ep_attr->type = FI_EP_MSG;
     hints->fabric_attr->prov_name = strdup("GNI");
-    hints->domain_attr->threading = FI_THREAD_DOMAIN;
+    hints->domain_attr->threading = FI_THREAD_SAFE;
     hints->domain_attr->resource_mgmt = FI_RM_ENABLED;
     hints->tx_attr->tclass = FI_TC_LOW_LATENCY;
     impl::expect_zero(fi_getinfo(FI_VERSION(1, 9), ip.c_str(), std::to_string(port).c_str(), passive ? FI_SOURCE : 0, hints, &addrinfo));
