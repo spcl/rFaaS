@@ -66,6 +66,7 @@ namespace rdmalib {
     fid_domain* _pd = nullptr;
     fid_cq* _rcv_channel = nullptr;
     fid_cq* _trx_channel = nullptr;
+    fid_cntr* _write_counter = nullptr;
     #else
     rdma_event_channel * _ec;
     ibv_pd* _pd;
@@ -97,6 +98,7 @@ namespace rdmalib {
     fid_pep* _pep = nullptr;
     fid_cq* _rcv_channel;
     fid_cq* _trx_channel;
+    fid_cntr* _write_counter = nullptr;
     // fi_gni_ops_domain* _ops;
     #else
     rdma_event_channel * _ec;

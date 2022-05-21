@@ -121,19 +121,13 @@ namespace rdmalib {
   }
 
   #ifdef USE_LIBFABRIC
-  void Connection::initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cq* rx_channel, fid_cq* tx_channel)
+  void Connection::initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel)
   {
     // Create the endpoint and set its flags up so that we get completions on RDM
     impl::expect_zero(fi_endpoint(pd, info, &_qp, reinterpret_cast<void*>(this)));
 
-    // Open the counter for write operations
-    fi_cntr_attr cntr_attr;
-    cntr_attr.events = FI_CNTR_EVENTS_COMP;
-    cntr_attr.wait_obj = FI_WAIT_UNSPEC;
-    cntr_attr.wait_set = nullptr;
-    cntr_attr.flags = 0;
-    impl::expect_zero(fi_cntr_open(pd, &cntr_attr, &_write_counter, nullptr));
-    impl::expect_zero(fi_cntr_set(_write_counter, 0));
+    // Bind the counter for write operations
+    _write_counter = write_cntr;
     impl::expect_zero(fi_ep_bind(_qp, &_write_counter->fid, FI_REMOTE_WRITE));
 
     // Bind with the completion queues and the event queue
