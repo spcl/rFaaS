@@ -22,6 +22,7 @@ namespace rdmalib {
     rdma_addrinfo hints;
     uint16_t _port;
 
+    Address();
     Address(const std::string & ip, int port, bool passive);
     Address(const std::string & sip, const std::string & dip, int port);
 
@@ -35,7 +36,9 @@ namespace rdmalib {
     rdma_event_channel * _ec;
     ibv_pd* _pd;
 
+    RDMAActive();
     RDMAActive(const std::string & ip, int port, int recv_buf = 1, int max_inline_data = 0);
+    RDMAActive & operator=(RDMAActive &&);
     ~RDMAActive();
     void allocate();
     bool connect(uint32_t secret = 0);

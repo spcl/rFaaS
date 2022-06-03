@@ -18,6 +18,13 @@
 
 namespace rdmalib {
 
+  Address::Address()
+  {
+    memset(&hints, 0, sizeof(hints));
+    addrinfo = nullptr;
+    this->_port = -1;
+  }
+
   Address::Address(const std::string & ip, int port, bool passive)
   {
     memset(&hints, 0, sizeof hints);
@@ -55,11 +62,18 @@ namespace rdmalib {
     this->_port = port;
   }
 
-
   Address::~Address()
   {
-    rdma_freeaddrinfo(addrinfo);
+    if(addrinfo)
+      rdma_freeaddrinfo(addrinfo);
   }
+
+  RDMAActive::RDMAActive():
+    _conn(nullptr),
+    _ec(nullptr),
+    _pd(nullptr)
+  {}
+
 
   RDMAActive::RDMAActive(const std::string & ip, int port, int recv_buf, int max_inline_data):
     _conn(nullptr),
@@ -89,6 +103,17 @@ namespace rdmalib {
     _cfg.conn_param.retry_count = 3;
     _cfg.conn_param.rnr_retry_count = 3;
     SPDLOG_DEBUG("Create RDMAActive");
+  }
+
+  RDMAActive& RDMAActive::operator=(RDMAActive && obj)
+  {
+    _conn = std::move(obj._conn);
+    _addr = std::move(obj._addr);
+    _ec = std::move(obj._ec);
+    _pd = std::move(obj._pd);
+    _cfg = std::move(obj._cfg);
+
+    return *this;
   }
 
   RDMAActive::~RDMAActive()

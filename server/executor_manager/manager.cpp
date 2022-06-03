@@ -22,11 +22,6 @@ namespace rfaas::executor_manager {
   Manager::Manager(Settings & settings, bool skip_rm):
     _q1(100), _q2(100),
     _ids(0),
-    _res_mgr_connection(
-        settings.resource_manager_address,
-        settings.resource_manager_port,
-        settings.device->default_receive_buffer_size
-    ),
     _state(settings.device->ip_address, settings.rdma_device_port,
         settings.device->default_receive_buffer_size, true),
     _settings(settings),
@@ -35,8 +30,14 @@ namespace rfaas::executor_manager {
     _skip_rm(skip_rm),
     _shutdown(false)
   {
-    if(!_skip_rm)
+    if(!_skip_rm) {
+      _res_mgr_connection = std::move(rdmalib::RDMAActive{
+        settings.resource_manager_address,
+        settings.resource_manager_port,
+        settings.device->default_receive_buffer_size
+      });
       _res_mgr_connection.allocate();
+    }
   }
 
   void Manager::shutdown()
