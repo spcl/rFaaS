@@ -1,7 +1,7 @@
 {
   "config": {
     "rdma_device": "",
-    "rdma_device_port": 0,
+    "rdma_device_port": 10005,
     "resource_manager_address": "",
     "resource_manager_port": 0
   },
