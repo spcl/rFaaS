@@ -49,6 +49,13 @@ else()
   set(RFAAS_WITH_EXAMPLES OFF)
 endif()
 
+option(WITH_TOOLS "Enable building additional tools." Off)
+if(${WITH_TOOLS})
+  set(RFAAS_WITH_TOOLS ON)
+else()
+  set(RFAAS_WITH_TOOLS OFF)
+endif()
+
 option(WITH_TESTING "Enable building of rFaaS tests." Off)
 if(${WITH_TESTING})
   if( NOT TESTING_CONFIG STREQUAL "" AND NOT DEVICES_CONFIG STREQUAL "")
@@ -203,6 +210,10 @@ set_target_properties(functions PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(functions PROPERTIES LIBRARY_OUTPUT_DIRECTORY examples)
 if( ${RFAAS_WITH_EXAMPLES} )
   include(examples)
+endif()
+
+if( ${RFAAS_WITH_TOOLS} )
+  include(tools)
 endif()
 
 ###
