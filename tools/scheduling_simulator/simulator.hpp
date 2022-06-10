@@ -47,12 +47,13 @@ namespace simulator {
   {
     int _cores;
     MPI_Comm _comm;
-
+    ExecutorResults & _results;
     log::Logger & _logger;
 
-    Executor(int cores, MPI_Comm comm, log::Logger & logger):
+    Executor(int cores, MPI_Comm comm, ExecutorResults & results, log::Logger & logger):
       _cores(cores),
       _comm(comm),
+      _results(results),
       _logger(logger)
     {}
 

@@ -15,6 +15,7 @@ namespace simulator {
     int cores_to_allocate = _cores_to_allocate;
 
     _results.start_iteration();
+
     for(int exec : executors.executors()) {
 
       _logger.debug("Sending allocation {} to executor {}.", cores_to_allocate, exec);
@@ -30,7 +31,6 @@ namespace simulator {
         if(cores_to_allocate <= 0) {
 
           _logger.debug("Succesfull allocation.");
-          _results.complete_allocation();
           success = true;
           break;
 
@@ -43,6 +43,7 @@ namespace simulator {
 
       repetitions += 1;
     }
+    _results.complete_allocation(success);
 
     MPI_Request request;
     MPI_Ibarrier(_comm, &request);

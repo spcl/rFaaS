@@ -58,16 +58,27 @@ int main(int argc, char** argv)
   } else {
 
     logger.info("Executing simulator, server role.", world_size);
-    simulator::Executor exec{opts.cores_executor, MPI_COMM_WORLD, logger};
+    simulator::ExecutorResults results;
+    simulator::Executor exec{opts.cores_executor, MPI_COMM_WORLD, results, logger};
 
     for(int i = 0; i < opts.experiments; ++i) {
 
+      results.begin_experiment();
+
       for(int j = 0; j < opts.repetitions; ++j) {
+
         logger.debug("Begin repetition {} of experiment {}.", j, i);
         MPI_Barrier(MPI_COMM_WORLD);
         exec.handle_requests();
+
       }
 
+    }
+
+    {
+      std::ofstream out_file{std::filesystem::path{opts.output} / ("server_" + std::to_string(rank - opts.clients) + ".json")};
+      cereal::JSONOutputArchive archive_out(out_file);
+      results.save(archive_out);
     }
   }
 

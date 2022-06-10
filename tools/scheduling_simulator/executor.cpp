@@ -17,6 +17,8 @@ namespace simulator {
 
     MPI_Ibarrier(_comm, &barrier_request);
 
+    _results.start_iteration();
+
     while(true) {
 
       allocation.recv_allocation(&msg_request);
@@ -25,6 +27,7 @@ namespace simulator {
 
       if(idx == 0) {
 
+        _results.end_iteration();
         _logger.debug("Everyone finished, leaving.");
         MPI_Cancel(&msg_request);
         MPI_Request_free(&msg_request);
@@ -36,13 +39,22 @@ namespace simulator {
         // reply to the client
         int request = allocation.get_allocation();
         if(request <= free_cores) {
+
+          _results.register_request(request, true);
           reply.set_cores(request);
           free_cores -= request;
+
         } else if(free_cores > 0) {
+
+          _results.register_request(request, true);
           reply.set_cores(free_cores);
           free_cores = 0;
+
         } else {
+
+          _results.register_request(request, false);
           reply.set_failure();
+
         }
         reply.send_reply(status.MPI_SOURCE);
 
