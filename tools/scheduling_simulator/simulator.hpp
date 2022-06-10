@@ -2,11 +2,10 @@
 #ifndef __TOOLS_SIMULATOR_SIMULATOR_HPP__
 #define __TOOLS_SIMULATOR_SIMULATOR_HPP__
 
-#include <random>
-
 #include <mpi.h>
 
 #include "mpi_log.hpp"
+#include "results.hpp"
 
 namespace simulator {
 
@@ -19,33 +18,29 @@ namespace simulator {
     int seed;
     int cores_executor;
     int cores_to_allocate;
+    std::string output;
 
   };
 
   Options opts(int argc, char ** argv);
 
+  struct Executors;
+
   struct Client
   {
-    int _initial_seed;
     int _cores_to_allocate;
     MPI_Comm _comm;
-    std::mt19937 _prng;
-    std::vector<int> _random_seeds;
-    std::vector<int> _executors;
-
+    ClientResults & _results;
     log::Logger & _logger;
 
-    Client(int seed, int cores_to_allocate, MPI_Comm comm, log::Logger & logger):
-      _initial_seed(seed),
+    Client(int cores_to_allocate, MPI_Comm comm, ClientResults & results, log::Logger & logger):
       _cores_to_allocate(cores_to_allocate),
       _comm(comm),
-      _prng(_initial_seed),
+      _results(results),
       _logger(logger)
     {}
 
-    void initialize_seeds(int iterations);
-    void shuffle_executors(int low, int high, int iteration);
-    void allocate();
+    void allocate(const Executors&);
   };
 
   struct Executor

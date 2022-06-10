@@ -16,6 +16,7 @@ namespace simulator {
       ("seed", "Starting random seed.", cxxopts::value<int>())
       ("cores-executor", "Number of cores on each executor", cxxopts::value<int>())
       ("cores-to-allocate", "Number of cores to allocate on each client", cxxopts::value<int>())
+      ("output", "Output directory.", cxxopts::value<std::string>())
     ;
     auto parsed_options = options.parse(argc, argv);
     if(parsed_options.count("help"))
@@ -32,6 +33,7 @@ namespace simulator {
     result.seed = parsed_options["seed"].as<int>();
     result.cores_executor = parsed_options["cores-executor"].as<int>();
     result.cores_to_allocate = parsed_options["cores-to-allocate"].as<int>();
+    result.output = parsed_options["output"].as<std::string>();
 
     return result;
   }  

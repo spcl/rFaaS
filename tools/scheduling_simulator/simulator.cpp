@@ -1,9 +1,15 @@
 
+#include <fstream>
+#include <filesystem>
+
 #include <mpi.h>
 
 #include <spdlog/spdlog.h>
+#include <cereal/archives/json.hpp>
 
 #include "simulator.hpp"
+#include "executors.hpp"
+#include "results.hpp"
 #include "mpi_log.hpp"
 
 
@@ -25,19 +31,28 @@ int main(int argc, char** argv)
 
     logger.info("Executing simulator, client role.", world_size);
 
-    simulator::Client client{opts.seed + rank, opts.cores_to_allocate, MPI_COMM_WORLD, logger};
-    client.initialize_seeds(opts.experiments);
+    simulator::ClientResults results;
+    simulator::Client client{opts.cores_to_allocate, MPI_COMM_WORLD, results, logger};
+    simulator::Executors executors{opts.seed + rank};
+    executors.initialize_seeds(opts.experiments);
 
     for(int i = 0; i < opts.experiments; ++i) {
 
-      client.shuffle_executors(opts.clients, world_size, i);
+      executors.shuffle_executors(opts.clients, world_size, i);
+      results.begin_experiment(executors);
 
       for(int j = 0; j < opts.repetitions; ++j) {
         logger.debug("Begin repetition {} of experiment {}.", j, i);
         MPI_Barrier(MPI_COMM_WORLD);
-        client.allocate();
+        client.allocate(executors);
       }
 
+    }
+
+    {
+      std::ofstream out_file{std::filesystem::path{opts.output} / ("client_" + std::to_string(rank) + ".json")};
+      cereal::JSONOutputArchive archive_out(out_file);
+      results.save(archive_out);
     }
 
   } else {
