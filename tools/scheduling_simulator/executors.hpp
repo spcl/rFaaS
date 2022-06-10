@@ -2,7 +2,7 @@
 #ifndef __TOOLS_SIMULATOR_EXECUTORS_HPP__
 #define __TOOLS_SIMULATOR_EXECUTORS_HPP__
 
-
+#include <cstdint>
 #include <random>
 #include <vector>
 
@@ -14,7 +14,7 @@ namespace simulator {
 
     int _initial_seed;
     std::mt19937 _prng;
-    std::vector<int> _random_seeds;
+    std::vector<uint32_t> _random_seeds;
     value_t _executors;
 
     Executors(int seed):
