@@ -26,6 +26,7 @@ namespace simulator {
       if(idx == 0) {
 
         _logger.debug("Everyone finished, leaving.");
+        MPI_Cancel(&msg_request);
         MPI_Request_free(&msg_request);
         break;
 
