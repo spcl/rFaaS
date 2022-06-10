@@ -16,6 +16,7 @@ target_include_directories(scheduling_simulator SYSTEM PRIVATE $<TARGET_PROPERTY
 target_link_libraries(scheduling_simulator PRIVATE spdlog::spdlog)
 target_link_libraries(scheduling_simulator PRIVATE cereal)
 target_link_libraries(scheduling_simulator PRIVATE MPI::MPI_CXX)
+target_link_libraries(scheduling_simulator PRIVATE stdc++fs)
 
 set_target_properties(scheduling_simulator PROPERTIES RUNTIME_OUTPUT_DIRECTORY tools)
 set_target_properties(scheduling_simulator PROPERTIES CXX_STANDARD 17)
