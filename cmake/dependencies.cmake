@@ -1,4 +1,7 @@
 
+include_guard(GLOBAL)
+include(FetchContent)
+
 set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 
 ###

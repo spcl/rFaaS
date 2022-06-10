@@ -1,6 +1,5 @@
 
 cmake_minimum_required(VERSION 3.11)
-include(FetchContent)
 project(serverless-rdma)
 set (CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
@@ -213,7 +212,7 @@ if( ${RFAAS_WITH_EXAMPLES} )
 endif()
 
 if( ${RFAAS_WITH_TOOLS} )
-  include(tools)
+  add_subdirectory(tools)
 endif()
 
 ###
