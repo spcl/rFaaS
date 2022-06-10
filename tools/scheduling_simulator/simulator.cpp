@@ -27,6 +27,10 @@ int main(int argc, char** argv)
   auto opts = simulator::opts(argc, argv);
   bool am_client = rank < opts.clients;
 
+  if(rank == 0) {
+    std::filesystem::create_directory(std::filesystem::path{opts.output});
+  }
+
   if(am_client) {
 
     logger.info("Executing simulator, client role.", world_size);
