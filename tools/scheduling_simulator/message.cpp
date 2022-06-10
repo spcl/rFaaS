@@ -60,7 +60,6 @@ namespace simulator {
 
   void ReplyMessage::recv_reply(int executor)
   {
-    MPI_Status status;
-    MPI_Recv(&_buffer, 1, datatype(), executor, MPI_ANY_TAG, _comm, &status);
+    MPI_Recv(&_buffer, 1, datatype(), executor, MPI_ANY_TAG, _comm, MPI_STATUS_IGNORE);
   }
 }

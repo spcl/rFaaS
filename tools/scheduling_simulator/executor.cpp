@@ -24,10 +24,14 @@ namespace simulator {
       MPI_Waitany(2, requests, &idx, &status);
 
       if(idx == 0) {
+
+        _logger.debug("Everyone finished, leaving.");
         MPI_Request_free(&msg_request);
         break;
+
       } else {
 
+        _logger.debug("Received allocation request for {} cores from client {}.", allocation.get_allocation(), status.MPI_SOURCE);
         // reply to the client
         int request = allocation.get_allocation();
         if(request <= free_cores) {

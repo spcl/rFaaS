@@ -6,6 +6,8 @@
 
 #include <mpi.h>
 
+#include "mpi_log.hpp"
+
 namespace simulator {
 
   struct Options {
@@ -31,11 +33,14 @@ namespace simulator {
     std::vector<int> _random_seeds;
     std::vector<int> _executors;
 
-    Client(int seed, int cores_to_allocate, MPI_Comm comm):
+    log::Logger & _logger;
+
+    Client(int seed, int cores_to_allocate, MPI_Comm comm, log::Logger & logger):
       _initial_seed(seed),
       _cores_to_allocate(cores_to_allocate),
       _comm(comm),
-      _prng(_initial_seed)
+      _prng(_initial_seed),
+      _logger(logger)
     {}
 
     void initialize_seeds(int iterations);
@@ -48,9 +53,12 @@ namespace simulator {
     int _cores;
     MPI_Comm _comm;
 
-    Executor(int cores, MPI_Comm comm):
+    log::Logger & _logger;
+
+    Executor(int cores, MPI_Comm comm, log::Logger & logger):
       _cores(cores),
-      _comm(comm)
+      _comm(comm),
+      _logger(logger)
     {}
 
     void handle_requests();
