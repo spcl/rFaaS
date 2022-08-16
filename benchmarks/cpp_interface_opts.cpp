@@ -1,4 +1,6 @@
 
+#include <iostream>
+
 #include <cxxopts.hpp>
 
 #include "cpp_interface.hpp"
