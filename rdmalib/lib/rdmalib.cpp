@@ -27,6 +27,8 @@ namespace rdmalib {
 
   Address::Address(const std::string & ip, int port, bool passive)
   {
+    impl::expect_false(ip.empty(), false, "Expected non-empty IP address!");
+
     memset(&hints, 0, sizeof hints);
     hints.ai_port_space = RDMA_PS_TCP;
     if(passive)
