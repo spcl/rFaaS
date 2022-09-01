@@ -8,6 +8,13 @@ echoerr() {
   echo "$@" 1>&2;
 }
 
+function log () {
+  if [[ $verbose = 'true' ]]; then
+    echo "$@"
+  fi
+}
+
+
 get_device() {
   device=$1
   addr=$(ip -j address show dev $device | jq -r '.[0].addr_info[] | select(.family=="inet") | .local')
@@ -22,10 +29,12 @@ get_device() {
 }
 
 output="devices.json"
-while getopts "d:o:" opt; do
+verbose='false'
+while getopts "d:o:hv" opt; do
     case $opt in
         d) devices+=("$OPTARG");;
         o) output="$OPTARG";;
+        v) verbose='true';;
         h) usage
         exit 0;;
         *) usage
@@ -34,22 +43,22 @@ while getopts "d:o:" opt; do
 done
 
 jq --null-input '{"devices": []}' > "$output"
-echo "Writing to $output"
+log "Writing to $output"
 
 if [[ -n $devices ]]; then
-  echo "Querying the following devices: ${devices[@]}"
+  log "Querying the following devices: ${devices[@]}"
   for netdev in "${devices[@]}"
   do
-    echo "Process $netdev"
+    log "Process $netdev"
     get_device "$netdev" 
   done
 else
-  echo "Querying devices from the rdma command."
+  log "Querying devices from the rdma command."
   rdma_devices=$(rdma link)
 
   while read -r _ _ _ state _ _ _ netdev; do
     if [ "$state" = "ACTIVE" ]; then
-      echo "Process $netdev"
+      log "Process $netdev"
       get_device "$netdev" 
     fi
   done <<< "${rdma_devices}"
