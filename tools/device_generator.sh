@@ -23,12 +23,11 @@ get_device() {
   if [[ -z "${addr}" || "${addr,,}" = "null" ]]; then
     echoerr "Could not determine the address of device $device"
   else
-    jq --arg device $device --arg addr $addr '.devices += [{"name": $device, "ip_address": $addr, "port": 0, "default_receiver_buffer_size": 32, "max_inline_data": 0}]' "$output" > "$output".tmp
-    mv "$output".tmp "$output"
+    output_json=$(jq --arg device $device --arg addr $addr '.devices += [{"name": $device, "ip_address": $addr, "port": 0, "default_receiver_buffer_size": 32, "max_inline_data": 0}]' <<< ${output_json})
   fi
 }
 
-output="devices.json"
+output=""
 verbose='false'
 while getopts "d:o:hv" opt; do
     case $opt in
@@ -42,8 +41,7 @@ while getopts "d:o:hv" opt; do
     esac
 done
 
-jq --null-input '{"devices": []}' > "$output"
-log "Writing to $output"
+output_json=$(jq --null-input '{"devices": []}')
 
 if [[ -n $devices ]]; then
   log "Querying the following devices: ${devices[@]}"
@@ -65,4 +63,11 @@ else
 
 fi
 
+if [[ ! -z $output ]]; then
+  log "Writing to $output"
+  # run jq to pretify
+  jq <<< ${output_json} > $output
+else
+  jq . <<< ${output_json}
+fi
 
