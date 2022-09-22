@@ -52,7 +52,7 @@ if [[ $type = 'ssh' ]]; then
 
 elif [[ $type = 'srun' ]]; then
 
-  srun /bin/bash -c "${SCRIPT_DIR}'/device_generator.sh' ${tool_arg} '> '${output}'/$(hostname -s).json'"
+  srun /bin/bash -c "${SCRIPT_DIR}'/device_generator.sh' ${tool_arg} > "${output}/'$(hostname -s).json'
 
 else
   echoerr "Incorrect execution type $type"
