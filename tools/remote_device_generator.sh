@@ -36,6 +36,7 @@ shift "$((OPTIND-1))"
 log "Writing output files to $output"
 mkdir -p $output
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 if [[ $type = 'ssh' ]]; then
 
@@ -43,7 +44,7 @@ if [[ $type = 'ssh' ]]; then
   for node in "$@"
   do
     log "Connecting via SSH to $node"
-    ssh $node bash -s -- ${tool_arg} < tools/device_generator.sh > ${output}/${node}.json &
+    ssh $node bash -s -- ${tool_arg} < ${SCRIPT_DIR}/device_generator.sh > ${output}/${node}.json &
     pid=$!
     PIDS+=($pid)
   done
@@ -51,7 +52,7 @@ if [[ $type = 'ssh' ]]; then
 
 elif [[ $type = 'srun' ]]; then
 
-  srun /bin/bash -c 'tools/device_generator.sh > '${output}'/$(hostname -s).json'
+  srun /bin/bash -c "${SCRIPT_DIR}'/device_generator.sh' ${tool_arg} '> '${output}'/$(hostname -s).json'"
 
 else
   echoerr "Incorrect execution type $type"
