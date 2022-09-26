@@ -34,6 +34,9 @@ namespace server {
       #else
       ("mgr-buf-rkey", "Use selected port", cxxopts::value<uint32_t>())
       #endif
+      #ifdef USE_GNI_AUTH
+      ("authentication-cookie", "Use selected port", cxxopts::value<uint32_t>())
+      #endif 
     ;
     auto parsed_options = options.parse(argc, argv);
 
@@ -60,6 +63,9 @@ namespace server {
     result.accounting_buffer_rkey = parsed_options["mgr-buf-rkey"].as<uint64_t>();
     #else
     result.accounting_buffer_rkey = parsed_options["mgr-buf-rkey"].as<uint32_t>();
+    #endif
+    #ifdef USE_GNI_AUTH
+    result.authentication_cookie = parsed_options["authentication-cookie"].as<uint32_t>();
     #endif
 
     std::string polling_mgr = parsed_options["polling-mgr"].as<std::string>();

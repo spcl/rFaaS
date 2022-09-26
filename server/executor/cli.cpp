@@ -37,9 +37,14 @@ int main(int argc, char ** argv)
     opts.timeout
   );
   spdlog::info(
-    "My manager runs at {}:{}, its secret is {}, the accounting buffer is at {} with rkey {}",
+    "My manager runs at {}:{}, its secret is {}, the accounting buffer is at {} with rkey {}, cookie {}",
     opts.mgr_address, opts.mgr_port, opts.mgr_secret,
-    opts.accounting_buffer_addr, opts.accounting_buffer_rkey
+    opts.accounting_buffer_addr, opts.accounting_buffer_rkey,
+    opts.authentication_cookie
+  );
+
+  rdmalib::Configuration::get_instance().configure_cookie(
+    opts.authentication_cookie
   );
 
   executor::ManagerConnection mgr{

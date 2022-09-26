@@ -63,6 +63,9 @@ namespace server {
     #else
     uint32_t accounting_buffer_rkey;
     #endif
+    #ifdef USE_GNI_AUTH
+    uint32_t authentication_cookie; 
+    #endif
   };
 
   Options opts(int argc, char ** argv);

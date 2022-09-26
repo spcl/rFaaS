@@ -8,6 +8,7 @@
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/allocation.hpp>
+#include <rdmalib/rdmalib.hpp>
 
 #include "executor_process.hpp"
 #include "settings.hpp"
@@ -87,6 +88,9 @@ namespace rfaas::executor_manager {
     std::string mgr_secret = std::to_string(conn.secret);
     std::string mgr_buf_addr = std::to_string(conn.r_addr);
     std::string mgr_buf_rkey = std::to_string(conn.r_key);
+    #ifdef USE_GNI_AUTH
+    std::string authentication_cookie = std::to_string(rdmalib::Configuration::get_instance().credential().value());
+    #endif
 
     int mypid = vfork();
     if(mypid < 0) {
@@ -122,6 +126,9 @@ namespace rfaas::executor_manager {
           "--mgr-secret", mgr_secret.c_str(),
           "--mgr-buf-addr", mgr_buf_addr.c_str(),
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
+          #ifdef USE_GNI_AUTH
+          "--authentication-cookie", authentication_cookie.c_str(),
+          #endif
           nullptr
         };
       } else if(sandbox_type == SandboxType::SARUS) {
@@ -133,6 +140,7 @@ namespace rfaas::executor_manager {
           "--mount=type=bind,source=/tmp/drcc.sock,destination=/tmp/drcc.sock",
           "--mount=type=bind,source=/etc/opt/cray/rdma-credentials,destination=/etc/opt/cray/rdma-credentials",
           "--mount=type=bind,source=/scratch/snx3000/mcopik,destination=/scratch/snx3000/mcopik",
+          "--mount=type=bind,source=/project/g34/mcopik,destination=/project/g34/mcopik",
           "--mount=type=bind,source=/etc/alternatives/cray-ugni,destination=/etc/alternatives/cray-ugni",
           "--mount=type=bind,source=/etc/alternatives/cray-xpmem,destination=/etc/alternatives/cray-xpmem",
           "--mount=type=bind,source=/etc/alternatives/cray-alps,destination=/etc/alternatives/cray-alps",
@@ -140,7 +148,8 @@ namespace rfaas::executor_manager {
           "--mount=type=bind,source=/etc/alternatives/cray-wlm_detect,destination=/etc/alternatives/cray-wlm_detect",
           "-e", "LD_LIBRARY_PATH=/opt/cray/xpmem/default/lib64/;/opt/cray/udreg/default/lib64;/opt/cray/alps/default/lib64;/opt/cray/wlm_detect/default/lib64/",
           "spcleth/hpc-disagg:rfaas-executor-daint",
-          "/scratch/snx3000/mcopik/serverless_hpc/artifact/software/rfaas_libfabric/build_rfaas_debug/bin/executor",
+          //"/scratch/snx3000/mcopik/serverless_hpc/artifact/software/rfaas_libfabric/build_rfaas_debug/bin/executor",
+          "/scratch/snx3000/mcopik/serverless_disaggregation/build_rfaas_libfabric/bin/executor",
           "-a", client_addr.c_str(),
           "-p", client_port.c_str(),
           "--polling-mgr", "thread",
@@ -158,6 +167,9 @@ namespace rfaas::executor_manager {
           "--mgr-secret", mgr_secret.c_str(),
           "--mgr-buf-addr", mgr_buf_addr.c_str(),
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
+          #ifdef USE_GNI_AUTH
+          "--authentication-cookie", authentication_cookie.c_str(),
+          #endif
           nullptr
         };
       } else if(sandbox_type == SandboxType::DOCKER) {
@@ -222,6 +234,10 @@ namespace rfaas::executor_manager {
           nullptr
         };
       }
+
+      for(const char* str : argv)
+        std::cerr << str << std::endl;
+
 
       int ret = execvp(argv.data()[0], const_cast<char**>(&argv.data()[0]));
       if(ret == -1) {

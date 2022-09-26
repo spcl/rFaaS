@@ -33,6 +33,10 @@ int main(int argc, char ** argv)
   rfaas::devices::deserialize(in_dev);
   in_dev.close();
 
+  rdmalib::Configuration::get_instance().configure_cookie(
+    rfaas::devices::instance()._configuration.authentication_credential
+  );
+
   // Read benchmark settings
   std::ifstream benchmark_cfg{opts.json_config};
   rfaas::benchmark::Settings settings = rfaas::benchmark::Settings::deserialize(benchmark_cfg);

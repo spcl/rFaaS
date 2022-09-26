@@ -52,6 +52,10 @@ int main(int argc, char ** argv)
   std::ifstream in_dev{opts.device_database};
   rfaas::devices::deserialize(in_dev);
 
+  rdmalib::Configuration::get_instance().configure_cookie(
+    rfaas::devices::instance()._configuration.authentication_credential
+  );
+
   // Read executor manager settings
   std::ifstream in_cfg{opts.json_config};
   rfaas::executor_manager::Settings settings = rfaas::executor_manager::Settings::deserialize(in_cfg);
