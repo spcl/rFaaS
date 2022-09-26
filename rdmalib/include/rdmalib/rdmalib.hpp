@@ -28,20 +28,43 @@ extern "C" {
 
 namespace rdmalib {
 
+  struct Configuration {
+
+    static Configuration& get_instance();
+
+    #ifdef USE_GNI_AUTH
+    void configure_cookie(uint32_t cray_cookie);
+    std::optional<uint64_t> cookie() const;
+    std::optional<uint32_t> credential() const;
+    bool is_configured() const;
+    #endif
+
+  private:
+
+    Configuration();
+    ~Configuration();
+
+    std::once_flag _access_flag;
+    drc_info_handle_t _credential_info;
+    uint64_t _cookie;
+    uint32_t _credential;
+    bool _is_configured;
+
+    static Configuration& _get_instance();
+    static Configuration _instance;
+
+  };
+
   // Implemented as IPV4
   struct Address {
     #ifdef USE_LIBFABRIC
     fi_info* addrinfo = nullptr;
     fi_info* hints = nullptr;
     fid_fabric* fabric = nullptr;
-    #ifdef USE_GNI_AUTH
-    std::once_flag access_flag;
-    std::once_flag release_flag;
-    void obtain_cookies();
-    static drc_info_handle_t credential_info;
-    static uint64_t cookie;
-    #endif
     std::string _ip;
+    #ifdef USE_GNI_AUTH
+    uint64_t cookie;
+    #endif
     #else
     rdma_addrinfo *addrinfo;
     rdma_addrinfo hints;

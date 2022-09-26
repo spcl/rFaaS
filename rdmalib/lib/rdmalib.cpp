@@ -35,6 +35,61 @@ extern "C" {
 
 namespace rdmalib {
 
+  Configuration::Configuration():
+    _is_configured(false)
+  {}
+
+  Configuration::~Configuration()
+  {
+    #ifdef USE_GNI_AUTH
+    drc_release_local(&_credential_info);
+    #endif
+  }
+
+  Configuration& Configuration::get_instance()
+  {
+    return _get_instance();
+  }
+
+  Configuration& Configuration::_get_instance()
+  {
+    static Configuration _instance;
+    return _instance;
+  }
+
+  void Configuration::configure_cookie(uint32_t credential)
+  {
+    Configuration& inst = _get_instance();
+    std::call_once(_access_flag, [&]() {
+
+      impl::expect_zero(drc_access(credential, 0, &inst._credential_info));
+
+      _credential = credential;
+      // Obtain the cookie
+      _cookie = (uint64_t)drc_get_first_cookie(inst._credential_info) << 32;
+
+      _is_configured = true;
+
+    });
+  }
+
+  std::optional<uint64_t> Configuration::cookie() const
+  {
+    return (_is_configured ? _cookie : std::optional<uint64_t>{});
+  }
+
+  std::optional<uint32_t> Configuration::credential() const
+  {
+    return (_is_configured ? _credential: std::optional<uint32_t>{});
+  }
+
+  bool Configuration::is_configured() const
+  {
+    return _is_configured;
+  }
+
+  Configuration Configuration::_instance;
+
   // FIXME: Add credential support
   Address::Address(const std::string & ip, int port, bool passive)
   {
@@ -55,9 +110,14 @@ namespace rdmalib {
     impl::expect_zero(fi_getinfo(FI_VERSION(1, 9), ip.c_str(), std::to_string(port).c_str(), passive ? FI_SOURCE : 0, hints, &addrinfo));
     fi_freeinfo(hints);
     impl::expect_zero(fi_fabric(addrinfo->fabric_attr, &fabric, nullptr));
+    std::cerr << "True" << std::endl;
     #ifdef USE_GNI_AUTH
+
     // Obtain the cookies once per process
-    std::call_once(access_flag, &Address::obtain_cookies, this);
+    auto c = Configuration::get_instance().cookie();
+    // spdlog::error("GNI authentication cookie has not been configured!");
+    impl::expect_true(c.has_value());
+    cookie = c.value();
 
     // Set the hints to have the cookies
     addrinfo->domain_attr->auth_key = (uint8_t *)malloc(sizeof(cookie));
@@ -79,24 +139,6 @@ namespace rdmalib {
     this->_port = port;
     this->_ip = ip;
   }
-
-  #ifdef USE_GNI_AUTH
-  void Address::obtain_cookies()
-  {
-
-    // Access the credentials and obtain the credential cookie
-    // FIXME: this should be passed explicitly as a paramter
-    char* buffer = getenv("CRAY_CREDENTIALS");
-    uint32_t credential = (uint32_t)atoi(buffer);
-    impl::expect_zero(drc_access(credential, 0, &credential_info));
-
-    // Obtain the cookie
-    cookie = (uint64_t)drc_get_first_cookie(credential_info)<<32;
-
-  }
-  drc_info_handle_t Address::credential_info;
-  uint64_t Address::cookie;
-  #endif  
 
   Address::Address(const std::string & sip,  const std::string & dip, int port)
   {
@@ -160,9 +202,6 @@ namespace rdmalib {
     //   impl::expect_zero(fi_close(&fabric->fid));
     // if (addrinfo)
     //   fi_freeinfo(addrinfo); 
-    #ifdef USE_GNI_AUTH
-    std::call_once(release_flag, drc_release_local, &credential_info);
-    #endif
     #else
     rdma_freeaddrinfo(addrinfo);
     #endif
