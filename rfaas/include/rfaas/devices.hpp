@@ -20,26 +20,47 @@ namespace rfaas {
     int port;
     int16_t max_inline_data;
     int16_t default_receive_buffer_size;
+    int32_t authentication_cookie;
 
     template <class Archive>
     void save(Archive & ar) const
     {
       ar( CEREAL_NVP(name), CEREAL_NVP(ip_address), CEREAL_NVP(port),
-          CEREAL_NVP(max_inline_data), CEREAL_NVP(default_receive_buffer_size));
+          CEREAL_NVP(max_inline_data), CEREAL_NVP(default_receive_buffer_size)
+      );
     }
 
     template <class Archive>
     void load(Archive & ar )
     {
       ar( CEREAL_NVP(name), CEREAL_NVP(ip_address), CEREAL_NVP(port),
-          CEREAL_NVP(max_inline_data), CEREAL_NVP(default_receive_buffer_size));
+          CEREAL_NVP(max_inline_data), CEREAL_NVP(default_receive_buffer_size)
+      );
+    }
+  };
+
+  struct platform_configuration
+  {
+    int32_t authentication_credential;
+
+    template <class Archive>
+    void save(Archive & ar) const
+    {
+      ar(CEREAL_NVP(authentication_credential));
+    }
+
+    template <class Archive>
+    void load(Archive & ar )
+    {
+      ar(CEREAL_NVP(authentication_credential));
     }
   };
 
   struct devices
   {
     static std::unique_ptr<devices> _instance;
-    std::vector<device_data> _data; 
+    std::vector<device_data> _data;
+    platform_configuration _configuration;
 
     device_data * device (std::string name) noexcept;
     static devices & instance();

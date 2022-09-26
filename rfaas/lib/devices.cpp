@@ -28,6 +28,7 @@ namespace rfaas {
     cereal::JSONInputArchive archive_in(in);
     //archive_in(cereal::make_nvp("devices", *devices::_instance.get()));
     archive_in(cereal::make_nvp("devices", devices::_instance.get()->_data));
+    archive_in(cereal::make_nvp("configuration", devices::_instance.get()->_configuration));
   }
 //    void epilogue(cereal::JSONInputArchive& ar, const device_data&) {
 //    std::cout << "test " << ar.getNodeName() << std::endl;
