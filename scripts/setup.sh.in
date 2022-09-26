@@ -2,5 +2,11 @@
 module load rdma-credentials
 srun -l -N1 -n1 ${CMAKE_CURRENT_BINARY_DIR}/benchmarks/credentials
 COOKIE=$(cat "credential.txt")
-export CRAY_CREDENTIALS=$COOKIE
+
+echo "Setting credential ${COOKIE}"
+for arg in "$@"
+do
+  jq --arg cookie $COOKIE '.configuration = {"authentication_credential": $cookie |fromjson}' $arg > $arg.tmp
+  mv $arg.tmp $arg
+done
 

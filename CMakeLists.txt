@@ -270,6 +270,9 @@ if( ${RFAAS_WITH_TESTING} )
 endif()
 
 if( ${WITH_LIBFABRIC} AND ${WITH_GNI_AUTH})
-  configure_file(scripts/setup.sh.in scripts/setup.sh)
+  configure_file(
+    scripts/setup.sh.in scripts/setup.sh
+    FILE_PERMISSIONS GROUP_READ GROUP_WRITE GROUP_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE
+  )
 endif()
 
