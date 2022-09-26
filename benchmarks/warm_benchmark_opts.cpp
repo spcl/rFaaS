@@ -1,4 +1,6 @@
 
+#include <iostream>
+
 #include <cxxopts.hpp>
 
 #include "warm_benchmark.hpp"

@@ -121,33 +121,20 @@ namespace rdmalib {
   }
 
   #ifdef USE_LIBFABRIC
-  void Connection::initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec)
+  void Connection::initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel)
   {
     // Create the endpoint and set its flags up so that we get completions on RDM
     impl::expect_zero(fi_endpoint(pd, info, &_qp, reinterpret_cast<void*>(this)));
 
-    // Open the counter for write operations
-    fi_cntr_attr cntr_attr;
-    cntr_attr.events = FI_CNTR_EVENTS_COMP;
-    cntr_attr.wait_obj = FI_WAIT_UNSPEC;
-    cntr_attr.wait_set = nullptr;
-    cntr_attr.flags = 0;
-    impl::expect_zero(fi_cntr_open(pd, &cntr_attr, &_write_counter, nullptr));
-    impl::expect_zero(fi_cntr_set(_write_counter, 0));
+    // Bind the counter for write operations
+    _write_counter = write_cntr;
     impl::expect_zero(fi_ep_bind(_qp, &_write_counter->fid, FI_REMOTE_WRITE));
 
     // Bind with the completion queues and the event queue
     impl::expect_zero(fi_ep_bind(_qp, &ec->fid, 0));
-    fi_cq_attr cq_attr;
-    memset(&cq_attr, 0, sizeof(cq_attr));
-    cq_attr.format = FI_CQ_FORMAT_DATA;
-    cq_attr.wait_obj = FI_WAIT_NONE;
-    cq_attr.wait_cond = FI_CQ_COND_NONE;
-    cq_attr.wait_set = nullptr;
-    cq_attr.size = info->rx_attr->size;
-    impl::expect_zero(fi_cq_open(pd, &cq_attr, &_trx_channel, nullptr));
+    _trx_channel = tx_channel;
+    _rcv_channel = rx_channel;
     impl::expect_zero(fi_ep_bind(_qp, &_trx_channel->fid, FI_TRANSMIT));
-    impl::expect_zero(fi_cq_open(pd, &cq_attr, &_rcv_channel, nullptr));
     impl::expect_zero(fi_ep_bind(_qp, &_rcv_channel->fid, FI_RECV));
 
     // Enable the endpoint
@@ -433,7 +420,7 @@ namespace rdmalib {
     id = id == -1 ? _req_count++ : id;
     SPDLOG_DEBUG("post recv to local Local QPN fid {} connection {}", fmt::ptr(&_qp->fid), fmt::ptr(this));
 
-    int ret;
+    int ret = 1;
     for(int i = 0; i < count; ++i) {
       ret = fi_recvv(_qp, elem.array(), elem.lkeys(), count, temp, reinterpret_cast<void *>((uint64_t)id));
       if(ret)
@@ -462,7 +449,7 @@ namespace rdmalib {
     wr.num_sge = elem.size();
     SPDLOG_DEBUG("post recv to local Local QPN {}",_qp->qp_num);
 
-    int ret;
+    int ret = 1;
     for(int i = 0; i < count; ++i) {
       ret = ibv_post_recv(_qp, &wr, &bad);
       if(ret)

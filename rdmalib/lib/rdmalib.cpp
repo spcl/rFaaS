@@ -49,7 +49,7 @@ namespace rdmalib {
     hints->domain_attr->mr_mode = FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY;
     hints->ep_attr->type = FI_EP_MSG;
     hints->fabric_attr->prov_name = strdup("GNI");
-    hints->domain_attr->threading = FI_THREAD_DOMAIN;
+    hints->domain_attr->threading = FI_THREAD_SAFE;
     hints->domain_attr->resource_mgmt = FI_RM_ENABLED;
     hints->tx_attr->tclass = FI_TC_LOW_LATENCY;
     impl::expect_zero(fi_getinfo(FI_VERSION(1, 9), ip.c_str(), std::to_string(port).c_str(), passive ? FI_SOURCE : 0, hints, &addrinfo));
@@ -177,6 +177,26 @@ namespace rdmalib {
     #ifdef USE_LIBFABRIC
     // Create a domain (need to do that now so that we can register memory for the domain)
     impl::expect_zero(fi_domain(_addr.fabric, _addr.addrinfo, &_pd, nullptr));
+
+    // Create the counter
+    fi_cntr_attr cntr_attr;
+    cntr_attr.events = FI_CNTR_EVENTS_COMP;
+    cntr_attr.wait_obj = FI_WAIT_UNSPEC;
+    cntr_attr.wait_set = nullptr;
+    cntr_attr.flags = 0;
+    impl::expect_zero(fi_cntr_open(_pd, &cntr_attr, &_write_counter, nullptr));
+    impl::expect_zero(fi_cntr_set(_write_counter, 0));
+
+    // Create the completion queues
+    fi_cq_attr cq_attr;
+    memset(&cq_attr, 0, sizeof(cq_attr));
+    cq_attr.format = FI_CQ_FORMAT_DATA;
+    cq_attr.wait_obj = FI_WAIT_NONE;
+    cq_attr.wait_cond = FI_CQ_COND_NONE;
+    cq_attr.wait_set = nullptr;
+    cq_attr.size = _addr.addrinfo->rx_attr->size;
+    impl::expect_zero(fi_cq_open(_pd, &cq_attr, &_trx_channel, nullptr));
+    impl::expect_zero(fi_cq_open(_pd, &cq_attr, &_rcv_channel, nullptr));
     #else
     // Size of Queue Pair
     // Maximum requests in send queue
@@ -230,7 +250,7 @@ namespace rdmalib {
       eq_attr.wait_obj = FI_WAIT_NONE;
       impl::expect_zero(fi_eq_open(_addr.fabric, &eq_attr, &_ec, NULL));
       // Create and enable the endpoint together with all the accompanying queues
-      _conn->initialize(_addr.fabric, _pd, _addr.addrinfo, _ec);
+      _conn->initialize(_addr.fabric, _pd, _addr.addrinfo, _ec, _write_counter, _rcv_channel, _trx_channel);
       #else
       rdma_cm_id* id;
       impl::expect_zero(rdma_create_ep(&id, _addr.addrinfo, nullptr, nullptr));
@@ -447,6 +467,26 @@ namespace rdmalib {
     impl::expect_zero(fi_passive_ep(_addr.fabric, _addr.addrinfo, &_pep, NULL));
     impl::expect_zero(fi_pep_bind(_pep, &(_ec->fid), 0));
     impl::expect_zero(fi_listen(_pep));
+
+    // Create the counter
+    fi_cntr_attr cntr_attr;
+    cntr_attr.events = FI_CNTR_EVENTS_COMP;
+    cntr_attr.wait_obj = FI_WAIT_UNSPEC;
+    cntr_attr.wait_set = nullptr;
+    cntr_attr.flags = 0;
+    impl::expect_zero(fi_cntr_open(_pd, &cntr_attr, &_write_counter, nullptr));
+    impl::expect_zero(fi_cntr_set(_write_counter, 0));
+
+    // Create the completion queues
+    fi_cq_attr cq_attr;
+    memset(&cq_attr, 0, sizeof(cq_attr));
+    cq_attr.format = FI_CQ_FORMAT_DATA;
+    cq_attr.wait_obj = FI_WAIT_NONE;
+    cq_attr.wait_cond = FI_CQ_COND_NONE;
+    cq_attr.wait_set = nullptr;
+    cq_attr.size = _addr.addrinfo->rx_attr->size;
+    impl::expect_zero(fi_cq_open(_pd, &cq_attr, &_trx_channel, nullptr));
+    impl::expect_zero(fi_cq_open(_pd, &cq_attr, &_rcv_channel, nullptr));
     // _ops = (fi_gni_ops_domain *)malloc(sizeof(fi_gni_ops_domain));
     // fi_open_ops(&_pd->fid, "FI_GNI_DOMAIN_OPS_1", 0, (void **)*_ops, nullptr);
     // uint32_t val;
@@ -571,7 +611,7 @@ namespace rdmalib {
         memcpy(entry->info->ep_attr->auth_key, &_addr.cookie, sizeof(_addr.cookie));
         entry->info->ep_attr->auth_key_size = sizeof(_addr.cookie);
         #endif
-        connection->initialize(_addr.fabric, _pd, entry->info, _ec);
+        connection->initialize(_addr.fabric, _pd, entry->info, _ec, _write_counter, _rcv_channel, _trx_channel);
         SPDLOG_DEBUG(
           "[RDMAPassive] Created connection fid {} qp {}",
           fmt::ptr(connection->id()), fmt::ptr(&connection->qp()->fid)
