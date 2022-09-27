@@ -110,7 +110,6 @@ namespace rdmalib {
     impl::expect_zero(fi_getinfo(FI_VERSION(1, 9), ip.c_str(), std::to_string(port).c_str(), passive ? FI_SOURCE : 0, hints, &addrinfo));
     fi_freeinfo(hints);
     impl::expect_zero(fi_fabric(addrinfo->fabric_attr, &fabric, nullptr));
-    std::cerr << "True" << std::endl;
     #ifdef USE_GNI_AUTH
 
     // Obtain the cookies once per process
