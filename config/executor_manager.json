@@ -11,6 +11,35 @@
     "repetitions": 100,
     "warmup_iters": 0,
     "pin_threads": false
-  }
+  },
+  "sandbox-configuration": [
+    {
+      "key": "sarus",
+      "value": {
+        "devices": [
+          "/dev/kgni0", "dev/kdreg"
+        ],
+        "mounts": [
+          "/opt/cray",
+          "/tmp/drcc.sock",
+          "/etc/opt/cray/rdma-credentials",
+          "/etc/alternatives/cray-ugni",
+          "/etc/alternatives/cray-xpmem",
+          "/etc/alternatives/cray-alps",
+          "/etc/alternatives/cray-udreg",
+          "/etc/alternatives/cray-wlm_detect"
+        ],
+        "mount_filesystem": [
+          "/scratch/snx3000/{user}"
+        ],
+        "env": [
+          {
+            "key": "LD_LIBRARY_PATH",
+            "value": "/opt/cray/xpmem/default/lib64/;/opt/cray/udreg/default/lib64;/opt/cray/alps/default/lib64;/opt/cray/wlm_detect/default/lib64/"
+          }
+        ]
+      }
+    }
+  ]
 }
 

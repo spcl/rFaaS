@@ -1,4 +1,5 @@
 
+#include <iterator>
 #include <tuple>
 
 #include <unistd.h>
@@ -105,7 +106,8 @@ namespace rfaas::executor_manager {
       dup2(fd, 1);
       dup2(fd, 2);
 
-      std::vector<const char*> argv;
+      std::vector<std::string> argv;
+      std::vector<const char*> additional_args;
       if(sandbox_type == SandboxType::PROCESS) {
         argv = {
           "executor",
@@ -132,24 +134,18 @@ namespace rfaas::executor_manager {
           nullptr
         };
       } else if(sandbox_type == SandboxType::SARUS) {
+
         argv = {
-          "sarus", "run",
-          "--device=/dev/kgni0",
-          "--device=/dev/kdreg",
-          "--mount=type=bind,source=/opt/cray,destination=/opt/cray",
-          "--mount=type=bind,source=/tmp/drcc.sock,destination=/tmp/drcc.sock",
-          "--mount=type=bind,source=/etc/opt/cray/rdma-credentials,destination=/etc/opt/cray/rdma-credentials",
-          "--mount=type=bind,source=/scratch/snx3000/mcopik,destination=/scratch/snx3000/mcopik",
-          "--mount=type=bind,source=/project/g34/mcopik,destination=/project/g34/mcopik",
-          "--mount=type=bind,source=/etc/alternatives/cray-ugni,destination=/etc/alternatives/cray-ugni",
-          "--mount=type=bind,source=/etc/alternatives/cray-xpmem,destination=/etc/alternatives/cray-xpmem",
-          "--mount=type=bind,source=/etc/alternatives/cray-alps,destination=/etc/alternatives/cray-alps",
-          "--mount=type=bind,source=/etc/alternatives/cray-udreg,destination=/etc/alternatives/cray-udreg",
-          "--mount=type=bind,source=/etc/alternatives/cray-wlm_detect,destination=/etc/alternatives/cray-wlm_detect",
-          "-e", "LD_LIBRARY_PATH=/opt/cray/xpmem/default/lib64/;/opt/cray/udreg/default/lib64;/opt/cray/alps/default/lib64;/opt/cray/wlm_detect/default/lib64/",
-          "spcleth/hpc-disagg:rfaas-executor-daint",
-          //"/scratch/snx3000/mcopik/serverless_hpc/artifact/software/rfaas_libfabric/build_rfaas_debug/bin/executor",
-          "/scratch/snx3000/mcopik/serverless_disaggregation/build_rfaas_libfabric/bin/executor",
+          "sarus", "run"
+        };
+
+        exec.sandbox_config->generate_args(argv, exec.sandbox_user);
+
+        argv.emplace_back(exec.sandbox_name);
+
+        argv.emplace_back(exec.sandbox_config->get_executor_path());
+
+        additional_args = {
           "-a", client_addr.c_str(),
           "-p", client_port.c_str(),
           "--polling-mgr", "thread",
@@ -172,6 +168,7 @@ namespace rfaas::executor_manager {
           #endif
           nullptr
         };
+
       } else if(sandbox_type == SandboxType::DOCKER) {
         //const char * argv[] = {
         //  "docker_rdma_sriov", "run",
@@ -235,11 +232,20 @@ namespace rfaas::executor_manager {
         };
       }
 
-      for(const char* str : argv)
-        std::cerr << str << std::endl;
+      std::vector<const char*> cstrings_argv;
+      std::transform(argv.begin(), argv.end(), std::back_inserter(cstrings_argv),
+        [](const std::string & input) -> const char* {
+          return input.c_str();
+        }
+      );
+      std::copy(additional_args.begin(), additional_args.end(), std::back_inserter(cstrings_argv));
 
+      SPDLOG_DEBUG("Executor launch arguments");
+      for(const char* str : cstrings_argv)
+        if(str)
+          SPDLOG_DEBUG(str);
 
-      int ret = execvp(argv.data()[0], const_cast<char**>(&argv.data()[0]));
+      int ret = execvp(cstrings_argv.data()[0], const_cast<char**>(&cstrings_argv.data()[0]));
       if(ret == -1) {
         spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
         close(fd);

@@ -12,6 +12,7 @@ namespace rfaas::executor_manager {
       ("c,config", "JSON input config.",  cxxopts::value<std::string>())
       ("device-database", "JSON configuration of devices.", cxxopts::value<std::string>())
       ("skip-resource-manager", "Ignore resource manager and don't connect to it.", cxxopts::value<bool>()->default_value("false"))
+      ("user", "Name of OS users to be used for launching containres", cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
     ;
     auto parsed_options = options.parse(argc, argv);
