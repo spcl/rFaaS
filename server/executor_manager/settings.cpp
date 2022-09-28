@@ -54,8 +54,6 @@ namespace rfaas::executor_manager {
     // FIXME: should be sent with request
     settings.exec.sandbox_user = "mcopik";
     settings.exec.sandbox_name = "spcleth/hpc-disagg:rfaas-executor-daint";
-    for(auto & mount : settings.exec.sandbox_config->mounts)
-      std::cerr << mount << std::endl;
 
     return settings;
   }
