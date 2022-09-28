@@ -275,4 +275,6 @@ if( ${WITH_LIBFABRIC} AND ${WITH_GNI_AUTH})
     FILE_PERMISSIONS GROUP_READ GROUP_WRITE GROUP_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE
   )
 endif()
+configure_file(tools/device_generator.sh tools/device_generator.sh COPYONLY)
+configure_file(tools/remote_device_generator.sh tools/remote_device_generator.sh COPYONLY)
 
