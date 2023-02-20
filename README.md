@@ -95,5 +95,5 @@ For an in-depth analysis of each component and their configuration, please look 
 ## Authors
 
 * [Marcin Copik (ETH Zurich)](https://github.com/mcopik/) - main author.
-* [Konstantin Taranov (ETH Zurich)](https://github.com/TaranovK) - consultation and troubleshooting of RDMA issues.
-
+* [Konstantin Taranov (ETH Zurich)](https://github.com/TaranovK) - troubleshooting and optimizating RDMA.
+* [Marcin Chrapek (ETH Zurich)](https://github.com/marchrap) - libfabrics port and support for Cray GNI.
