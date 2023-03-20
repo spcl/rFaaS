@@ -19,7 +19,7 @@ endif()
 ###
 # spdlog
 ###
-find_package(spdlog QUIET)
+find_package(spdlog 1.8.0 EXACT QUIET)
 if(NOT spdlog_FOUND)
   message(STATUS "Downloading and building spdlog dependency")
   FetchContent_Declare(spdlog
@@ -37,7 +37,7 @@ endif()
 ###
 # cereal
 ###
-find_package(cereal QUIET)
+find_package(cereal 1.3.0 EXACT QUIET)
 if(NOT cereal_FOUND)
   message(STATUS "Downloading and building cereal dependency")
   FetchContent_Declare(cereal
