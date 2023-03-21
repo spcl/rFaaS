@@ -27,9 +27,9 @@ namespace server {
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
       ("mgr-address", "Use selected address", cxxopts::value<std::string>())
       ("mgr-port", "Use selected port", cxxopts::value<int>())
-      ("mgr-secret", "Use selected port", cxxopts::value<int>())
-      ("mgr-buf-addr", "Use selected port", cxxopts::value<uint64_t>())
-      ("mgr-buf-rkey", "Use selected port", cxxopts::value<uint32_t>())
+      ("mgr-secret", "Use selected secret", cxxopts::value<int>())
+      ("mgr-buf-addr", "Use selected buf addr", cxxopts::value<uint64_t>())
+      ("mgr-buf-rkey", "Use selected rkey", cxxopts::value<uint32_t>())
     ;
     auto parsed_options = options.parse(argc, argv);
 

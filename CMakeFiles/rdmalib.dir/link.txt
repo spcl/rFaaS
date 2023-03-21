@@ -1,0 +1,2 @@
+/usr/bin/ar qc librdmalib.a CMakeFiles/rdmalib.dir/rdmalib/lib/buffer.cpp.o CMakeFiles/rdmalib.dir/rdmalib/lib/connection.cpp.o CMakeFiles/rdmalib.dir/rdmalib/lib/functions.cpp.o CMakeFiles/rdmalib.dir/rdmalib/lib/rdmalib.cpp.o CMakeFiles/rdmalib.dir/rdmalib/lib/server.cpp.o CMakeFiles/rdmalib.dir/rdmalib/lib/util.cpp.o
+/usr/bin/ranlib librdmalib.a

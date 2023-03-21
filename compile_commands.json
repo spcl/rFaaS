@@ -1,0 +1,217 @@
+[
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -fPIC -std=gnu++17 -o CMakeFiles/rdmalib.dir/rdmalib/lib/buffer.cpp.o -c /home/ubuntu/new/rfaas/rdmalib/lib/buffer.cpp",
+  "file": "/home/ubuntu/new/rfaas/rdmalib/lib/buffer.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -fPIC -std=gnu++17 -o CMakeFiles/rdmalib.dir/rdmalib/lib/connection.cpp.o -c /home/ubuntu/new/rfaas/rdmalib/lib/connection.cpp",
+  "file": "/home/ubuntu/new/rfaas/rdmalib/lib/connection.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -fPIC -std=gnu++17 -o CMakeFiles/rdmalib.dir/rdmalib/lib/functions.cpp.o -c /home/ubuntu/new/rfaas/rdmalib/lib/functions.cpp",
+  "file": "/home/ubuntu/new/rfaas/rdmalib/lib/functions.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -fPIC -std=gnu++17 -o CMakeFiles/rdmalib.dir/rdmalib/lib/rdmalib.cpp.o -c /home/ubuntu/new/rfaas/rdmalib/lib/rdmalib.cpp",
+  "file": "/home/ubuntu/new/rfaas/rdmalib/lib/rdmalib.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -fPIC -std=gnu++17 -o CMakeFiles/rdmalib.dir/rdmalib/lib/server.cpp.o -c /home/ubuntu/new/rfaas/rdmalib/lib/server.cpp",
+  "file": "/home/ubuntu/new/rfaas/rdmalib/lib/server.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -fPIC -std=gnu++17 -o CMakeFiles/rdmalib.dir/rdmalib/lib/util.cpp.o -c /home/ubuntu/new/rfaas/rdmalib/lib/util.cpp",
+  "file": "/home/ubuntu/new/rfaas/rdmalib/lib/util.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -fPIC -std=gnu++17 -o CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o -c /home/ubuntu/new/rfaas/rfaas/lib/connection.cpp",
+  "file": "/home/ubuntu/new/rfaas/rfaas/lib/connection.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -fPIC -std=gnu++17 -o CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o -c /home/ubuntu/new/rfaas/rfaas/lib/devices.cpp",
+  "file": "/home/ubuntu/new/rfaas/rfaas/lib/devices.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -fPIC -std=gnu++17 -o CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o -c /home/ubuntu/new/rfaas/rfaas/lib/executor.cpp",
+  "file": "/home/ubuntu/new/rfaas/rfaas/lib/executor.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -fPIC -std=gnu++17 -o CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o -c /home/ubuntu/new/rfaas/rfaas/lib/resources.cpp",
+  "file": "/home/ubuntu/new/rfaas/rfaas/lib/resources.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/executor.dir/server/executor/cli.cpp.o -c /home/ubuntu/new/rfaas/server/executor/cli.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/executor/cli.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/executor.dir/server/executor/opts.cpp.o -c /home/ubuntu/new/rfaas/server/executor/opts.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/executor/opts.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/executor.dir/server/executor/fast_executor.cpp.o -c /home/ubuntu/new/rfaas/server/executor/fast_executor.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/executor/fast_executor.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/executor.dir/server/executor/functions.cpp.o -c /home/ubuntu/new/rfaas/server/executor/functions.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/executor/functions.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.o -c /home/ubuntu/new/rfaas/server/executor_manager/cli.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/executor_manager/cli.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.o -c /home/ubuntu/new/rfaas/server/executor_manager/opts.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/executor_manager/opts.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.o -c /home/ubuntu/new/rfaas/server/executor_manager/settings.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/executor_manager/settings.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.o -c /home/ubuntu/new/rfaas/server/executor_manager/manager.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/executor_manager/manager.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.o -c /home/ubuntu/new/rfaas/server/executor_manager/client.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/executor_manager/client.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.o -c /home/ubuntu/new/rfaas/server/executor_manager/executor_process.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/executor_manager/executor_process.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.o -c /home/ubuntu/new/rfaas/server/resource_manager/cli.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/resource_manager/cli.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.o -c /home/ubuntu/new/rfaas/server/resource_manager/opts.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/resource_manager/opts.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.o -c /home/ubuntu/new/rfaas/server/resource_manager/db.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/resource_manager/db.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.o -c /home/ubuntu/new/rfaas/server/resource_manager/http.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/resource_manager/http.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.o -c /home/ubuntu/new/rfaas/server/resource_manager/settings.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/resource_manager/settings.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/server -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/rdmalib/include -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.o -c /home/ubuntu/new/rfaas/server/resource_manager/manager.cpp",
+  "file": "/home/ubuntu/new/rfaas/server/resource_manager/manager.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang  -I/home/ubuntu/new/rfaas/rfaas/include -I/home/ubuntu/new/rfaas/_deps/cereal-src/include -I/home/ubuntu/new/rfaas/_deps/spdlog-src/include -I/home/ubuntu/new/rfaas/rdmalib/include -I/usr/include/libnl3  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/settings.cpp",
+  "file": "/home/ubuntu/new/rfaas/benchmarks/settings.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -I/home/ubuntu/new/rfaas/rfaas/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/warm_benchmarker.dir/benchmarks/warm_benchmark.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/warm_benchmark.cpp",
+  "file": "/home/ubuntu/new/rfaas/benchmarks/warm_benchmark.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -I/home/ubuntu/new/rfaas/rfaas/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/warm_benchmarker.dir/benchmarks/warm_benchmark_opts.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/warm_benchmark_opts.cpp",
+  "file": "/home/ubuntu/new/rfaas/benchmarks/warm_benchmark_opts.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -I/home/ubuntu/new/rfaas/rfaas/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/parallel_invocations.cpp",
+  "file": "/home/ubuntu/new/rfaas/benchmarks/parallel_invocations.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -I/home/ubuntu/new/rfaas/rfaas/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/parallel_invocations_opts.cpp",
+  "file": "/home/ubuntu/new/rfaas/benchmarks/parallel_invocations_opts.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -I/home/ubuntu/new/rfaas/rfaas/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/cold_benchmark.cpp",
+  "file": "/home/ubuntu/new/rfaas/benchmarks/cold_benchmark.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -I/home/ubuntu/new/rfaas/rfaas/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/cold_benchmark_opts.cpp",
+  "file": "/home/ubuntu/new/rfaas/benchmarks/cold_benchmark_opts.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -I/home/ubuntu/new/rfaas/rfaas/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/cpp_interface.cpp",
+  "file": "/home/ubuntu/new/rfaas/benchmarks/cpp_interface.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/rdmalib/include -I/home/ubuntu/new/rfaas/rfaas/include -isystem /usr/include/libnl3 -isystem /home/ubuntu/new/rfaas/_deps/cereal-src/include -isystem /home/ubuntu/new/rfaas/_deps/spdlog-src/include -isystem /home/ubuntu/new/rfaas/_deps/cxxopts-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=gnu++17 -o CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/cpp_interface_opts.cpp",
+  "file": "/home/ubuntu/new/rfaas/benchmarks/cpp_interface_opts.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas",
+  "command": "/usr/bin/clang -Dfunctions_EXPORTS   -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -fPIC -std=gnu++17 -o CMakeFiles/functions.dir/examples/functions.cpp.o -c /home/ubuntu/new/rfaas/examples/functions.cpp",
+  "file": "/home/ubuntu/new/rfaas/examples/functions.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas/_deps/spdlog-build",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=c++17 -o CMakeFiles/spdlog.dir/src/spdlog.cpp.o -c /home/ubuntu/new/rfaas/_deps/spdlog-src/src/spdlog.cpp",
+  "file": "/home/ubuntu/new/rfaas/_deps/spdlog-src/src/spdlog.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas/_deps/spdlog-build",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=c++17 -o CMakeFiles/spdlog.dir/src/stdout_sinks.cpp.o -c /home/ubuntu/new/rfaas/_deps/spdlog-src/src/stdout_sinks.cpp",
+  "file": "/home/ubuntu/new/rfaas/_deps/spdlog-src/src/stdout_sinks.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas/_deps/spdlog-build",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=c++17 -o CMakeFiles/spdlog.dir/src/color_sinks.cpp.o -c /home/ubuntu/new/rfaas/_deps/spdlog-src/src/color_sinks.cpp",
+  "file": "/home/ubuntu/new/rfaas/_deps/spdlog-src/src/color_sinks.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas/_deps/spdlog-build",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=c++17 -o CMakeFiles/spdlog.dir/src/file_sinks.cpp.o -c /home/ubuntu/new/rfaas/_deps/spdlog-src/src/file_sinks.cpp",
+  "file": "/home/ubuntu/new/rfaas/_deps/spdlog-src/src/file_sinks.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas/_deps/spdlog-build",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=c++17 -o CMakeFiles/spdlog.dir/src/async.cpp.o -c /home/ubuntu/new/rfaas/_deps/spdlog-src/src/async.cpp",
+  "file": "/home/ubuntu/new/rfaas/_deps/spdlog-src/src/async.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas/_deps/spdlog-build",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=c++17 -o CMakeFiles/spdlog.dir/src/cfg.cpp.o -c /home/ubuntu/new/rfaas/_deps/spdlog-src/src/cfg.cpp",
+  "file": "/home/ubuntu/new/rfaas/_deps/spdlog-src/src/cfg.cpp"
+},
+{
+  "directory": "/home/ubuntu/new/rfaas/_deps/spdlog-build",
+  "command": "/usr/bin/clang -DSPDLOG_COMPILED_LIB -I/home/ubuntu/new/rfaas/_deps/spdlog-src/include  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -std=c++17 -o CMakeFiles/spdlog.dir/src/fmt.cpp.o -c /home/ubuntu/new/rfaas/_deps/spdlog-src/src/fmt.cpp",
+  "file": "/home/ubuntu/new/rfaas/_deps/spdlog-src/src/fmt.cpp"
+}
+]

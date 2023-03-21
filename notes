@@ -1,0 +1,69 @@
+# The built abstractions on the librdmacm library to allow for easier interfacing with
+# rdma stuff
+rdmalib/
+
+
+server/
+
+# misc stuff
+server/structures.hpp
+server/common.hpp
+server/common
+server/common/readerwriterqueue.h
+server/atomicops.h
+
+
+
+server/executor_manager
+server/executor_manager/settings.cpp
+server/executor_manager/settings.hpp
+
+server/executor_manager/accounting.hpp
+
+# run docker_rdma_sriov and executor binary CLI to send computation (RDMA-)requests (function calls)
+server/executor_manager/executor_process.hpp
+server/executor_manager/executor_process.cpp
+
+server/executor_manager/manager.hpp
+server/executor_manager/manager.cpp
+
+server/executor_manager/client.hpp
+server/executor_manager/client.cpp
+
+server/executor_manager/cli.cpp
+server/executor_manager/opts.cpp
+
+# The worker node server. Actually execute functions/containers
+# read from SO file and perform actual computation.
+# The server binary is installed on workers and listens for connections (from RDMA) and then executes code
+# and responds with response
+# The CLI is installed on the ExecutorManager server
+# It acts as a client which sends requests to the servers installed on workers
+# This does not handle docker stuff, since if a docker container is executed, the ExecutorManager called
+# the docker_rdma_sriov binary, not the executor-cli binary
+#
+# Q: How do you run an instance of an actual server?
+server/executor
+server/executor/fast_executor.cpp
+server/executor/cli.cpp
+server/executor/opts.cpp
+server/executor/functions.cpp
+server/executor/fast_executor.hpp
+server/executor/server.cpp
+server/executor/server.hpp
+server/executor/functions.hpp
+
+
+server/resource_manager
+server/resource_manager/db.hpp
+server/resource_manager/settings.cpp
+server/resource_manager/settings.hpp
+server/resource_manager/manager.hpp
+server/resource_manager/cli.cpp
+server/resource_manager/opts.cpp
+server/resource_manager/http.cpp
+server/resource_manager/manager.cpp
+server/resource_manager/http.hpp
+server/resource_manager/db.cpp
+
+

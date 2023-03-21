@@ -7,6 +7,7 @@ set (CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=undefined")
 #set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=undefined")
 #find_program(CLANG_TIDY_COMMAND NAMES clang-tidy clang-tidy-13 clang-tidy-12 clang-tidy-11 clang-tidy-10)
@@ -22,7 +23,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 string(REPLACE "-DNDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 string(APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO " -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG ")
 string(APPEND CMAKE_CXX_FLAGS_DEBUG " -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG ")
-string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra ")
+string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra")
+string(APPEND CMAKE_CXX_FLAGS " -v -lstdc++")
 
 ###
 # Mandatory: devices configuration file.

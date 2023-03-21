@@ -1,0 +1,2 @@
+/usr/bin/ar qc librfaaslib.a CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o
+/usr/bin/ranlib librfaaslib.a

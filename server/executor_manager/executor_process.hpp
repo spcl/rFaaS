@@ -45,6 +45,8 @@ namespace rfaas::executor_manager {
     virtual std::tuple<Status,int> check() const = 0;
   };
 
+  // Ac actual process which can be spawned/is executing
+  // uses fork/exec idiom
   struct ProcessExecutor : public ActiveExecutor
   {
     pid_t _pid;

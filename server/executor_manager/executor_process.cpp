@@ -92,6 +92,11 @@ namespace rfaas::executor_manager {
     if(mypid < 0) {
       spdlog::error("Fork failed! {}", mypid);
     }
+
+    // Child runs actual process (exec)
+    // Either runs docker or the executor binary
+    // Executor binary offloads work to a node, which is why it
+    // has an address and port field (along with other cli opts)
     if(mypid == 0) {
       mypid = getpid();
       auto out_file = ("executor_" + std::to_string(mypid));
@@ -168,7 +173,7 @@ namespace rfaas::executor_manager {
           // FIXME: make configurable
           "--volume", "/users/mcopik/projects/rdma/repo/build_repo2:/opt",
           // FIXME: make configurable
-          "rdma-test",
+          "rdma-test", // ???
           "/opt/bin/executor",
           "-a", client_addr.c_str(),
           "-p", client_port.c_str(),
