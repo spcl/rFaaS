@@ -340,6 +340,9 @@ PKG_CONFIG_ARGN:STRING=
 //pkg-config executable
 PKG_CONFIG_EXECUTABLE:FILEPATH=/usr/bin/pkg-config
 
+//No help, variable specified on the command line.
+RFAAS_WITH_TESTING:UNINITIALIZED=1
+
 //Build all artifacts
 SPDLOG_BUILD_ALL:BOOL=OFF
 
@@ -419,7 +422,7 @@ THREAD_SAFE:BOOL=OFF
 WITH_EXAMPLES:BOOL=OFF
 
 //Enable building of rFaaS tests.
-WITH_TESTING:BOOL=OFF
+WITH_TESTING:BOOL=1
 
 //Compile with '-Werror' C++ compiler flag
 WITH_WERROR:BOOL=ON

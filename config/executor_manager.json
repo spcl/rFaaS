@@ -7,10 +7,17 @@
     "resource_manager_secret": 0
   },
   "executor": {
-    "use_docker": false,
     "repetitions": 100,
     "warmup_iters": 0,
     "pin_threads": false
+  },
+  "docker": {
+    "use_docker": false,
+    "image": "rdma-test",
+    "network": "mynet",
+    "ip": "",
+    "volume": "",
+    "registry_ip": "",
+    "registry_port": ""
   }
 }
-

@@ -35,6 +35,8 @@ namespace rfaas::resource_manager {
   }
 
 
+  // Listen for incoming RDMA connections
+  // If there is one, accept it and add it to the queue
   void Manager::listen_rdma()
   {
     while(!_shutdown.load()) {
@@ -66,6 +68,7 @@ namespace rfaas::resource_manager {
     spdlog::info("Background thread stops waiting for rdmacm events");
   }
 
+  // For each connection in the queue, add it to the vector of connections
   void Manager::process_rdma()
   {
     std::vector<rdmalib::Connection*> vec;

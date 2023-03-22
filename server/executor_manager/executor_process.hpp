@@ -46,7 +46,7 @@ namespace rfaas::executor_manager {
   };
 
   // Ac actual process which can be spawned/is executing
-  // uses fork/exec idiom
+  // uses fork/exec pattern
   struct ProcessExecutor : public ActiveExecutor
   {
     pid_t _pid;

@@ -173,7 +173,7 @@ namespace rfaas::executor_manager {
           // FIXME: make configurable
           "--volume", "/users/mcopik/projects/rdma/repo/build_repo2:/opt",
           // FIXME: make configurable
-          "rdma-test", // ???
+          "rdma-test", // The docker image to run
           "/opt/bin/executor",
           "-a", client_addr.c_str(),
           "-p", client_port.c_str(),

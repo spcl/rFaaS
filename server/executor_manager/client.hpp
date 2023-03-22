@@ -26,7 +26,7 @@ namespace rfaas::executor_manager {
     rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
     rdmalib::RecvBuffer rcv_buffer;
     std::unique_ptr<ActiveExecutor> executor;
-    rdmalib::Buffer<Accounting> accounting;
+    rdmalib::Buffer<Accounting> accounting; // Timing data
     uint32_t allocation_time;
     bool _active;
 
