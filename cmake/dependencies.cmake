@@ -11,9 +11,7 @@ if(NOT cxxopts_FOUND)
     GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
     CMAKE_ARGS -DCXXOPTS_BUILD_EXAMPLES=Off -DCXXOPTS_BUILD_TESTS=Off
   )
-  FetchContent_Populate(cxxopts)
   FetchContent_MakeAvailable(cxxopts)
-  add_subdirectory(${cxxopts_SOURCE_DIR} ${cxxopts_BINARY_DIR})
 endif()
 
 ###
@@ -27,9 +25,7 @@ if(NOT spdlog_FOUND)
     # default branch is v1.x - for some reason, cmake switches to master
     GIT_TAG v1.8.0
   )
-  FetchContent_Populate(spdlog)
   FetchContent_MakeAvailable(spdlog)
-  add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
 else()
   add_custom_target(spdlog)
 endif()
@@ -50,9 +46,7 @@ if(NOT cereal_FOUND)
   set(SKIP_PERFORMANCE_COMPARISON ON CACHE INTERNAL "")
   set(SKIP_PORTABILITY_TEST ON CACHE INTERNAL "")
   set(JUST_INSTALL_CEREAL ON CACHE INTERNAL "")
-  FetchContent_Populate(cereal)
   FetchContent_MakeAvailable(cereal)
-  add_subdirectory(${cereal_SOURCE_DIR} ${cereal_BINARY_DIR})
 endif()
 
 ###
