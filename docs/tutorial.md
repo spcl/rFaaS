@@ -212,5 +212,5 @@ We should see the following output for payload of size1:
 Data: 1 
 ```
 
-For details about this and other benchmarks, please take a look [at the documentation](docs/benchmarks.md).
+For details about this and other benchmarks, please take a look [at the documentation](benchmarks.md).
 
