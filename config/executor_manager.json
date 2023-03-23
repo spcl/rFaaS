@@ -1,23 +1,23 @@
 {
   "config": {
-    "rdma_device": "",
+    "rdma_device": "eth0",
     "rdma_device_port": 10000,
-    "resource_manager_address": "",
-    "resource_manager_port": 0,
-    "resource_manager_secret": 0
+    "resource_manager_address": "172.31.82.200",
+    "resource_manager_port": 3000,
+    "resource_manager_secret": 12345
   },
   "executor": {
     "repetitions": 100,
     "warmup_iters": 0,
-    "pin_threads": false
-  },
-  "docker": {
-    "use_docker": false,
-    "image": "rdma-test",
-    "network": "mynet",
-    "ip": "",
-    "volume": "",
-    "registry_ip": "",
-    "registry_port": ""
+    "pin_threads": false,
+    "docker": {
+      "use_docker": true,
+      "image": "rfaas-registry/rfaas-base",
+      "network": "mynet",
+      "ip": "172.31.82.202",
+      "volume": "/home/ubuntu/rfaas/containers/opt",
+      "registry_ip": "172.31.82.200",
+      "registry_port": 5000
+    }
   }
 }

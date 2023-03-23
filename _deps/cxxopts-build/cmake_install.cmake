@@ -1,4 +1,4 @@
-# Install script for directory: /home/ubuntu/new/rfaas/_deps/cxxopts-src
+# Install script for directory: /home/ubuntu/rfaas/_deps/cxxopts-src
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -44,6 +44,6 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/ubuntu/new/rfaas/_deps/cxxopts-build/include/cmake_install.cmake")
+  include("/home/ubuntu/rfaas/_deps/cxxopts-build/include/cmake_install.cmake")
 endif()
 

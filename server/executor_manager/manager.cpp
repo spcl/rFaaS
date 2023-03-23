@@ -185,21 +185,20 @@ namespace rfaas::executor_manager {
             if(cores > 0) {
               spdlog::info(
                 "Client {} requests executor with {} threads, it should connect to {}:{},"
-                "it should have buffer of size {}, func buffer {}, hot timeout {}, and Docker {}",
+                "it should have buffer of size {}, func buffer {}, hot timeout {}",
                 i, client.allocation_requests.data()[id].cores,
                 client.allocation_requests.data()[id].listen_address,
                 client.allocation_requests.data()[id].listen_port,
                 client.allocation_requests.data()[id].input_buf_size,
                 client.allocation_requests.data()[id].func_buf_size,
-                client.allocation_requests.data()[id].hot_timeout,
-                client.allocation_requests.data()[id].use_docker
+                client.allocation_requests.data()[id].hot_timeout
               );
               int secret = (i << 16) | (this->_secret & 0xFFFF);
               uint64_t addr = client.accounting.address(); //+ sizeof(Accounting)*i;
               // FIXME: Docker
               auto now = std::chrono::high_resolution_clock::now();
               client.executor.reset(
-                ProcessExecutor::spawn( // TODO: FIX WITH DOCKER EXECUTOR
+                ProcessExecutor::spawn(
                   client.allocation_requests.data()[id],
                   _settings.exec,
                   {

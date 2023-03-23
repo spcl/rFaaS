@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/ubuntu/new/rfaas
+CMAKE_SOURCE_DIR = /home/ubuntu/rfaas
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/ubuntu/new/rfaas
+CMAKE_BINARY_DIR = /home/ubuntu/rfaas
 
 # Include any dependencies generated for this target.
 include CMakeFiles/cpp_interface.dir/depend.make
@@ -72,30 +72,30 @@ include CMakeFiles/cpp_interface.dir/flags.make
 CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.o: CMakeFiles/cpp_interface.dir/flags.make
 CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.o: benchmarks/cpp_interface.cpp
 CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.o: CMakeFiles/cpp_interface.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.o -MF CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.o.d -o CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/cpp_interface.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.o -MF CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.o.d -o CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.o -c /home/ubuntu/rfaas/benchmarks/cpp_interface.cpp
 
 CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/benchmarks/cpp_interface.cpp > CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/benchmarks/cpp_interface.cpp > CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.i
 
 CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/benchmarks/cpp_interface.cpp -o CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/benchmarks/cpp_interface.cpp -o CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface.cpp.s
 
 CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.o: CMakeFiles/cpp_interface.dir/flags.make
 CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.o: benchmarks/cpp_interface_opts.cpp
 CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.o: CMakeFiles/cpp_interface.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.o -MF CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.o.d -o CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/cpp_interface_opts.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.o -MF CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.o.d -o CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.o -c /home/ubuntu/rfaas/benchmarks/cpp_interface_opts.cpp
 
 CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/benchmarks/cpp_interface_opts.cpp > CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/benchmarks/cpp_interface_opts.cpp > CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.i
 
 CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/benchmarks/cpp_interface_opts.cpp -o CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/benchmarks/cpp_interface_opts.cpp -o CMakeFiles/cpp_interface.dir/benchmarks/cpp_interface_opts.cpp.s
 
 # Object files for target cpp_interface
 cpp_interface_OBJECTS = \
@@ -117,7 +117,7 @@ benchmarks/cpp_interface: _deps/spdlog-build/libspdlogd.a
 benchmarks/cpp_interface: /usr/lib/x86_64-linux-gnu/librdmacm.so
 benchmarks/cpp_interface: /usr/lib/x86_64-linux-gnu/libibverbs.so
 benchmarks/cpp_interface: CMakeFiles/cpp_interface.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable benchmarks/cpp_interface"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable benchmarks/cpp_interface"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/cpp_interface.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -129,6 +129,6 @@ CMakeFiles/cpp_interface.dir/clean:
 .PHONY : CMakeFiles/cpp_interface.dir/clean
 
 CMakeFiles/cpp_interface.dir/depend:
-	cd /home/ubuntu/new/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas/CMakeFiles/cpp_interface.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/ubuntu/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas/CMakeFiles/cpp_interface.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/cpp_interface.dir/depend
 

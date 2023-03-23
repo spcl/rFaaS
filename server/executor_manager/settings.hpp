@@ -11,20 +11,43 @@
 
 namespace rfaas::executor_manager {
 
-  struct ExecutorSettings
+  struct DockerSettings
   {
     bool use_docker;
+    std::string image;
+    std::string network;
+    std::string ip;
+    std::string volume;
+    std::string registry_ip;
+    int registry_port;
+
+    template <class Archive>
+    void load(Archive & ar)
+    {
+      ar(
+        CEREAL_NVP(use_docker), CEREAL_NVP(image),
+        CEREAL_NVP(network), CEREAL_NVP(ip),
+        CEREAL_NVP(volume),
+        CEREAL_NVP(registry_ip), CEREAL_NVP(registry_port)
+      );
+    }
+  };
+
+  struct ExecutorSettings
+  {
     int repetitions;
     int warmup_iters;
     int recv_buffer_size;
     int max_inline_data;
     bool pin_threads;
 
+    struct DockerSettings docker{};
+
     template <class Archive>
-    void load(Archive & ar )
+    void load(Archive & ar)
     {
       ar(
-        CEREAL_NVP(use_docker), CEREAL_NVP(repetitions),
+        CEREAL_NVP(docker), CEREAL_NVP(repetitions),
         CEREAL_NVP(warmup_iters), CEREAL_NVP(pin_threads)
       );
     }

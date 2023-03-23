@@ -81,7 +81,7 @@ namespace rfaas::executor_manager {
       executor_pin_threads = std::to_string(0);//counter++);
     else
       executor_pin_threads = std::to_string(exec.pin_threads);
-    bool use_docker = exec.use_docker;
+    bool use_docker = exec.docker.use_docker;
 
     std::string mgr_port = std::to_string(conn.port);
     std::string mgr_secret = std::to_string(conn.secret);
@@ -134,46 +134,20 @@ namespace rfaas::executor_manager {
           exit(1);
         }
       } else {
-        //const char * argv[] = {
-        //  "docker_rdma_sriov", "run",
-        //  "--rm",
-        //  "--net=mynet", "-i", //"-it",
-        //  // FIXME: make configurable
-        //  "--ip=148.187.105.220",
-        //  // FIXME: make configurable
-        //  "--volume", "/users/mcopik/projects/rdma/repo/build_repo2:/opt",
-        //  // FIXME: make configurable
-        //  "rdma-test",
-        //  "/opt/bin/executor",
-        //  "-a", client_addr.c_str(),
-        //  "-p", client_port.c_str(),
-        //  "--polling-mgr", "thread",
-        //  "-r", executor_repetitions.c_str(),
-        //  "-x", executor_recv_buf.c_str(),
-        //  "-s", client_in_size.c_str(),
-        //  "--pin-threads", "true",
-        //  "--fast", client_cores.c_str(),
-        //  "--warmup-iters", executor_warmups.c_str(),
-        //  "--max-inline-data", executor_max_inline.c_str(),
-        //  "--func-size", client_func_size.c_str(),
-        //  "--timeout", client_timeout.c_str(),
-        //  "--mgr-address", conn.addr.c_str(),
-        //  "--mgr-port", mgr_port.c_str(),
-        //  "--mgr-secret", mgr_secret.c_str(),
-        //  "--mgr-buf-addr", mgr_buf_addr.c_str(),
-        //  "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
-        //  nullptr
-        //};
+        std::string ip_arg = "--ip=" + exec.docker.ip;
+        std::string volume_arg = exec.docker.volume + ":/opt";
+        std::string net_arg = "--net=" + exec.docker.network;
+        std::string registry_port = std::to_string(exec.docker.registry_port);
+        std::string docker_image = exec.docker.registry_ip + ":" + registry_port
+            + "/" + exec.docker.image;
+
         const char * argv[] = {
           "docker_rdma_sriov", "run",
-          "--rm",
-          "--net=mynet", "-i", //"-it",
-          // FIXME: make configurable
-          "--ip=148.187.105.250",
-          // FIXME: make configurable
-          "--volume", "/users/mcopik/projects/rdma/repo/build_repo2:/opt",
-          // FIXME: make configurable
-          "rdma-test", // The docker image to run
+          "--rm", "-i",
+          net_arg.c_str(),
+          ip_arg.c_str(),
+          "--volume", volume_arg.c_str(),
+          docker_image.c_str(),
           "/opt/bin/executor",
           "-a", client_addr.c_str(),
           "-p", client_port.c_str(),

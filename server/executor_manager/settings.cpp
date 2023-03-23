@@ -11,7 +11,7 @@ namespace rfaas::executor_manager {
     cereal::JSONInputArchive archive_in(in);
     archive_in(cereal::make_nvp("config", settings));
     archive_in(cereal::make_nvp("executor", settings.exec));
-
+    
     // read RDMA device details
     rfaas::device_data * dev = rfaas::devices::instance().device(settings.rdma_device);
     if(!dev) {

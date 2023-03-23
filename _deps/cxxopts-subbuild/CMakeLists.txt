@@ -22,8 +22,8 @@ set_property(GLOBAL PROPERTY _CMAKE_FindGit_GIT_EXECUTABLE_VERSION
 include(ExternalProject)
 ExternalProject_Add(cxxopts-populate
                      "UPDATE_DISCONNECTED" "False" "GIT_REPOSITORY" "https://github.com/jarro2783/cxxopts.git" "CMAKE_ARGS" "-DCXXOPTS_BUILD_EXAMPLES=Off" "-DCXXOPTS_BUILD_TESTS=Off"
-                    SOURCE_DIR          "/home/ubuntu/new/rfaas/_deps/cxxopts-src"
-                    BINARY_DIR          "/home/ubuntu/new/rfaas/_deps/cxxopts-build"
+                    SOURCE_DIR          "/home/ubuntu/rfaas/_deps/cxxopts-src"
+                    BINARY_DIR          "/home/ubuntu/rfaas/_deps/cxxopts-build"
                     CONFIGURE_COMMAND   ""
                     BUILD_COMMAND       ""
                     INSTALL_COMMAND     ""

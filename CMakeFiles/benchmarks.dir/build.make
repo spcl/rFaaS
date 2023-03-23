@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/ubuntu/new/rfaas
+CMAKE_SOURCE_DIR = /home/ubuntu/rfaas
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/ubuntu/new/rfaas
+CMAKE_BINARY_DIR = /home/ubuntu/rfaas
 
 # Include any dependencies generated for this target.
 include CMakeFiles/benchmarks.dir/depend.make
@@ -72,16 +72,16 @@ include CMakeFiles/benchmarks.dir/flags.make
 CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o: CMakeFiles/benchmarks.dir/flags.make
 CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o: benchmarks/settings.cpp
 CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o: CMakeFiles/benchmarks.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o -MF CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o.d -o CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/settings.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o -MF CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o.d -o CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o -c /home/ubuntu/rfaas/benchmarks/settings.cpp
 
 CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/benchmarks/settings.cpp > CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/benchmarks/settings.cpp > CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.i
 
 CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/benchmarks/settings.cpp -o CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/benchmarks/settings.cpp -o CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.s
 
 # Object files for target benchmarks
 benchmarks_OBJECTS = \
@@ -93,7 +93,7 @@ benchmarks_EXTERNAL_OBJECTS =
 libbenchmarks.a: CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o
 libbenchmarks.a: CMakeFiles/benchmarks.dir/build.make
 libbenchmarks.a: CMakeFiles/benchmarks.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX static library libbenchmarks.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX static library libbenchmarks.a"
 	$(CMAKE_COMMAND) -P CMakeFiles/benchmarks.dir/cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/benchmarks.dir/link.txt --verbose=$(VERBOSE)
 
@@ -106,6 +106,6 @@ CMakeFiles/benchmarks.dir/clean:
 .PHONY : CMakeFiles/benchmarks.dir/clean
 
 CMakeFiles/benchmarks.dir/depend:
-	cd /home/ubuntu/new/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas/CMakeFiles/benchmarks.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/ubuntu/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas/CMakeFiles/benchmarks.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/benchmarks.dir/depend
 

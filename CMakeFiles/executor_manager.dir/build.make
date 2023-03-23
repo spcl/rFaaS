@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/ubuntu/new/rfaas
+CMAKE_SOURCE_DIR = /home/ubuntu/rfaas
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/ubuntu/new/rfaas
+CMAKE_BINARY_DIR = /home/ubuntu/rfaas
 
 # Include any dependencies generated for this target.
 include CMakeFiles/executor_manager.dir/depend.make
@@ -72,86 +72,86 @@ include CMakeFiles/executor_manager.dir/flags.make
 CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.o: CMakeFiles/executor_manager.dir/flags.make
 CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.o: server/executor_manager/cli.cpp
 CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.o: CMakeFiles/executor_manager.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.o -MF CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.o.d -o CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.o -c /home/ubuntu/new/rfaas/server/executor_manager/cli.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.o -MF CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.o.d -o CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.o -c /home/ubuntu/rfaas/server/executor_manager/cli.cpp
 
 CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/server/executor_manager/cli.cpp > CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/server/executor_manager/cli.cpp > CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.i
 
 CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/server/executor_manager/cli.cpp -o CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/server/executor_manager/cli.cpp -o CMakeFiles/executor_manager.dir/server/executor_manager/cli.cpp.s
 
 CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.o: CMakeFiles/executor_manager.dir/flags.make
 CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.o: server/executor_manager/opts.cpp
 CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.o: CMakeFiles/executor_manager.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.o -MF CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.o.d -o CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.o -c /home/ubuntu/new/rfaas/server/executor_manager/opts.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.o -MF CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.o.d -o CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.o -c /home/ubuntu/rfaas/server/executor_manager/opts.cpp
 
 CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/server/executor_manager/opts.cpp > CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/server/executor_manager/opts.cpp > CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.i
 
 CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/server/executor_manager/opts.cpp -o CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/server/executor_manager/opts.cpp -o CMakeFiles/executor_manager.dir/server/executor_manager/opts.cpp.s
 
 CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.o: CMakeFiles/executor_manager.dir/flags.make
 CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.o: server/executor_manager/settings.cpp
 CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.o: CMakeFiles/executor_manager.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.o -MF CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.o.d -o CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.o -c /home/ubuntu/new/rfaas/server/executor_manager/settings.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.o -MF CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.o.d -o CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.o -c /home/ubuntu/rfaas/server/executor_manager/settings.cpp
 
 CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/server/executor_manager/settings.cpp > CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/server/executor_manager/settings.cpp > CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.i
 
 CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/server/executor_manager/settings.cpp -o CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/server/executor_manager/settings.cpp -o CMakeFiles/executor_manager.dir/server/executor_manager/settings.cpp.s
 
 CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.o: CMakeFiles/executor_manager.dir/flags.make
 CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.o: server/executor_manager/manager.cpp
 CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.o: CMakeFiles/executor_manager.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.o -MF CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.o.d -o CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.o -c /home/ubuntu/new/rfaas/server/executor_manager/manager.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.o -MF CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.o.d -o CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.o -c /home/ubuntu/rfaas/server/executor_manager/manager.cpp
 
 CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/server/executor_manager/manager.cpp > CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/server/executor_manager/manager.cpp > CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.i
 
 CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/server/executor_manager/manager.cpp -o CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/server/executor_manager/manager.cpp -o CMakeFiles/executor_manager.dir/server/executor_manager/manager.cpp.s
 
 CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.o: CMakeFiles/executor_manager.dir/flags.make
 CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.o: server/executor_manager/client.cpp
 CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.o: CMakeFiles/executor_manager.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.o -MF CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.o.d -o CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.o -c /home/ubuntu/new/rfaas/server/executor_manager/client.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.o -MF CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.o.d -o CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.o -c /home/ubuntu/rfaas/server/executor_manager/client.cpp
 
 CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/server/executor_manager/client.cpp > CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/server/executor_manager/client.cpp > CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.i
 
 CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/server/executor_manager/client.cpp -o CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/server/executor_manager/client.cpp -o CMakeFiles/executor_manager.dir/server/executor_manager/client.cpp.s
 
 CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.o: CMakeFiles/executor_manager.dir/flags.make
 CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.o: server/executor_manager/executor_process.cpp
 CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.o: CMakeFiles/executor_manager.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.o -MF CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.o.d -o CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.o -c /home/ubuntu/new/rfaas/server/executor_manager/executor_process.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.o -MF CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.o.d -o CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.o -c /home/ubuntu/rfaas/server/executor_manager/executor_process.cpp
 
 CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/server/executor_manager/executor_process.cpp > CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/server/executor_manager/executor_process.cpp > CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.i
 
 CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/server/executor_manager/executor_process.cpp -o CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/server/executor_manager/executor_process.cpp -o CMakeFiles/executor_manager.dir/server/executor_manager/executor_process.cpp.s
 
 # Object files for target executor_manager
 executor_manager_OBJECTS = \
@@ -180,7 +180,7 @@ bin/executor_manager: _deps/spdlog-build/libspdlogd.a
 bin/executor_manager: /usr/lib/x86_64-linux-gnu/librdmacm.so
 bin/executor_manager: /usr/lib/x86_64-linux-gnu/libibverbs.so
 bin/executor_manager: CMakeFiles/executor_manager.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable bin/executor_manager"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable bin/executor_manager"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/executor_manager.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -192,6 +192,6 @@ CMakeFiles/executor_manager.dir/clean:
 .PHONY : CMakeFiles/executor_manager.dir/clean
 
 CMakeFiles/executor_manager.dir/depend:
-	cd /home/ubuntu/new/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas/CMakeFiles/executor_manager.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/ubuntu/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas/CMakeFiles/executor_manager.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/executor_manager.dir/depend
 

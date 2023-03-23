@@ -1,4 +1,4 @@
-# Install script for directory: /home/ubuntu/new/rfaas/_deps/spdlog-src
+# Install script for directory: /home/ubuntu/rfaas/_deps/spdlog-src
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

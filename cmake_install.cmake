@@ -1,4 +1,4 @@
-# Install script for directory: /home/ubuntu/new/rfaas
+# Install script for directory: /home/ubuntu/rfaas
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -44,9 +44,9 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/ubuntu/new/rfaas/_deps/cxxopts-build/cmake_install.cmake")
-  include("/home/ubuntu/new/rfaas/_deps/spdlog-build/cmake_install.cmake")
-  include("/home/ubuntu/new/rfaas/_deps/cereal-build/cmake_install.cmake")
+  include("/home/ubuntu/rfaas/_deps/cxxopts-build/cmake_install.cmake")
+  include("/home/ubuntu/rfaas/_deps/spdlog-build/cmake_install.cmake")
+  include("/home/ubuntu/rfaas/_deps/cereal-build/cmake_install.cmake")
 
 endif()
 
@@ -58,5 +58,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/ubuntu/new/rfaas/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/ubuntu/rfaas/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

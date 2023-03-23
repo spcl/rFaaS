@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/ubuntu/new/rfaas
+CMAKE_SOURCE_DIR = /home/ubuntu/rfaas
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/ubuntu/new/rfaas
+CMAKE_BINARY_DIR = /home/ubuntu/rfaas
 
 # Include any dependencies generated for this target.
 include CMakeFiles/resource_manager.dir/depend.make
@@ -72,86 +72,86 @@ include CMakeFiles/resource_manager.dir/flags.make
 CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.o: CMakeFiles/resource_manager.dir/flags.make
 CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.o: server/resource_manager/cli.cpp
 CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.o: CMakeFiles/resource_manager.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.o -MF CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.o.d -o CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.o -c /home/ubuntu/new/rfaas/server/resource_manager/cli.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.o -MF CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.o.d -o CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.o -c /home/ubuntu/rfaas/server/resource_manager/cli.cpp
 
 CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/server/resource_manager/cli.cpp > CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/server/resource_manager/cli.cpp > CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.i
 
 CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/server/resource_manager/cli.cpp -o CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/server/resource_manager/cli.cpp -o CMakeFiles/resource_manager.dir/server/resource_manager/cli.cpp.s
 
 CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.o: CMakeFiles/resource_manager.dir/flags.make
 CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.o: server/resource_manager/opts.cpp
 CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.o: CMakeFiles/resource_manager.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.o -MF CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.o.d -o CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.o -c /home/ubuntu/new/rfaas/server/resource_manager/opts.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.o -MF CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.o.d -o CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.o -c /home/ubuntu/rfaas/server/resource_manager/opts.cpp
 
 CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/server/resource_manager/opts.cpp > CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/server/resource_manager/opts.cpp > CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.i
 
 CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/server/resource_manager/opts.cpp -o CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/server/resource_manager/opts.cpp -o CMakeFiles/resource_manager.dir/server/resource_manager/opts.cpp.s
 
 CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.o: CMakeFiles/resource_manager.dir/flags.make
 CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.o: server/resource_manager/db.cpp
 CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.o: CMakeFiles/resource_manager.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.o -MF CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.o.d -o CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.o -c /home/ubuntu/new/rfaas/server/resource_manager/db.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.o -MF CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.o.d -o CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.o -c /home/ubuntu/rfaas/server/resource_manager/db.cpp
 
 CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/server/resource_manager/db.cpp > CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/server/resource_manager/db.cpp > CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.i
 
 CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/server/resource_manager/db.cpp -o CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/server/resource_manager/db.cpp -o CMakeFiles/resource_manager.dir/server/resource_manager/db.cpp.s
 
 CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.o: CMakeFiles/resource_manager.dir/flags.make
 CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.o: server/resource_manager/http.cpp
 CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.o: CMakeFiles/resource_manager.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.o -MF CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.o.d -o CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.o -c /home/ubuntu/new/rfaas/server/resource_manager/http.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.o -MF CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.o.d -o CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.o -c /home/ubuntu/rfaas/server/resource_manager/http.cpp
 
 CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/server/resource_manager/http.cpp > CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/server/resource_manager/http.cpp > CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.i
 
 CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/server/resource_manager/http.cpp -o CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/server/resource_manager/http.cpp -o CMakeFiles/resource_manager.dir/server/resource_manager/http.cpp.s
 
 CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.o: CMakeFiles/resource_manager.dir/flags.make
 CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.o: server/resource_manager/settings.cpp
 CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.o: CMakeFiles/resource_manager.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.o -MF CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.o.d -o CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.o -c /home/ubuntu/new/rfaas/server/resource_manager/settings.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.o -MF CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.o.d -o CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.o -c /home/ubuntu/rfaas/server/resource_manager/settings.cpp
 
 CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/server/resource_manager/settings.cpp > CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/server/resource_manager/settings.cpp > CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.i
 
 CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/server/resource_manager/settings.cpp -o CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/server/resource_manager/settings.cpp -o CMakeFiles/resource_manager.dir/server/resource_manager/settings.cpp.s
 
 CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.o: CMakeFiles/resource_manager.dir/flags.make
 CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.o: server/resource_manager/manager.cpp
 CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.o: CMakeFiles/resource_manager.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.o -MF CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.o.d -o CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.o -c /home/ubuntu/new/rfaas/server/resource_manager/manager.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.o -MF CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.o.d -o CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.o -c /home/ubuntu/rfaas/server/resource_manager/manager.cpp
 
 CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/server/resource_manager/manager.cpp > CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/server/resource_manager/manager.cpp > CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.i
 
 CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/server/resource_manager/manager.cpp -o CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/server/resource_manager/manager.cpp -o CMakeFiles/resource_manager.dir/server/resource_manager/manager.cpp.s
 
 # Object files for target resource_manager
 resource_manager_OBJECTS = \
@@ -181,7 +181,7 @@ bin/resource_manager: /usr/lib/x86_64-linux-gnu/librdmacm.so
 bin/resource_manager: /usr/lib/x86_64-linux-gnu/libibverbs.so
 bin/resource_manager: /usr/lib/x86_64-linux-gnu/libpistache.so
 bin/resource_manager: CMakeFiles/resource_manager.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable bin/resource_manager"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable bin/resource_manager"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/resource_manager.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -193,6 +193,6 @@ CMakeFiles/resource_manager.dir/clean:
 .PHONY : CMakeFiles/resource_manager.dir/clean
 
 CMakeFiles/resource_manager.dir/depend:
-	cd /home/ubuntu/new/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas/CMakeFiles/resource_manager.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/ubuntu/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas/CMakeFiles/resource_manager.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/resource_manager.dir/depend
 

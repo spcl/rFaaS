@@ -13,8 +13,14 @@ namespace rfaas::executor_manager {
       ("device-database", "JSON configuration of devices.", cxxopts::value<std::string>())
       ("skip-resource-manager", "Ignore resource manager and don't connect to it.", cxxopts::value<bool>()->default_value("false"))
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
+      ("h,help", "Print usage")
     ;
     auto parsed_options = options.parse(argc, argv);
+
+    if (parsed_options.count("help")) {
+      std::cout << options.help() << std::endl;
+      exit(0);
+    }
 
     Options result;
     result.json_config = parsed_options["config"].as<std::string>();

@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/ubuntu/new/rfaas
+CMAKE_SOURCE_DIR = /home/ubuntu/rfaas
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/ubuntu/new/rfaas
+CMAKE_BINARY_DIR = /home/ubuntu/rfaas
 
 # Include any dependencies generated for this target.
 include CMakeFiles/parallel_invocations.dir/depend.make
@@ -72,30 +72,30 @@ include CMakeFiles/parallel_invocations.dir/flags.make
 CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.o: CMakeFiles/parallel_invocations.dir/flags.make
 CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.o: benchmarks/parallel_invocations.cpp
 CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.o: CMakeFiles/parallel_invocations.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.o -MF CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.o.d -o CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/parallel_invocations.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.o -MF CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.o.d -o CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.o -c /home/ubuntu/rfaas/benchmarks/parallel_invocations.cpp
 
 CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/benchmarks/parallel_invocations.cpp > CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/benchmarks/parallel_invocations.cpp > CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.i
 
 CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/benchmarks/parallel_invocations.cpp -o CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/benchmarks/parallel_invocations.cpp -o CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations.cpp.s
 
 CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.o: CMakeFiles/parallel_invocations.dir/flags.make
 CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.o: benchmarks/parallel_invocations_opts.cpp
 CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.o: CMakeFiles/parallel_invocations.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.o -MF CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.o.d -o CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/parallel_invocations_opts.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.o -MF CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.o.d -o CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.o -c /home/ubuntu/rfaas/benchmarks/parallel_invocations_opts.cpp
 
 CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/benchmarks/parallel_invocations_opts.cpp > CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/benchmarks/parallel_invocations_opts.cpp > CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.i
 
 CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/benchmarks/parallel_invocations_opts.cpp -o CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/benchmarks/parallel_invocations_opts.cpp -o CMakeFiles/parallel_invocations.dir/benchmarks/parallel_invocations_opts.cpp.s
 
 # Object files for target parallel_invocations
 parallel_invocations_OBJECTS = \
@@ -117,7 +117,7 @@ benchmarks/parallel_invocations: _deps/spdlog-build/libspdlogd.a
 benchmarks/parallel_invocations: /usr/lib/x86_64-linux-gnu/librdmacm.so
 benchmarks/parallel_invocations: /usr/lib/x86_64-linux-gnu/libibverbs.so
 benchmarks/parallel_invocations: CMakeFiles/parallel_invocations.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable benchmarks/parallel_invocations"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable benchmarks/parallel_invocations"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/parallel_invocations.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -129,6 +129,6 @@ CMakeFiles/parallel_invocations.dir/clean:
 .PHONY : CMakeFiles/parallel_invocations.dir/clean
 
 CMakeFiles/parallel_invocations.dir/depend:
-	cd /home/ubuntu/new/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas/CMakeFiles/parallel_invocations.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/ubuntu/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas/CMakeFiles/parallel_invocations.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/parallel_invocations.dir/depend
 

@@ -2,37 +2,37 @@
 	"sources" : 
 	[
 		{
-			"file" : "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/CMakeFiles/cereal-populate"
+			"file" : "/home/ubuntu/rfaas/_deps/cereal-subbuild/CMakeFiles/cereal-populate"
 		},
 		{
-			"file" : "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/CMakeFiles/cereal-populate.rule"
+			"file" : "/home/ubuntu/rfaas/_deps/cereal-subbuild/CMakeFiles/cereal-populate.rule"
 		},
 		{
-			"file" : "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/CMakeFiles/cereal-populate-complete.rule"
+			"file" : "/home/ubuntu/rfaas/_deps/cereal-subbuild/CMakeFiles/cereal-populate-complete.rule"
 		},
 		{
-			"file" : "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-build.rule"
+			"file" : "/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-build.rule"
 		},
 		{
-			"file" : "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-configure.rule"
+			"file" : "/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-configure.rule"
 		},
 		{
-			"file" : "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-download.rule"
+			"file" : "/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-download.rule"
 		},
 		{
-			"file" : "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-install.rule"
+			"file" : "/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-install.rule"
 		},
 		{
-			"file" : "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-mkdir.rule"
+			"file" : "/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-mkdir.rule"
 		},
 		{
-			"file" : "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-patch.rule"
+			"file" : "/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-patch.rule"
 		},
 		{
-			"file" : "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-test.rule"
+			"file" : "/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-test.rule"
 		},
 		{
-			"file" : "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-update.rule"
+			"file" : "/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-update.rule"
 		}
 	],
 	"target" : 

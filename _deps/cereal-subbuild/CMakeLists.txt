@@ -22,8 +22,8 @@ set_property(GLOBAL PROPERTY _CMAKE_FindGit_GIT_EXECUTABLE_VERSION
 include(ExternalProject)
 ExternalProject_Add(cereal-populate
                      "UPDATE_DISCONNECTED" "False" "GIT_REPOSITORY" "https://github.com/USCiLab/cereal.git" "CMAKE_ARGS" "-DSKIP_PERFORMANCE_COMPARISON=On" "-DSKIP_PORTABILITY_TEST=On" "-DJUST_INSTALL_CEREAL=On" "GIT_TAG" "v1.3.0"
-                    SOURCE_DIR          "/home/ubuntu/new/rfaas/_deps/cereal-src"
-                    BINARY_DIR          "/home/ubuntu/new/rfaas/_deps/cereal-build"
+                    SOURCE_DIR          "/home/ubuntu/rfaas/_deps/cereal-src"
+                    BINARY_DIR          "/home/ubuntu/rfaas/_deps/cereal-build"
                     CONFIGURE_COMMAND   ""
                     BUILD_COMMAND       ""
                     INSTALL_COMMAND     ""

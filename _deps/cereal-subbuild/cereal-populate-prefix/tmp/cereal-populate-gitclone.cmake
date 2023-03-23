@@ -1,15 +1,15 @@
 
-if(NOT "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-gitinfo.txt" IS_NEWER_THAN "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-gitclone-lastrun.txt")
-  message(STATUS "Avoiding repeated git clone, stamp file is up to date: '/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-gitclone-lastrun.txt'")
+if(NOT "/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-gitinfo.txt" IS_NEWER_THAN "/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-gitclone-lastrun.txt")
+  message(STATUS "Avoiding repeated git clone, stamp file is up to date: '/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-gitclone-lastrun.txt'")
   return()
 endif()
 
 execute_process(
-  COMMAND ${CMAKE_COMMAND} -E rm -rf "/home/ubuntu/new/rfaas/_deps/cereal-src"
+  COMMAND ${CMAKE_COMMAND} -E rm -rf "/home/ubuntu/rfaas/_deps/cereal-src"
   RESULT_VARIABLE error_code
   )
 if(error_code)
-  message(FATAL_ERROR "Failed to remove directory: '/home/ubuntu/new/rfaas/_deps/cereal-src'")
+  message(FATAL_ERROR "Failed to remove directory: '/home/ubuntu/rfaas/_deps/cereal-src'")
 endif()
 
 # try the clone 3 times in case there is an odd git clone issue
@@ -18,7 +18,7 @@ set(number_of_tries 0)
 while(error_code AND number_of_tries LESS 3)
   execute_process(
     COMMAND "/usr/bin/git"  clone --no-checkout --config "advice.detachedHead=false" "https://github.com/USCiLab/cereal.git" "cereal-src"
-    WORKING_DIRECTORY "/home/ubuntu/new/rfaas/_deps"
+    WORKING_DIRECTORY "/home/ubuntu/rfaas/_deps"
     RESULT_VARIABLE error_code
     )
   math(EXPR number_of_tries "${number_of_tries} + 1")
@@ -33,7 +33,7 @@ endif()
 
 execute_process(
   COMMAND "/usr/bin/git"  checkout v1.3.0 --
-  WORKING_DIRECTORY "/home/ubuntu/new/rfaas/_deps/cereal-src"
+  WORKING_DIRECTORY "/home/ubuntu/rfaas/_deps/cereal-src"
   RESULT_VARIABLE error_code
   )
 if(error_code)
@@ -44,23 +44,23 @@ set(init_submodules TRUE)
 if(init_submodules)
   execute_process(
     COMMAND "/usr/bin/git"  submodule update --recursive --init 
-    WORKING_DIRECTORY "/home/ubuntu/new/rfaas/_deps/cereal-src"
+    WORKING_DIRECTORY "/home/ubuntu/rfaas/_deps/cereal-src"
     RESULT_VARIABLE error_code
     )
 endif()
 if(error_code)
-  message(FATAL_ERROR "Failed to update submodules in: '/home/ubuntu/new/rfaas/_deps/cereal-src'")
+  message(FATAL_ERROR "Failed to update submodules in: '/home/ubuntu/rfaas/_deps/cereal-src'")
 endif()
 
 # Complete success, update the script-last-run stamp file:
 #
 execute_process(
   COMMAND ${CMAKE_COMMAND} -E copy
-    "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-gitinfo.txt"
-    "/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-gitclone-lastrun.txt"
+    "/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-gitinfo.txt"
+    "/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-gitclone-lastrun.txt"
   RESULT_VARIABLE error_code
   )
 if(error_code)
-  message(FATAL_ERROR "Failed to copy script-last-run stamp file: '/home/ubuntu/new/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-gitclone-lastrun.txt'")
+  message(FATAL_ERROR "Failed to copy script-last-run stamp file: '/home/ubuntu/rfaas/_deps/cereal-subbuild/cereal-populate-prefix/src/cereal-populate-stamp/cereal-populate-gitclone-lastrun.txt'")
 endif()
 

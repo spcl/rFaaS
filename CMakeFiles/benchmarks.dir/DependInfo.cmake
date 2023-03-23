@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/ubuntu/new/rfaas/benchmarks/settings.cpp" "CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o" "gcc" "CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o.d"
+  "/home/ubuntu/rfaas/benchmarks/settings.cpp" "CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o" "gcc" "CMakeFiles/benchmarks.dir/benchmarks/settings.cpp.o.d"
   )
 
 # Targets to which this target links.

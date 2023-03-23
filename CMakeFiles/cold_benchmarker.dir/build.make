@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/ubuntu/new/rfaas
+CMAKE_SOURCE_DIR = /home/ubuntu/rfaas
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/ubuntu/new/rfaas
+CMAKE_BINARY_DIR = /home/ubuntu/rfaas
 
 # Include any dependencies generated for this target.
 include CMakeFiles/cold_benchmarker.dir/depend.make
@@ -72,30 +72,30 @@ include CMakeFiles/cold_benchmarker.dir/flags.make
 CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.o: CMakeFiles/cold_benchmarker.dir/flags.make
 CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.o: benchmarks/cold_benchmark.cpp
 CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.o: CMakeFiles/cold_benchmarker.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.o -MF CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.o.d -o CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/cold_benchmark.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.o -MF CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.o.d -o CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.o -c /home/ubuntu/rfaas/benchmarks/cold_benchmark.cpp
 
 CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/benchmarks/cold_benchmark.cpp > CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/benchmarks/cold_benchmark.cpp > CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.i
 
 CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/benchmarks/cold_benchmark.cpp -o CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/benchmarks/cold_benchmark.cpp -o CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark.cpp.s
 
 CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.o: CMakeFiles/cold_benchmarker.dir/flags.make
 CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.o: benchmarks/cold_benchmark_opts.cpp
 CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.o: CMakeFiles/cold_benchmarker.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.o -MF CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.o.d -o CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.o -c /home/ubuntu/new/rfaas/benchmarks/cold_benchmark_opts.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.o -MF CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.o.d -o CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.o -c /home/ubuntu/rfaas/benchmarks/cold_benchmark_opts.cpp
 
 CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/benchmarks/cold_benchmark_opts.cpp > CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/benchmarks/cold_benchmark_opts.cpp > CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.i
 
 CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/benchmarks/cold_benchmark_opts.cpp -o CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/benchmarks/cold_benchmark_opts.cpp -o CMakeFiles/cold_benchmarker.dir/benchmarks/cold_benchmark_opts.cpp.s
 
 # Object files for target cold_benchmarker
 cold_benchmarker_OBJECTS = \
@@ -117,7 +117,7 @@ benchmarks/cold_benchmarker: _deps/spdlog-build/libspdlogd.a
 benchmarks/cold_benchmarker: /usr/lib/x86_64-linux-gnu/librdmacm.so
 benchmarks/cold_benchmarker: /usr/lib/x86_64-linux-gnu/libibverbs.so
 benchmarks/cold_benchmarker: CMakeFiles/cold_benchmarker.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable benchmarks/cold_benchmarker"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable benchmarks/cold_benchmarker"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/cold_benchmarker.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -129,6 +129,6 @@ CMakeFiles/cold_benchmarker.dir/clean:
 .PHONY : CMakeFiles/cold_benchmarker.dir/clean
 
 CMakeFiles/cold_benchmarker.dir/depend:
-	cd /home/ubuntu/new/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas/CMakeFiles/cold_benchmarker.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/ubuntu/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas/CMakeFiles/cold_benchmarker.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/cold_benchmarker.dir/depend
 

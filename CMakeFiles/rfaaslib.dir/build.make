@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/ubuntu/new/rfaas
+CMAKE_SOURCE_DIR = /home/ubuntu/rfaas
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/ubuntu/new/rfaas
+CMAKE_BINARY_DIR = /home/ubuntu/rfaas
 
 # Include any dependencies generated for this target.
 include CMakeFiles/rfaaslib.dir/depend.make
@@ -72,58 +72,58 @@ include CMakeFiles/rfaaslib.dir/flags.make
 CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o: CMakeFiles/rfaaslib.dir/flags.make
 CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o: rfaas/lib/connection.cpp
 CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o: CMakeFiles/rfaaslib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o -MF CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o.d -o CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o -c /home/ubuntu/new/rfaas/rfaas/lib/connection.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o -MF CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o.d -o CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.o -c /home/ubuntu/rfaas/rfaas/lib/connection.cpp
 
 CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/rfaas/lib/connection.cpp > CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/rfaas/lib/connection.cpp > CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.i
 
 CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/rfaas/lib/connection.cpp -o CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/rfaas/lib/connection.cpp -o CMakeFiles/rfaaslib.dir/rfaas/lib/connection.cpp.s
 
 CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o: CMakeFiles/rfaaslib.dir/flags.make
 CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o: rfaas/lib/devices.cpp
 CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o: CMakeFiles/rfaaslib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o -MF CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o.d -o CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o -c /home/ubuntu/new/rfaas/rfaas/lib/devices.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o -MF CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o.d -o CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.o -c /home/ubuntu/rfaas/rfaas/lib/devices.cpp
 
 CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/rfaas/lib/devices.cpp > CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/rfaas/lib/devices.cpp > CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.i
 
 CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/rfaas/lib/devices.cpp -o CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/rfaas/lib/devices.cpp -o CMakeFiles/rfaaslib.dir/rfaas/lib/devices.cpp.s
 
 CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o: CMakeFiles/rfaaslib.dir/flags.make
 CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o: rfaas/lib/executor.cpp
 CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o: CMakeFiles/rfaaslib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o -MF CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o.d -o CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o -c /home/ubuntu/new/rfaas/rfaas/lib/executor.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o -MF CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o.d -o CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o -c /home/ubuntu/rfaas/rfaas/lib/executor.cpp
 
 CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/rfaas/lib/executor.cpp > CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/rfaas/lib/executor.cpp > CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.i
 
 CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/rfaas/lib/executor.cpp -o CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/rfaas/lib/executor.cpp -o CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.s
 
 CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o: CMakeFiles/rfaaslib.dir/flags.make
 CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o: rfaas/lib/resources.cpp
 CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o: CMakeFiles/rfaaslib.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o -MF CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o.d -o CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o -c /home/ubuntu/new/rfaas/rfaas/lib/resources.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o"
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o -MF CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o.d -o CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o -c /home/ubuntu/rfaas/rfaas/lib/resources.cpp
 
 CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.i"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/new/rfaas/rfaas/lib/resources.cpp > CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.i
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ubuntu/rfaas/rfaas/lib/resources.cpp > CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.i
 
 CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.s"
-	/usr/bin/clang $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/new/rfaas/rfaas/lib/resources.cpp -o CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.s
+	/usr/bin/g++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ubuntu/rfaas/rfaas/lib/resources.cpp -o CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.s
 
 # Object files for target rfaaslib
 rfaaslib_OBJECTS = \
@@ -141,7 +141,7 @@ librfaaslib.a: CMakeFiles/rfaaslib.dir/rfaas/lib/executor.cpp.o
 librfaaslib.a: CMakeFiles/rfaaslib.dir/rfaas/lib/resources.cpp.o
 librfaaslib.a: CMakeFiles/rfaaslib.dir/build.make
 librfaaslib.a: CMakeFiles/rfaaslib.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/new/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Linking CXX static library librfaaslib.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ubuntu/rfaas/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Linking CXX static library librfaaslib.a"
 	$(CMAKE_COMMAND) -P CMakeFiles/rfaaslib.dir/cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/rfaaslib.dir/link.txt --verbose=$(VERBOSE)
 
@@ -154,6 +154,6 @@ CMakeFiles/rfaaslib.dir/clean:
 .PHONY : CMakeFiles/rfaaslib.dir/clean
 
 CMakeFiles/rfaaslib.dir/depend:
-	cd /home/ubuntu/new/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas /home/ubuntu/new/rfaas/CMakeFiles/rfaaslib.dir/DependInfo.cmake --color=$(COLOR)
+	cd /home/ubuntu/rfaas && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas /home/ubuntu/rfaas/CMakeFiles/rfaaslib.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/rfaaslib.dir/depend
 
