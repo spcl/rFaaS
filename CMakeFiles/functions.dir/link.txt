@@ -1,1 +1,0 @@
-/usr/bin/g++ -fPIC  -Wall -Wextra -v -lstdc++ -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG  -shared -Wl,-soname,libfunctions.so -o examples/libfunctions.so CMakeFiles/functions.dir/examples/functions.cpp.o 

@@ -41,7 +41,7 @@ namespace rfaas::executor_manager {
     int max_inline_data;
     bool pin_threads;
 
-    struct DockerSettings docker{};
+    struct DockerSettings docker;
 
     template <class Archive>
     void load(Archive & ar)
