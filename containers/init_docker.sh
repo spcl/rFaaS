@@ -12,7 +12,7 @@
 set -e
 
 if [ $# -lt 3 ]; then
-    echo "usage: ./init_docker.sh <REGISTRY NAME or IP> <REGISTRY PORT> <SUBNET>"
+    echo "usage: ./init_docker.sh <REGISTRY IP> <REGISTRY PORT> <SUBNET>"
     exit
 fi
 
