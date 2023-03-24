@@ -3,7 +3,7 @@
 
 FROM ubuntu:22.04
 
-ARG DEBIAN_FRONTEND=noninteractive
+#ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y && apt-get upgrade -y \
     && apt-get install -y \

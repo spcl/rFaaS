@@ -44,3 +44,6 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 bin/
+configuration/
+volumes/
+containers/config/htpasswd

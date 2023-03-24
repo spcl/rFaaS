@@ -1,11 +1,17 @@
 #!/bin/bash
 
-# Run this script on the server where the docker registry should run
+# Run this script on the server where you want the docker registry to be hosted
+# Recommended to host the registry on the same server as the executor manager
+
+# NOTE: Run this script from the repo root
 
 PORT=5000
 NAME="rfaas-registry"
-if [ $# -gt 0 ]; then
-    PORT="$1"
-fi
-sudo docker run -d -p $PORT:$PORT --restart=always --name $NAME registry:2
+
+cfg=containers/config
+mkdir -p $cfg
+sudo -Bc htpasswd $cfg/htpasswd htpasswd $USER
+
+docker-compose up -d -f registry.yaml
 echo "started docker registry $NAME on port $PORT"
+
