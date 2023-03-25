@@ -29,7 +29,7 @@ echo "built rfaas-base image"
 sudo docker login $REG_IP:$REG_PORT
 echo "logged into docker daemon"
 
-if sudo docker push --insecure-registry $REG_IMG; then
+if sudo docker push $REG_IMG; then
     echo "ERROR: make sure a docker registry is actually running on $REG_IP:$REG_PORT.
     Start one with scripts/run_registry.sh"
     exit
