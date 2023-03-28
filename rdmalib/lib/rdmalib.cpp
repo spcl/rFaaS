@@ -34,7 +34,7 @@ namespace rdmalib {
     if(passive)
       hints.ai_flags = RAI_PASSIVE;
 
-    impl::expect_zero(rdma_getaddrinfo(ip.c_str(), std::to_string(port).c_str(), &hints, &addrinfo));
+    impl::expect_zero(rdma_getaddrinfo(const_cast<char *>(ip.c_str()), const_cast<char *>(std::to_string(port).c_str()), &hints, &addrinfo));
     this->_port = port;
   }
 
