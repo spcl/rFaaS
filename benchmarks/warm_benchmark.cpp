@@ -13,6 +13,7 @@
 
 #include <rfaas/executor.hpp>
 #include <rfaas/resources.hpp>
+#include <rfaas/rdma_allocator.hpp>
 
 #include "warm_benchmark.hpp"
 #include "settings.hpp"
@@ -68,19 +69,27 @@ int main(int argc, char ** argv)
   }
 
   // FIXME: move me to a memory allocator
-  rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
-  in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
-  out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-  memset(in.data(), 0, opts.input_size);
-  for(int i = 0; i < opts.input_size; ++i) {
-    ((char*)in.data())[i] = 1;
+
+  rfaas::RdmaAllocator<rdmalib::Buffer<char> > rdmaAllocator(executor);
+  auto in = rdmaAllocator.allocate(opts.input_size, IBV_ACCESS_LOCAL_WRITE,
+                                   rdmalib::functions::Submission::DATA_HEADER_SIZE);
+  auto out = rdmaAllocator.allocate(opts.input_size, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+  // rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
+  // in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
+  // out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+
+  // TODO: Since the for loop writes a value of 1 to each byte of the in buffer,
+  //       it overwrites all bytes previously set to 0 by the memset() function.
+  memset(in->data(), 0, opts.input_size);
+  for (int i = 0; i < opts.input_size; ++i) {
+    ((char *) in->data())[i] = 1;
   }
 
   rdmalib::Benchmarker<1> benchmarker{settings.benchmark.repetitions};
   spdlog::info("Warmups begin");
   for(int i = 0; i < settings.benchmark.warmup_repetitions; ++i) {
     SPDLOG_DEBUG("Submit warm {}", i);
-    executor.execute(opts.fname, in, out);
+    executor.execute(opts.fname, *in, *out);
   }
   spdlog::info("Warmups completed");
 
@@ -88,7 +97,7 @@ int main(int argc, char ** argv)
   for(int i = 0; i < settings.benchmark.repetitions;) {
     benchmarker.start();
     SPDLOG_DEBUG("Submit execution {}", i);
-    auto ret = executor.execute(opts.fname, in, out);
+    auto ret = executor.execute(opts.fname, *in, *out);
     if(std::get<0>(ret)) {
       SPDLOG_DEBUG("Finished execution {} out of {}", i, settings.benchmark.repetitions);
       benchmarker.end(0);
@@ -108,7 +117,7 @@ int main(int argc, char ** argv)
 
   printf("Data: ");
   for(int i = 0; i < std::min(100, opts.input_size); ++i)
-    printf("%d ", ((char*)out.data())[i]);
+    printf("%d ", ((char*)out->data())[i]);
   printf("\n");
 
   return 0;

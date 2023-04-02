@@ -22,7 +22,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 string(REPLACE "-DNDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 string(APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO " -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG ")
 string(APPEND CMAKE_CXX_FLAGS_DEBUG " -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG ")
-string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra ")
+string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -std=c++17")
 
 ###
 # Mandatory: devices configuration file.
@@ -127,6 +127,7 @@ target_link_libraries(rdmalib PRIVATE cereal)
 # client library
 ###
 file(GLOB rdmalib_files "rfaas/lib/*.cpp")
+message(STATUS "rdmalib_files ${rdmalib_files}")
 add_library(rfaaslib STATIC ${rdmalib_files})
 add_dependencies(rfaaslib spdlog)
 add_dependencies(rfaaslib cereal)
