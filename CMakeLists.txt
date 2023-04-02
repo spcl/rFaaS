@@ -85,10 +85,20 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads)
 
 ###
+# PkgConfig 
+###
+
+find_package(PkgConfig REQUIRED)
+if (NOT PkgConfig_FOUND)
+    message(FATAL_ERROR "PkgConfig library not found")
+endif (NOT PkgConfig_FOUND)
+
+###
 # librdmacm
 ###
-find_package(PkgConfig REQUIRED)
+
 pkg_check_modules(rdmacm REQUIRED IMPORTED_TARGET librdmacm)
+
 ###
 # libibverbs
 ###
