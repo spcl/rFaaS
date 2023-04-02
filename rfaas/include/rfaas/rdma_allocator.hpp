@@ -18,9 +18,20 @@ namespace rfaas {
   public:
     inline explicit RdmaAllocator(const executor &executor) noexcept: _executor(executor) {}
 
-    inline T *allocate(const std::size_t &, const int &, int = 0);
+    // inline T *allocate(const std::size_t &, const int &, int = 0);
+    inline T *allocate(const std::size_t &size, const int &access, int header=0) {
+      if (size > std::size_t(-1) / sizeof(T))
+        throw std::bad_alloc();
 
-    inline void deallocate(T *p, std::size_t n) noexcept;
+      auto buffer = new rdmalib::Buffer<char>(size, header);
+      buffer->register_memory(_executor._state.pd(), access);
+      std::cout << "allocate memory by RdmaAllocator" << std::endl;
+      return buffer;
+    }
+
+    inline void deallocate(T *p, std::size_t n) noexcept {
+      operator delete(p);
+    }
   };
 }
 
