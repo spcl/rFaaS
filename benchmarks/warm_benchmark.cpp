@@ -71,9 +71,9 @@ int main(int argc, char ** argv)
   // FIXME: move me to a memory allocator
 
   rfaas::RdmaAllocator<rdmalib::Buffer<char> > rdmaAllocator(executor);
-  auto in = rdmaAllocator.allocate(opts.input_size, IBV_ACCESS_LOCAL_WRITE,
+  rdmalib::Buffer<char>* in = rdmaAllocator.allocate(opts.input_size, IBV_ACCESS_LOCAL_WRITE,
                                    rdmalib::functions::Submission::DATA_HEADER_SIZE);
-  auto out = rdmaAllocator.allocate(opts.input_size, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+  rdmalib::Buffer<char>* out = rdmaAllocator.allocate(opts.input_size, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
   // rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
   // in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
   // out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
