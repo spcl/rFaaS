@@ -16,7 +16,7 @@
     {
       "key": "sarus",
       "value": {
-        "index": 0,
+        "index": 1,
         "data": {
           "user": "mcopik",
           "name": "spcleth/hpc-disagg:rfaas-executor-daint",
@@ -48,7 +48,7 @@
     {
       "key": "docker",
       "value": {
-        "index": 1,
+        "index": 0,
         "data": {
           "image": "rfaas-registry/rfaas-base",
           "network": "mynet",
@@ -56,6 +56,15 @@
           "volume": "/home/ubuntu/rfaas/containers/opt",
           "registry_ip": "172.31.82.200",
           "registry_port": 5000
+        }
+      }
+    },
+    {
+      "key": "singularity",
+      "value": {
+        "index": 2,
+        "data": {
+          "container": "rfaas-container-singularity"
         }
       }
     }

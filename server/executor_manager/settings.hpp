@@ -19,7 +19,8 @@ namespace rfaas::executor_manager {
   enum class SandboxType {
     PROCESS = 0,
     DOCKER = 1,
-    SARUS = 2
+    SARUS = 2,
+    SINGULARITY = 3,
   };
 
   SandboxType sandbox_deserialize(std::string type);
@@ -29,6 +30,25 @@ namespace rfaas::executor_manager {
 }
 
 namespace rfaas::executor_manager {
+
+  struct DockerConfiguration {
+    std::string image;
+    std::string network;
+    std::string ip;
+    std::string volume;
+    std::string registry_ip;
+    int registry_port;
+
+    template <class Archive>
+    void load(Archive & ar)
+    {
+      ar(
+        CEREAL_NVP(image), CEREAL_NVP(network),
+        CEREAL_NVP(ip), CEREAL_NVP(volume),
+        CEREAL_NVP(registry_ip), CEREAL_NVP(registry_port)
+      );
+    }
+  };
 
   struct SarusConfiguration {
     std::string user;
@@ -60,38 +80,21 @@ namespace rfaas::executor_manager {
   
   };
 
-  struct DockerConfiguration {
-    std::string image;
-    std::string network;
-    std::string ip;
-    std::string volume;
-    std::string registry_ip;
-    int registry_port;
+  struct SingularityConfiguration {
+    // TODO: Add other singularity options here
+    std::string container;
 
     template <class Archive>
     void load(Archive & ar)
     {
       ar(
-        CEREAL_NVP(image), CEREAL_NVP(network),
-        CEREAL_NVP(ip), CEREAL_NVP(volume),
-        CEREAL_NVP(registry_ip), CEREAL_NVP(registry_port)
+        CEREAL_NVP(container)
       );
     }
   };
 
-  /*
-  struct SandboxConfiguration {
-    std::variant<SarusConfiguration, DockerConfiguration> config;
-
-    template <class Archive>
-    void load(Archive & ar)
-    {
-      ar( CEREAL_NVP(config) );
-    }
-  };
-  */
-
-  using SandboxConfiguration = std::variant<SarusConfiguration, DockerConfiguration>;
+  using SandboxConfiguration = std::variant<DockerConfiguration, SarusConfiguration,
+        SingularityConfiguration>;
 
   struct ExecutorSettings
   {

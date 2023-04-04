@@ -15,7 +15,8 @@ namespace rfaas::executor_manager {
     static std::map<std::string, SandboxType> sandboxes = {
       {"process", SandboxType::PROCESS},
       {"docker", SandboxType::DOCKER},
-      {"sarus", SandboxType::SARUS}
+      {"sarus", SandboxType::SARUS},
+      {"singularity", SandboxType::SINGULARITY}
     };
     return sandboxes.at(type);
   }
@@ -25,7 +26,8 @@ namespace rfaas::executor_manager {
     static std::map<SandboxType, std::string> sandboxes = {
       {SandboxType::PROCESS, "process"},
       {SandboxType::DOCKER, "docker"},
-      {SandboxType::SARUS, "sarus"}
+      {SandboxType::SARUS, "sarus"},
+      {SandboxType::SINGULARITY, "singularity"}
     };
     return sandboxes.at(type);
   }
