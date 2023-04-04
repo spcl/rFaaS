@@ -50,12 +50,16 @@ namespace rfaas::executor_manager {
     settings.exec.max_inline_data = dev->max_inline_data;
     settings.exec.recv_buffer_size = dev->default_receive_buffer_size;
 
-    settings.exec.sandbox_config = &settings.sandboxes.at(settings.exec.sandbox_type);
+    if (settings.exec.sandbox_type != SandboxType::PROCESS) {
+      settings.exec.sandbox_config = &settings.sandboxes.at(settings.exec.sandbox_type);
+    }
     // FIXME: should be sent with request
-    settings.exec.sandbox_user = "mcopik";
-    settings.exec.sandbox_name = "spcleth/hpc-disagg:rfaas-executor-daint";
-    for(auto & mount : settings.exec.sandbox_config->mounts)
-      std::cerr << mount << std::endl;
+    if (settings.exec.sandbox_type == SandboxType::SARUS) {
+      settings.exec.sandbox_user = settings.exec.sandbox_config->user;
+      settings.exec.sandbox_name = settings.exec.sandbox_config->name;
+      for(auto & mount : settings.exec.sandbox_config->mounts)
+        std::cerr << mount << std::endl;
+    }
 
     return settings;
   }

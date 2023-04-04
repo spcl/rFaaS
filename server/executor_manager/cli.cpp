@@ -60,11 +60,13 @@ int main(int argc, char ** argv)
 
   // Read executor manager settings
   std::ifstream in_cfg{opts.json_config};
+  ///*
   rfaas::executor_manager::Settings settings = rfaas::executor_manager::Settings::deserialize(in_cfg);
 
   rfaas::executor_manager::Manager mgr{settings, opts.skip_rm};
   instance = &mgr;
   mgr.start();
+  //*/
 
   spdlog::info("Executor manager is closing down");
   std::this_thread::sleep_for(std::chrono::seconds(1)); 

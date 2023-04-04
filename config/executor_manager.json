@@ -1,13 +1,13 @@
 {
   "config": {
     "rdma_device": "",
-    "rdma_device_port": ,
+    "rdma_device_port": 10004,
     "resource_manager_address": "",
     "resource_manager_port": 0,
     "resource_manager_secret": 0
   },
   "executor": {
-    "sandbox-type": "process",
+    "sandbox_type": "process",
     "repetitions": 100,
     "warmup_iters": 0,
     "pin_threads": false
@@ -16,6 +16,8 @@
     {
       "key": "sarus",
       "value": {
+        "user": "mcopik",
+        "name": "spcleth/hpc-disagg:rfaas-executor-daint",
         "devices": [
           "/dev/kgni0", "dev/kdreg"
         ],
@@ -39,7 +41,20 @@
           }
         ]
       }
+    },
+    {
+      "key": "docker",
+      "value": {
+        "devices": [
+          "dev1", "dev2"
+        ],
+        "image": "rfaas-registry/rfaas-base",
+        "network": "mynet",
+        "ip": "172.31.82.202",
+        "volume": "/home/ubuntu/rfaas/containers/opt",
+        "registry_ip": "172.31.82.200",
+        "registry_port": 5000
+      }
     }
   ]
 }
-

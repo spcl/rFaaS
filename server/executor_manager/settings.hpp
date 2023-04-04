@@ -28,19 +28,34 @@ namespace rfaas::executor_manager {
 
 namespace rfaas::executor_manager {
 
-  struct SandboxConfiguration
-  {
+  struct SandboxConfiguration {
+    // For Sarus
+    std::string user;
+    std::string name;
     std::vector<std::string> devices;
     std::vector<std::string> mounts;
     std::vector<std::string> mount_filesystem;
     std::map<std::string, std::string> env;
 
+    // For Docker
+    std::string image;
+    std::string network;
+    std::string ip;
+    std::string volume;
+    std::string registry_ip;
+    std::string registry_port;
+
     template <class Archive>
     void load(Archive & ar )
     {
       ar(
-        CEREAL_NVP(devices), CEREAL_NVP(mounts),
-        CEREAL_NVP(mount_filesystem), CEREAL_NVP(env)
+        CEREAL_NVP(user), CEREAL_NVP(name)
+        //CEREAL_NVP(devices), CEREAL_NVP(mounts),
+        //CEREAL_NVP(mount_filesystem), CEREAL_NVP(env)
+
+        //CEREAL_NVP(image), CEREAL_NVP(network),
+        //CEREAL_NVP(ip), CEREAL_NVP(volume),
+        //CEREAL_NVP(registry_ip), CEREAL_NVP(registry_port)
       );
     }
 
