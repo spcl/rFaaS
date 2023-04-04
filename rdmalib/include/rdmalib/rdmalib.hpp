@@ -25,6 +25,7 @@ extern "C" {
 
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/connection.hpp>
+#include <mutex>
 
 namespace rdmalib {
 
@@ -45,7 +46,9 @@ namespace rdmalib {
     ~Configuration();
 
     std::once_flag _access_flag;
+    #ifdef USE_GNI_AUTH
     drc_info_handle_t _credential_info;
+    #endif
     uint64_t _cookie;
     uint32_t _credential;
     bool _is_configured;
