@@ -55,16 +55,17 @@ namespace rfaas::executor_manager {
     }
     // FIXME: should be sent with request
     if (settings.exec.sandbox_type == SandboxType::SARUS) {
-      settings.exec.sandbox_user = settings.exec.sandbox_config->user;
-      settings.exec.sandbox_name = settings.exec.sandbox_config->name;
-      for(auto & mount : settings.exec.sandbox_config->mounts)
+      SarusConfiguration config = std::get<SarusConfiguration>(*settings.exec.sandbox_config);
+      settings.exec.sandbox_user = config.user;
+      settings.exec.sandbox_name = config.name;
+      for(auto & mount : config.mounts)
         std::cerr << mount << std::endl;
     }
 
     return settings;
   }
 
-  void SandboxConfiguration::generate_args(std::vector<std::string> & args, const std::string & user) const
+  void SarusConfiguration::generate_args(std::vector<std::string> & args, const std::string & user) const
   {
     for(auto & dev : this->devices)
       args.emplace_back(rdmalib::impl::string_format("--device=%s", dev));
@@ -85,7 +86,7 @@ namespace rfaas::executor_manager {
 
   }
 
-  std::string SandboxConfiguration::get_executor_path() const
+  std::string SarusConfiguration::get_executor_path() const
   {
     // Horrible hack - we need to get the location of the executor.
     // We assume that rFaaS is built on the shared filesystem that is mounted

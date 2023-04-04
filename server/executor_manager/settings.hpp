@@ -11,6 +11,8 @@
 #include <cereal/details/helpers.hpp>
 #include <cereal/types/vector.hpp>
 #include <cereal/types/map.hpp>
+#include <cereal/types/variant.hpp>
+#include <cereal/types/string.hpp>
 
 namespace rfaas::executor_manager {
 
@@ -28,8 +30,7 @@ namespace rfaas::executor_manager {
 
 namespace rfaas::executor_manager {
 
-  struct SandboxConfiguration {
-    // For Sarus
+  struct SarusConfiguration {
     std::string user;
     std::string name;
     std::vector<std::string> devices;
@@ -37,25 +38,13 @@ namespace rfaas::executor_manager {
     std::vector<std::string> mount_filesystem;
     std::map<std::string, std::string> env;
 
-    // For Docker
-    std::string image;
-    std::string network;
-    std::string ip;
-    std::string volume;
-    std::string registry_ip;
-    std::string registry_port;
-
     template <class Archive>
-    void load(Archive & ar )
+    void load(Archive & ar)
     {
       ar(
-        CEREAL_NVP(user), CEREAL_NVP(name)
-        //CEREAL_NVP(devices), CEREAL_NVP(mounts),
-        //CEREAL_NVP(mount_filesystem), CEREAL_NVP(env)
-
-        //CEREAL_NVP(image), CEREAL_NVP(network),
-        //CEREAL_NVP(ip), CEREAL_NVP(volume),
-        //CEREAL_NVP(registry_ip), CEREAL_NVP(registry_port)
+        CEREAL_NVP(user), CEREAL_NVP(name),
+        CEREAL_NVP(devices), CEREAL_NVP(mounts),
+        CEREAL_NVP(mount_filesystem), CEREAL_NVP(env)
       );
     }
 
@@ -68,7 +57,41 @@ namespace rfaas::executor_manager {
      * this way.
      **/
     std::string get_executor_path() const;
+  
   };
+
+  struct DockerConfiguration {
+    std::string image;
+    std::string network;
+    std::string ip;
+    std::string volume;
+    std::string registry_ip;
+    int registry_port;
+
+    template <class Archive>
+    void load(Archive & ar)
+    {
+      ar(
+        CEREAL_NVP(image), CEREAL_NVP(network),
+        CEREAL_NVP(ip), CEREAL_NVP(volume),
+        CEREAL_NVP(registry_ip), CEREAL_NVP(registry_port)
+      );
+    }
+  };
+
+  /*
+  struct SandboxConfiguration {
+    std::variant<SarusConfiguration, DockerConfiguration> config;
+
+    template <class Archive>
+    void load(Archive & ar)
+    {
+      ar( CEREAL_NVP(config) );
+    }
+  };
+  */
+
+  using SandboxConfiguration = std::variant<SarusConfiguration, DockerConfiguration>;
 
   struct ExecutorSettings
   {

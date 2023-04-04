@@ -139,11 +139,12 @@ namespace rfaas::executor_manager {
           "sarus", "run"
         };
 
-        exec.sandbox_config->generate_args(argv, exec.sandbox_user);
+        SarusConfiguration config = std::get<SarusConfiguration>(*exec.sandbox_config);
+        config.generate_args(argv, exec.sandbox_user);
 
         argv.emplace_back(exec.sandbox_name);
 
-        argv.emplace_back(exec.sandbox_config->get_executor_path());
+        argv.emplace_back(config.get_executor_path());
 
         additional_args = {
           "-a", client_addr.c_str(),
