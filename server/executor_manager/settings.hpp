@@ -48,6 +48,8 @@ namespace rfaas::executor_manager {
         CEREAL_NVP(registry_ip), CEREAL_NVP(registry_port)
       );
     }
+
+    void generate_args(std::vector<std::string> & args) const;
   };
 
   struct SarusConfiguration {

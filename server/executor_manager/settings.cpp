@@ -102,5 +102,18 @@ namespace rfaas::executor_manager {
     return path / "executor";
   }
 
+  void DockerConfiguration::generate_args(std::vector<std::string> & args) const {
+    std::string ip_arg = "--ip=" + ip;
+    std::string volume_arg = volume + ":/opt";
+    std::string net_arg = "--net=" + network;
+    std::string registry_port = std::to_string(this->registry_port);
+    std::string docker_image = registry_ip + ":" + registry_port + "/" + image;
+
+    args.emplace_back(net_arg);
+    args.emplace_back(ip_arg);
+    args.emplace_back("--volume");
+    args.emplace_back(volume_arg);
+    args.emplace_back(docker_image);
+  }
 }
 
