@@ -1,0 +1,20 @@
+version: "3"
+
+services:
+  registry:
+    image: registry:2
+    container_name: rfaas-registry
+    ports:
+      - "5000:5000"
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+      #REGISTRY_HTTP_TLS_CERTIFICATE: /certs/domain.crt
+      #REGISTRY_HTTP_TLS_KEY: /certs/domain.unencrypted.key
+      #REGISTRY_HTTP_SECRET: supersecrettext
+    volumes:
+      - /home/ubuntu/rfaas/containers/registry:/var/lib/registry
+      - /home/ubuntu/rfaas/containers/config:/auth
+      #- /home/ubuntu/rfaas/containers/config/certs:/certs
