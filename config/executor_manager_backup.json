@@ -1,23 +1,22 @@
 {
   "config": {
     "rdma_device": "",
-    "rdma_device_port": 10004,
+    "rdma_device_port": ,
     "resource_manager_address": "",
     "resource_manager_port": 0,
     "resource_manager_secret": 0
   },
   "executor": {
-    "sandbox_type": "process",
+    "sandbox-type": "process",
     "repetitions": 100,
     "warmup_iters": 0,
     "pin_threads": false
   },
-  "sandbox-configuration": [
-    {
-      "key": "sarus",
-      "value": {
-        "index": 1,
-        "data": {
+  "sandbox-configuration": {
+    "sandboxes": [
+      {
+        "key": "sarus",
+        "value": {
           "user": "mcopik",
           "name": "spcleth/hpc-disagg:rfaas-executor-daint",
           "devices": [
@@ -43,13 +42,13 @@
             }
           ]
         }
-      }
-    },
-    {
-      "key": "docker",
-      "value": {
-        "index": 0,
-        "data": {
+      },
+      {
+        "key": "docker",
+        "value": {
+          "devices": [
+            "dev1", "dev2"
+          ],
           "image": "rfaas-registry/rfaas-base",
           "network": "mynet",
           "ip": "172.31.82.202",
@@ -58,15 +57,7 @@
           "registry_port": 5000
         }
       }
-    },
-    {
-      "key": "singularity",
-      "value": {
-        "index": 2,
-        "data": {
-          "container": "rfaas-container-singularity"
-        }
-      }
-    }
-  ]
+    ]
+  }
 }
+

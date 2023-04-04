@@ -36,6 +36,8 @@ int main(int argc, char ** argv)
     opts.func_size, opts.msg_size, opts.recv_buffer_size, opts.max_inline_data,
     opts.timeout
   );
+
+  #ifdef USE_GNI_AUTH
   spdlog::info(
     "My manager runs at {}:{}, its secret is {}, the accounting buffer is at {} with rkey {}, cookie {}",
     opts.mgr_address, opts.mgr_port, opts.mgr_secret,
@@ -46,6 +48,13 @@ int main(int argc, char ** argv)
   rdmalib::Configuration::get_instance().configure_cookie(
     opts.authentication_cookie
   );
+  #else
+  spdlog::info(
+    "My manager runs at {}:{}, its secret is {}, the accounting buffer is at {} with rkey {}",
+    opts.mgr_address, opts.mgr_port, opts.mgr_secret,
+    opts.accounting_buffer_addr, opts.accounting_buffer_rkey
+  );
+  #endif
 
   executor::ManagerConnection mgr{
     opts.mgr_address,

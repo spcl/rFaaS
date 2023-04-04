@@ -247,6 +247,12 @@ namespace rdmalib {
     size(0)
   {}
 
+  RemoteBuffer::RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size):
+    addr(addr),
+    rkey(rkey),
+    size(size)
+  {}
+
   #ifdef USE_LIBFABRIC
   RemoteBuffer::RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size):
     addr(addr),

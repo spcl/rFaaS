@@ -139,13 +139,15 @@ namespace rfaas::executor_manager {
           "sarus", "run"
         };
 
-        exec.sandbox_config->generate_args(argv, exec.sandbox_user);
+        SarusConfiguration config = std::get<SarusConfiguration>(*exec.sandbox_config);
+        config.generate_args(argv, exec.sandbox_user);
 
         argv.emplace_back(exec.sandbox_name);
 
-        argv.emplace_back(exec.sandbox_config->get_executor_path());
+        argv.emplace_back(config.get_executor_path());
 
         additional_args = {
+          "/opt/bin/executor",
           "-a", client_addr.c_str(),
           "-p", client_port.c_str(),
           "--polling-mgr", "thread",
@@ -170,46 +172,13 @@ namespace rfaas::executor_manager {
         };
 
       } else if(sandbox_type == SandboxType::DOCKER) {
-        //const char * argv[] = {
-        //  "docker_rdma_sriov", "run",
-        //  "--rm",
-        //  "--net=mynet", "-i", //"-it",
-        //  // FIXME: make configurable
-        //  "--ip=148.187.105.220",
-        //  // FIXME: make configurable
-        //  "--volume", "/users/mcopik/projects/rdma/repo/build_repo2:/opt",
-        //  // FIXME: make configurable
-        //  "rdma-test",
-        //  "/opt/bin/executor",
-        //  "-a", client_addr.c_str(),
-        //  "-p", client_port.c_str(),
-        //  "--polling-mgr", "thread",
-        //  "-r", executor_repetitions.c_str(),
-        //  "-x", executor_recv_buf.c_str(),
-        //  "-s", client_in_size.c_str(),
-        //  "--pin-threads", "true",
-        //  "--fast", client_cores.c_str(),
-        //  "--warmup-iters", executor_warmups.c_str(),
-        //  "--max-inline-data", executor_max_inline.c_str(),
-        //  "--func-size", client_func_size.c_str(),
-        //  "--timeout", client_timeout.c_str(),
-        //  "--mgr-address", conn.addr.c_str(),
-        //  "--mgr-port", mgr_port.c_str(),
-        //  "--mgr-secret", mgr_secret.c_str(),
-        //  "--mgr-buf-addr", mgr_buf_addr.c_str(),
-        //  "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
-        //  nullptr
-        //};
         argv = {
-          "docker_rdma_sriov", "run",
-          "--rm",
-          "--net=mynet", "-i", //"-it",
-          // FIXME: make configurable
-          "--ip=148.187.105.250",
-          // FIXME: make configurable
-          "--volume", "/users/mcopik/projects/rdma/repo/build_repo2:/opt",
-          // FIXME: make configurable
-          "rdma-test",
+            "docker_rdma_sriov", "run", "--rm", "-i"
+        };
+        DockerConfiguration config = std::get<DockerConfiguration>(*exec.sandbox_config);
+        config.generate_args(argv);
+
+        additional_args = {
           "/opt/bin/executor",
           "-a", client_addr.c_str(),
           "-p", client_port.c_str(),
@@ -228,8 +197,15 @@ namespace rfaas::executor_manager {
           "--mgr-secret", mgr_secret.c_str(),
           "--mgr-buf-addr", mgr_buf_addr.c_str(),
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
+          #ifdef USE_GNI_AUTH
+          "--authentication-cookie", authentication_cookie.c_str(),
+          #endif
           nullptr
         };
+
+      } else if(sandbox_type == SandboxType::SINGULARITY) {
+        // Handle Singularity case
+        SingularityConfiguration config = std::get<SingularityConfiguration>(*exec.sandbox_config);
       }
 
       std::vector<const char*> cstrings_argv;
@@ -243,7 +219,8 @@ namespace rfaas::executor_manager {
       SPDLOG_DEBUG("Executor launch arguments");
       for(const char* str : cstrings_argv)
         if(str)
-          SPDLOG_DEBUG(str);
+            std::cout<<str<<std::endl;
+          //SPDLOG_DEBUG(str);
 
       int ret = execvp(cstrings_argv.data()[0], const_cast<char**>(&cstrings_argv.data()[0]));
       if(ret == -1) {
