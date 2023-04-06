@@ -127,7 +127,6 @@ target_link_libraries(rdmalib PRIVATE cereal)
 # client library
 ###
 file(GLOB rdmalib_files "rfaas/lib/*.cpp")
-message(STATUS "rdmalib_files ${rdmalib_files}")
 add_library(rfaaslib STATIC ${rdmalib_files})
 add_dependencies(rfaaslib spdlog)
 add_dependencies(rfaaslib cereal)

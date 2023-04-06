@@ -71,38 +71,40 @@ int main(int argc, char ** argv)
   // FIXME: move me to a memory allocator
 
   // Sample: test demonstrating standard memory allocation.
+
   // rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
   // in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
   // out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
 
 
   // Sample: test demonstrating allocation with our custom allocator.
-  rfaas::RdmaInfo info_in(executor,IBV_ACCESS_LOCAL_WRITE,rdmalib::functions::Submission::DATA_HEADER_SIZE);
-  rfaas::RdmaAllocator<rdmalib::Buffer<char>> allocator_in{info_in};
-  rdmalib::Buffer<char>* in0 = allocator_in.allocate(opts.input_size);
-  allocator_in.construct(in0, opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE);
 
-  rfaas::RdmaInfo info_out(executor,(IBV_ACCESS_LOCAL_WRITE| IBV_ACCESS_REMOTE_WRITE));
-  rfaas::RdmaAllocator<rdmalib::Buffer<char>> allocator_out{info_out};
-  rdmalib::Buffer<char>* out0 = allocator_out.allocate(opts.input_size);
-  allocator_out.construct(out0, opts.input_size);
+  //  rfaas::RdmaInfo info_in(executor,IBV_ACCESS_LOCAL_WRITE,rdmalib::functions::Submission::DATA_HEADER_SIZE);
+  //  rfaas::RdmaAllocator<rdmalib::Buffer<char>> allocator_in{info_in};
+  //  rdmalib::Buffer<char>* in0 = allocator_in.allocate(opts.input_size);
+  //  allocator_in.construct(in0, opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE);
+  //
+  //  rfaas::RdmaInfo info_out(executor,(IBV_ACCESS_LOCAL_WRITE| IBV_ACCESS_REMOTE_WRITE));
+  //  rfaas::RdmaAllocator<rdmalib::Buffer<char>> allocator_out{info_out};
+  //  rdmalib::Buffer<char>* out0 = allocator_out.allocate(opts.input_size);
+  //  allocator_out.construct(out0, opts.input_size);
+
 
   // Sample: test demonstrating allocation with std::vector.
-  rfaas::RdmaInfo info_v_in(executor,IBV_ACCESS_LOCAL_WRITE, rdmalib::functions::Submission::DATA_HEADER_SIZE);
+
+  rfaas::RdmaInfo info_v_in(executor, IBV_ACCESS_LOCAL_WRITE, rdmalib::functions::Submission::DATA_HEADER_SIZE);
   rfaas::RdmaAllocator<rdmalib::Buffer<char>> allocator_v_in{info_v_in};
   std::vector<rdmalib::Buffer<char>, rfaas::RdmaAllocator<rdmalib::Buffer<char>>> v_in(allocator_v_in);
 
-  rfaas::RdmaInfo info_v_out(executor,(IBV_ACCESS_LOCAL_WRITE| IBV_ACCESS_REMOTE_WRITE));
+  rfaas::RdmaInfo info_v_out(executor, (IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE));
   rfaas::RdmaAllocator<rdmalib::Buffer<char>> allocator_v_out{info_v_out};
   std::vector<rdmalib::Buffer<char>, rfaas::RdmaAllocator<rdmalib::Buffer<char>>> v_out(allocator_v_out);
-  //  allocator_out.construct(out, opts.input_size);
 
-  v_in.push_back({static_cast<size_t>(opts.input_size),rdmalib::functions::Submission::DATA_HEADER_SIZE});
-  v_out.push_back({static_cast<size_t>(opts.input_size)});
+  v_in.emplace_back(static_cast<size_t>(opts.input_size), rdmalib::functions::Submission::DATA_HEADER_SIZE);
+  v_out.emplace_back(static_cast<size_t>(opts.input_size));
 
-  rdmalib::Buffer<char>* in = &v_in[0];
-  rdmalib::Buffer<char>* out = &v_out[0];
-
+  rdmalib::Buffer<char> *in = &v_in[0];
+  rdmalib::Buffer<char> *out = &v_out[0];
 
 
   // TODO: Since the for loop writes a value of 1 to each byte of the in buffer,
