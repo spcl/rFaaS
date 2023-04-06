@@ -11,12 +11,24 @@
 #include <rfaas/executor.hpp>
 
 namespace rfaas {
+
+  struct RdmaInfo {
+
+  public:
+    RdmaInfo(executor& executor, const int access, const int header_size=0)
+        : executor(executor), access(access), header_size(header_size) {}
+    const executor& executor;
+    const int access;
+    const int header_size = 0;
+  };
+
   template<typename T>
   class RdmaAllocator {
+
   public:
     typedef T value_type;
 
-    inline explicit RdmaAllocator(const executor &executor) noexcept: _executor(executor) {}
+    inline explicit RdmaAllocator(RdmaInfo& info) noexcept: _info(info) {}
 
     template<class U>
     constexpr RdmaAllocator(const RdmaAllocator<U> &) noexcept {}
@@ -26,36 +38,21 @@ namespace rfaas {
         throw std::bad_array_new_length();
 
       // Maybe we could directly call the memset function here
-      mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-      if (auto buffer = static_cast<T*>(std::malloc(size * sizeof(T)))){
+      if (auto buffer = new rdmalib::Buffer<char>(size, _info.header_size)) {
         report(buffer, size);
+        buffer->register_memory(_info.executor._state.pd(), _info.access);
         return buffer;
       }
       throw std::bad_alloc();
     }
 
-    template <class U, class arg1>
-    void construct (U* p, arg1 access)
-    {
-      std::cout << "constructor" << std::endl;
-      p->register_memory(_executor._state.pd(), access);
-    }
-
-    template <class U, class arg1 , class arg2>
-    void construct (U* p, arg1 access, arg2 head)
-    {
-      std::cout << "constructor" << std::endl;
-      p->register_memory(_executor._state.pd(), access, head);
-    }
-//    [[nodiscard]] inline T *construct(const std::size_t &size, const int &access, int header = 0) {
-
     inline void deallocate(T *p, std::size_t size) noexcept {
       report(p, size, 0);
-      std::free(p);
+      p->~T();
     }
 
   private:
-    const executor &_executor;
+    const RdmaInfo &_info;
 
     void report(T *p, std::size_t n, bool alloc = true) const {
       std::cout << (alloc ? "Alloc: " : "Dealloc: ") << sizeof(T) * n

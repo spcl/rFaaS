@@ -70,17 +70,25 @@ int main(int argc, char ** argv)
 
   // FIXME: move me to a memory allocator
 
-  rfaas::RdmaAllocator<rdmalib::Buffer<char> > rdmaAllocator(executor);
-  rdmalib::Buffer<char>* in = rdmaAllocator.allocate(opts.input_size);
-  rdmaAllocator.construct(in, IBV_ACCESS_LOCAL_WRITE);
-  rdmalib::Buffer<char>* out = rdmaAllocator.allocate(opts.input_size);
-  rdmaAllocator.construct(out, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+  // Sample: test demonstrating standard memory allocation.
   // rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
   // in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
   // out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
 
-//  const rfaas::RdmaAllocator<rdmalib::Buffer<char> > &rdmaAllocator1 = rdmaAllocator;
-  std::vector<rdmalib::Buffer<char>, rfaas::RdmaAllocator<rdmalib::Buffer<char>>> v(8, rdmaAllocator);
+  // Sample: test demonstrating allocation with our custom allocator.
+  rfaas::RdmaInfo info_in(executor,IBV_ACCESS_LOCAL_WRITE,rdmalib::functions::Submission::DATA_HEADER_SIZE);
+  rfaas::RdmaAllocator<rdmalib::Buffer<char>> allocator_in{info_in};
+  rdmalib::Buffer<char>* in = allocator_in.allocate(opts.input_size);
+
+  rfaas::RdmaInfo info_out(executor,(IBV_ACCESS_LOCAL_WRITE| IBV_ACCESS_REMOTE_WRITE));
+  rfaas::RdmaAllocator<rdmalib::Buffer<char>> allocator_out{info_out};
+  rdmalib::Buffer<char>* out = allocator_out.allocate(opts.input_size);
+
+  // Sample: test demonstrating allocation with std::vector.
+  //  rfaas::RdmaInfo info_v(executor,(IBV_ACCESS_LOCAL_WRITE| IBV_ACCESS_REMOTE_WRITE));
+  //  rfaas::RdmaAllocator<rdmalib::Buffer<char>> allocator_v{info_v};
+  //  std::vector<rdmalib::Buffer<char>, rfaas::RdmaAllocator<rdmalib::Buffer<char>>> v(allocator_v);
+
 
   // TODO: Since the for loop writes a value of 1 to each byte of the in buffer,
   //       it overwrites all bytes previously set to 0 by the memset() function.
