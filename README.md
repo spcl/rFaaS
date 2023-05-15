@@ -23,13 +23,13 @@ find more details about research work [in this paper summary](mcopik.github.io/p
 You can cite our software repository as well, using the citation button on the right.
 
 ```
-@misc{copik2021rfaas,
-   title={RFaaS: RDMA-Enabled FaaS Platform for Serverless High-Performance Computing}, 
-   author={Marcin Copik and Konstantin Taranov and Alexandru Calotoiu and Torsten Hoefler},
-   year={2021},
-   eprint={2106.13859},
-   archivePrefix={arXiv},
-   primaryClass={cs.DC}
+@inproceedings{copik2023rfaas,
+  title={{r}FaaS: Enabling High Performance Serverless with RDMA and Leases},
+  author={Marcin Copik and Konstantin Taranov and Alexandru Calotoiu and Torsten Hoefler},
+  year={2023},
+  series = {IPDPS '23},
+  booktitle = {Proceedings of the 37th IEEE Interational Parallel and Distributed Processing Symposium},
+  eprint={2106.13859},
 }
 ```
 
