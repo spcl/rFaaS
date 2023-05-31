@@ -22,8 +22,7 @@ namespace rfaas::resource_manager {
       ("h,help", "Print usage", cxxopts::value<bool>()->default_value("false"))
     ;
     auto parsed_options = options.parse(argc, argv);
-    if(parsed_options.count("help"))
-    {
+    if (parsed_options.count("help")) {
       std::cout << options.help() << std::endl;
       exit(0);
     }

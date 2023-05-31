@@ -30,8 +30,14 @@ namespace server {
       ("mgr-secret", "Use selected port", cxxopts::value<int>())
       ("mgr-buf-addr", "Use selected port", cxxopts::value<uint64_t>())
       ("mgr-buf-rkey", "Use selected port", cxxopts::value<uint32_t>())
+      ("h,help", "Print usage")
     ;
     auto parsed_options = options.parse(argc, argv);
+
+    if (parsed_options.count("help")) {
+      std::cout << options.help() << std::endl;
+      exit(0);
+    }
 
     Options result;
     result.address = parsed_options["address"].as<std::string>();
