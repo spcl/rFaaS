@@ -83,7 +83,7 @@ namespace rfaas::executor_manager {
       executor_pin_threads = std::to_string(0);//counter++);
     else
       executor_pin_threads = std::to_string(exec.pin_threads);
-      auto sandbox_type = exec.sandbox_type;
+    auto sandbox_type = exec.sandbox_type;
 
     std::string mgr_port = std::to_string(conn.port);
     std::string mgr_secret = std::to_string(conn.secret);
@@ -127,16 +127,21 @@ namespace rfaas::executor_manager {
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
           nullptr
         };
-      } else if (sandbox_type == SandboxType::SARUS) {
+      } else if(sandbox_type == SandboxType::SARUS) {
+
         argv = {
           "sarus", "run"
         };
 
-        exec.sandbox_config->generate_args(argv, exec.sandbox_user);
+        SarusConfiguration config = std::get<SarusConfiguration>(*exec.sandbox_config);
+        config.generate_args(argv, exec.sandbox_user);
+
         argv.emplace_back(exec.sandbox_name);
-        argv.emplace_back(exec.sandbox_config->get_executor_path());
+
+        argv.emplace_back(config.get_executor_path());
 
         additional_args = {
+          "/opt/bin/executor",
           "-a", client_addr.c_str(),
           "-p", client_port.c_str(),
           "--polling-mgr", "thread",
@@ -156,8 +161,9 @@ namespace rfaas::executor_manager {
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
           nullptr
         };
-      } else if (sandbox_type == SandboxType::DOCKER) {
-          argv = {
+
+      } else if(sandbox_type == SandboxType::DOCKER) {
+        argv = {
             "docker_rdma_sriov", "run", "--rm", "-i"
         };
         DockerConfiguration config = std::get<DockerConfiguration>(*exec.sandbox_config);
@@ -184,6 +190,7 @@ namespace rfaas::executor_manager {
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
           nullptr
         };
+
       } else if(sandbox_type == SandboxType::SINGULARITY) {
         // Handle Singularity case
         SingularityConfiguration config = std::get<SingularityConfiguration>(*exec.sandbox_config);
