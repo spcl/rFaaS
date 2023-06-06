@@ -57,6 +57,7 @@ namespace rdmalib {
     return _instance;
   }
 
+  #ifdef USE_GNI_AUTH
   void Configuration::configure_cookie(uint32_t credential)
   {
     Configuration& inst = _get_instance();
@@ -87,6 +88,7 @@ namespace rdmalib {
   {
     return _is_configured;
   }
+  #endif
 
   Configuration Configuration::_instance;
 
@@ -136,7 +138,9 @@ namespace rdmalib {
     impl::expect_zero(rdma_getaddrinfo(ip.c_str(), std::to_string(port).c_str(), &hints, &addrinfo));
     #endif
     this->_port = port;
+    #ifdef USE_LIBFABRIC
     this->_ip = ip;
+    #endif
   }
 
   Address::Address(const std::string & sip,  const std::string & dip, int port)

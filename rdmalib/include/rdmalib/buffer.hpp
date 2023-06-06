@@ -61,10 +61,11 @@ namespace rdmalib {
       #endif
       #ifdef USE_LIBFABRIC
       void *lkey() const;
+      uint64_t rkey() const;
       #else
       uint32_t lkey() const;
+      uint32_t rkey() const;
       #endif
-      uint64_t rkey() const;
       ScatterGatherElement sge(uint32_t size, uint32_t offset) const;
     };
 
@@ -78,6 +79,12 @@ namespace rdmalib {
     RemoteBuffer();
     // When accessing the remote buffer, we might not need to know the size.
     RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size = 0);
+
+    #ifdef USE_LIBFABRIC
+    RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size);
+    #else
+    RemoteBuffer(uintptr_t addr, uint32_t rkey, uint32_t size);
+    #endif
 
     template<class Archive>
     void serialize(Archive & ar)

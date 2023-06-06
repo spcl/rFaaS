@@ -52,9 +52,11 @@ int main(int argc, char ** argv)
   std::ifstream in_dev{opts.device_database};
   rfaas::devices::deserialize(in_dev);
 
+  #ifdef USE_GNI_AUTH
   rdmalib::Configuration::get_instance().configure_cookie(
     rfaas::devices::instance()._configuration.authentication_credential
   );
+  #endif
 
   // Read executor manager settings
   std::ifstream in_cfg{opts.json_config};

@@ -7,6 +7,7 @@
 #include <array>
 #include <unordered_map>
 #include <vector>
+#include <mutex>
 #include <functional>
 
 #ifdef USE_LIBFABRIC
@@ -14,7 +15,6 @@
 #include <arpa/inet.h>
 // #include <rdma/fi_ext_gni.h>
 #ifdef USE_GNI_AUTH
-#include <mutex>
 extern "C" {
 #include "rdmacred.h"
 }
@@ -45,7 +45,9 @@ namespace rdmalib {
     ~Configuration();
 
     std::once_flag _access_flag;
+    #ifdef USE_GNI_AUTH
     drc_info_handle_t _credential_info;
+    #endif
     uint64_t _cookie;
     uint32_t _credential;
     bool _is_configured;
