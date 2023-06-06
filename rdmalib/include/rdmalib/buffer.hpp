@@ -7,22 +7,27 @@
 
 #include <cereal/cereal.hpp>
 
-#ifdef USE_LIBFABRIC
+//#ifdef USE_LIBFABRIC
 #include <rdma/fabric.h>
 #include <sys/uio.h>
-#else
+//#else
 struct ibv_pd;
 struct ibv_mr;
 struct ibv_sge;
-#endif
+//#endif
 
 namespace rdmalib {
 
+  template <typename MemoryRegion>
   struct ScatterGatherElement;
 
   namespace impl {
 
-    // move non-template methods from header
+    // mregion - Memory region type: fid_mr* for libfabric, ibv_mr* for ibverbs
+    // pdomain - Protected domain type: fid_domain* for libfabric, ibv_pd* for ibverbs
+    // lkey - lkey type: void* for libfabric, uint32_t for ibverbs
+    //template <typename Derived, typename MRegion, typename PDomain, typename LKey>
+    template <typename Derived, typename MemoryRegion>
     struct Buffer {
     protected:
       uint32_t _size;
@@ -30,11 +35,7 @@ namespace rdmalib {
       uint32_t _bytes;
       uint32_t _byte_size;
       void* _ptr;
-      #ifdef USE_LIBFABRIC
-      fid_mr* _mr;
-      #else
-      ibv_mr* _mr;
-      #endif
+      MemoryRegion* _mr;
       bool _own_memory;
 
       Buffer();
@@ -46,11 +47,7 @@ namespace rdmalib {
     public:
       uintptr_t address() const;
       void* ptr() const;
-      #ifdef USE_LIBFABRIC
-      fid_mr* mr() const;
-      #else
-      ibv_mr* mr() const;
-      #endif
+      MemoryRegion* mr() const;
       uint32_t data_size() const;
       uint32_t size() const;
       uint32_t bytes() const;
@@ -61,14 +58,22 @@ namespace rdmalib {
       #endif
       #ifdef USE_LIBFABRIC
       void *lkey() const;
-      uint64_t rkey() const;
       #else
       uint32_t lkey() const;
-      uint32_t rkey() const;
       #endif
-      ScatterGatherElement sge(uint32_t size, uint32_t offset) const;
+
+      uint32_t rkey() const;
+
+      ScatterGatherElement<MemoryRegion> sge(uint32_t size, uint32_t offset) const;
     };
 
+    struct FabricBuffer : Buffer<FabricBuffer, fid_mr> {
+      void destroy_buffer();
+    };
+
+    struct VerbsBuffer : Buffer<VerbsBuffer, ibv_mr> {
+      void destroy_buffer();
+    };
   }
 
   struct RemoteBuffer {
@@ -93,37 +98,39 @@ namespace rdmalib {
     }
   };
 
-  template<typename T>
-  struct Buffer : impl::Buffer{
+  template<typename T, typename MemoryRegion>
+  struct Buffer : impl::Buffer<Buffer<T, MemoryRegion>, MemoryRegion> {
+
+    using ImplBuffer = impl::Buffer<Buffer<T, MemoryRegion>, MemoryRegion>;
 
     Buffer():
-      impl::Buffer()
+      ImplBuffer()
     {}
 
     // Provide a buffer instance for existing memory pool
     // Does NOT free the associated resource
     Buffer(T * ptr, uint32_t size):
-      impl::Buffer(ptr, size, sizeof(T))
+      ImplBuffer(ptr, size, sizeof(T))
     {}
 
     // Provide a buffer instance for existing memory pool
     // Does NOT free the associated resource
     Buffer(void * ptr, uint32_t size):
-      impl::Buffer(ptr, size, sizeof(T))
+      ImplBuffer(ptr, size, sizeof(T))
     {}
 
     Buffer(size_t size, size_t header = 0):
-      impl::Buffer(size, sizeof(T), header)
+      ImplBuffer(size, sizeof(T), header)
     {}
 
-    Buffer<T> & operator=(Buffer<T> && obj)
+    Buffer<T, MemoryRegion> & operator=(Buffer<T, MemoryRegion> && obj)
     {
-      impl::Buffer::operator=(std::move(obj));
+      ImplBuffer::operator=(std::move(obj));
       return *this;
     }
 
-    Buffer(const Buffer<T> & obj) = delete;
-    Buffer(Buffer<T> && obj) = default;
+    Buffer(const Buffer<T, MemoryRegion> & obj) = delete;
+    Buffer(Buffer<T, MemoryRegion> && obj) = default;
 
     T* data() const
     {
@@ -132,6 +139,7 @@ namespace rdmalib {
     }
   };
 
+  template <typename MemoryRegion>
   struct ScatterGatherElement {
     // smallvector in practice
     #ifdef USE_LIBFABRIC
@@ -150,13 +158,13 @@ namespace rdmalib {
     #endif
 
     template<typename T>
-    ScatterGatherElement(const Buffer<T> & buf)
+    ScatterGatherElement(const Buffer<T, MemoryRegion> & buf)
     {
       add(buf);
     }
 
     template<typename T>
-    void add(const Buffer<T> & buf)
+    void add(const Buffer<T, MemoryRegion> & buf)
     {
       #ifdef USE_LIBFABRIC
       _sges.push_back({(void *)buf.address(), (size_t)buf.bytes()});
@@ -168,7 +176,7 @@ namespace rdmalib {
     }
 
     template<typename T>
-    void add(const Buffer<T> & buf, uint32_t size, size_t offset = 0)
+    void add(const Buffer<T, MemoryRegion> & buf, uint32_t size, size_t offset = 0)
     {
       #ifdef USE_LIBFABRIC
       _sges.push_back({(void *)(buf.address() + offset), (size_t)size});

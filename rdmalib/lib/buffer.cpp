@@ -14,7 +14,8 @@
 
 namespace rdmalib { namespace impl {
 
-  Buffer::Buffer():
+  template <typename Derived, typename MemoryRegion>
+  Buffer<Derived, MemoryRegion>::Buffer():
     _size(0),
     _header(0),
     _bytes(0),
@@ -24,7 +25,8 @@ namespace rdmalib { namespace impl {
     _own_memory(false)
   {}
 
-  Buffer::Buffer(Buffer && obj):
+  template <typename Derived, typename MemoryRegion>
+  Buffer<Derived, MemoryRegion>::Buffer(Buffer && obj):
     _size(obj._size),
     _header(obj._header),
     _bytes(obj._bytes),
@@ -37,7 +39,8 @@ namespace rdmalib { namespace impl {
     obj._ptr = obj._mr = nullptr;
   }
 
-  Buffer & Buffer::operator=(Buffer && obj)
+  template <typename Derived, typename MemoryRegion>
+  Buffer<Derived, MemoryRegion>& Buffer<Derived, MemoryRegion>::operator=(Buffer<Derived, MemoryRegion> && obj)
   {
     _size = obj._size;
     _bytes = obj._bytes;
@@ -52,7 +55,8 @@ namespace rdmalib { namespace impl {
     return *this;
   }
 
-  Buffer::Buffer(uint32_t size, uint32_t byte_size, uint32_t header):
+  template <typename Derived, typename MemoryRegion>
+  Buffer<Derived, MemoryRegion>::Buffer(uint32_t size, uint32_t byte_size, uint32_t header):
     _size(size),
     _header(header),
     _bytes(size * byte_size + header),
@@ -73,7 +77,8 @@ namespace rdmalib { namespace impl {
     );
   }
 
-  Buffer::Buffer(void* ptr, uint32_t size, uint32_t byte_size):
+  template <typename Derived, typename MemoryRegion>
+  Buffer<Derived, MemoryRegion>::Buffer(void* ptr, uint32_t size, uint32_t byte_size):
     _size(size),
     _header(0),
     _bytes(size * byte_size),
@@ -88,23 +93,33 @@ namespace rdmalib { namespace impl {
     );
   }
   
-  Buffer::~Buffer()
+  template <typename Derived, typename MemoryRegion>
+  Buffer<Derived, MemoryRegion>::~Buffer()
   {
     SPDLOG_DEBUG(
       "Deallocate {} bytes, mr {}, ptr {}",
       _bytes, fmt::ptr(_mr), fmt::ptr(_ptr)
     );
+    static_cast<Derived*>(this)->destroy_buffer();
+  }
+
+  void FabricBuffer::destroy_buffer()
+  {
     if(_mr)
-      #ifdef USE_LIBFABRIC
       impl::expect_zero(fi_close(&_mr->fid));
-      #else
-      ibv_dereg_mr(_mr);
-      #endif
     if(_own_memory)
       munmap(_ptr, _bytes);
   }
 
-  #ifdef USE_LIBFABRIC
+  void VerbsBuffer::destroy_buffer()
+  {
+    if(_mr)
+      ibv_dereg_mr(_mr);
+    if(_own_memory)
+      munmap(_ptr, _bytes);
+  }
+
+  #ifdef USE_LIBFABRIC // requires proc domain refactor (up next)
   void Buffer::register_memory(fid_domain *pd, int access)
   {
     int ret = fi_mr_reg(pd, _ptr, _bytes, access, 0, 0, 0, &_mr, nullptr);
@@ -115,7 +130,9 @@ namespace rdmalib { namespace impl {
     );
   }
   #else
-  void Buffer::register_memory(ibv_pd* pd, int access)
+
+  template <typename Derived, typename MemoryRegion>
+  void Buffer<Derived, MemoryRegion>::register_memory(ibv_pd* pd, int access)
   {
     _mr = ibv_reg_mr(pd, _ptr, _bytes, access);
     impl::expect_nonnull(_mr);
@@ -126,41 +143,39 @@ namespace rdmalib { namespace impl {
   }
   #endif
 
-  #ifdef USE_LIBFABRIC
-  fid_mr* Buffer::mr() const
+  template <typename Derived, typename MemoryRegion>
+  MemoryRegion* Buffer<Derived, MemoryRegion>::mr() const
   {
     return this->_mr;
   }
-  #else
-  ibv_mr* Buffer::mr() const
-  {
-    return this->_mr;
-  }
-  #endif
 
-  uint32_t Buffer::data_size() const
+  template <typename Derived, typename MemoryRegion>
+  uint32_t Buffer<Derived, MemoryRegion>::data_size() const
   {
     return this->_size;
   }
 
-  uint32_t Buffer::size() const
+  template <typename Derived, typename MemoryRegion>
+  uint32_t Buffer<Derived, MemoryRegion>::size() const
   {
     return this->_size + this->_header;
   }
 
-  uint32_t Buffer::bytes() const
+  template <typename Derived, typename MemoryRegion>
+  uint32_t Buffer<Derived, MemoryRegion>::bytes() const
   {
     return this->_bytes;
   }
 
-  #ifdef USE_LIBFABRIC
+  #ifdef USE_LIBFABRIC // requires lkey refactor (up next)
   void *Buffer::lkey() const
   {
     assert(this->_mr);
     return fi_mr_desc(this->_mr);
   }
   #else
-  uint32_t Buffer::lkey() const
+  template <typename Derived, typename MemoryRegion>
+  uint32_t Buffer<Derived, MemoryRegion>::lkey() const
   {
     assert(this->_mr);
     // Apparently it's not needed and better to skip that check.
@@ -176,25 +191,29 @@ namespace rdmalib { namespace impl {
     return fi_mr_key(this->_mr);
   }
   #else
-  uint32_t Buffer::rkey() const
+  template <typename Derived, typename MemoryRegion>
+  uint32_t Buffer<Derived, MemoryRegion>::rkey() const
   {
     assert(this->_mr);
     return this->_mr->rkey;
   }
   #endif
 
-  uintptr_t Buffer::address() const
+  template <typename Derived, typename MemoryRegion>
+  uintptr_t Buffer<Derived, MemoryRegion>::address() const
   {
     assert(this->_mr);
     return reinterpret_cast<uint64_t>(this->_ptr);
   }
 
-  void* Buffer::ptr() const
+  template <typename Derived, typename MemoryRegion>
+  void* Buffer<Derived, MemoryRegion>::ptr() const
   {
     return this->_ptr;
   }
 
-  ScatterGatherElement Buffer::sge(uint32_t size, uint32_t offset) const
+  template <typename Derived, typename MemoryRegion>
+  ScatterGatherElement<MemoryRegion> Buffer<Derived, MemoryRegion>::sge(uint32_t size, uint32_t offset) const
   {
     return {address() + offset, size, lkey()};
   }
@@ -203,7 +222,8 @@ namespace rdmalib { namespace impl {
 
 namespace rdmalib {
 
-  ScatterGatherElement::ScatterGatherElement()
+  template <typename MemoryRegion>
+  ScatterGatherElement<MemoryRegion>::ScatterGatherElement()
   {
   }
 
@@ -217,13 +237,15 @@ namespace rdmalib {
     return _lkeys.data();
   }
   #else
-  ibv_sge * ScatterGatherElement::array() const
+  template <typename MemoryRegion>
+  ibv_sge * ScatterGatherElement<MemoryRegion>::array() const
   {
     return _sges.data();
   }
   #endif
 
-  size_t ScatterGatherElement::size() const
+  template <typename MemoryRegion>
+  size_t ScatterGatherElement<MemoryRegion>::size() const
   {
     return _sges.size();
   }
@@ -235,7 +257,8 @@ namespace rdmalib {
     _lkeys.push_back(lkey);
   }
   #else
-  ScatterGatherElement::ScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey)
+  template <typename MemoryRegion>
+  ScatterGatherElement<MemoryRegion>::ScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey)
   {
     _sges.push_back({addr, bytes, lkey});
   }
