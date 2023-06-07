@@ -18,7 +18,7 @@ struct ibv_sge;
 
 namespace rdmalib {
 
-  template <typename MemoryRegion>
+  template <typename MemoryRegion, typename Domain, typename LKey>
   struct ScatterGatherElement;
 
   namespace impl {
@@ -26,8 +26,7 @@ namespace rdmalib {
     // mregion - Memory region type: fid_mr* for libfabric, ibv_mr* for ibverbs
     // pdomain - Protected domain type: fid_domain* for libfabric, ibv_pd* for ibverbs
     // lkey - lkey type: void* for libfabric, uint32_t for ibverbs
-    //template <typename Derived, typename MRegion, typename PDomain, typename LKey>
-    template <typename Derived, typename MemoryRegion>
+    template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
     struct Buffer {
     protected:
       uint32_t _size;
@@ -51,27 +50,37 @@ namespace rdmalib {
       uint32_t data_size() const;
       uint32_t size() const;
       uint32_t bytes() const;
-      #ifdef USE_LIBFABRIC
-      void register_memory(fid_domain *pd, int access);
-      #else
-      void register_memory(ibv_pd *pd, int access);
-      #endif
-      #ifdef USE_LIBFABRIC
-      void *lkey() const;
-      #else
-      uint32_t lkey() const;
-      #endif
+      void register_memory(Domain *pd, int access)
+      {
+        static_cast<Derived*>(this)->_register_memory(pd, access);
+      }
+      LKey lkey() const
+      {
+        return static_cast<Derived*>(this)->_lkey();
+      }
+      uint32_t rkey() const // TODO: introduce another template parameter for ret type
+      {
+        return static_cast<Derived*>(this)->_rkey();
+      }
 
-      uint32_t rkey() const;
-
-      ScatterGatherElement<MemoryRegion> sge(uint32_t size, uint32_t offset) const;
+      ScatterGatherElement<MemoryRegion, Domain, LKey> sge(uint32_t size, uint32_t offset) const;
     };
 
-    struct FabricBuffer : Buffer<FabricBuffer, fid_mr> {
+    struct FabricBuffer : Buffer<FabricBuffer, fid_mr, fid_domain, void*> {
+      void _register_memory(fid_domain *pd, int access);
+
+      void *_lkey() const;
+      uint64_t _rkey() const;
+
       void destroy_buffer();
     };
 
-    struct VerbsBuffer : Buffer<VerbsBuffer, ibv_mr> {
+    struct VerbsBuffer : Buffer<VerbsBuffer, ibv_mr, ibv_pd, uint32_t> {
+      void register_memory(ibv_pd* pd, int access);
+
+      uint32_t _lkey() const;
+      uint32_t _rkey() const;
+
       void destroy_buffer();
     };
   }
@@ -98,10 +107,11 @@ namespace rdmalib {
     }
   };
 
-  template<typename T, typename MemoryRegion>
-  struct Buffer : impl::Buffer<Buffer<T, MemoryRegion>, MemoryRegion> {
+  template<typename T, typename MemoryRegion, typename Domain, typename LKey>
+  struct Buffer : impl::Buffer<Buffer<T, MemoryRegion, Domain, LKey>, MemoryRegion, Domain, LKey> {
 
-    using ImplBuffer = impl::Buffer<Buffer<T, MemoryRegion>, MemoryRegion>;
+    using Self = Buffer<T, MemoryRegion, Domain, LKey>;
+    using ImplBuffer = impl::Buffer<Self, MemoryRegion, Domain, LKey>;
 
     Buffer():
       ImplBuffer()
@@ -123,14 +133,14 @@ namespace rdmalib {
       ImplBuffer(size, sizeof(T), header)
     {}
 
-    Buffer<T, MemoryRegion> & operator=(Buffer<T, MemoryRegion> && obj)
+    Self & operator=(Self && obj)
     {
       ImplBuffer::operator=(std::move(obj));
       return *this;
     }
 
-    Buffer(const Buffer<T, MemoryRegion> & obj) = delete;
-    Buffer(Buffer<T, MemoryRegion> && obj) = default;
+    Buffer(const Self & obj) = delete;
+    Buffer(Self && obj) = default;
 
     T* data() const
     {
@@ -139,7 +149,7 @@ namespace rdmalib {
     }
   };
 
-  template <typename MemoryRegion>
+  template <typename MemoryRegion, typename Domain, typename LKey>
   struct ScatterGatherElement {
     // smallvector in practice
     #ifdef USE_LIBFABRIC
@@ -158,13 +168,13 @@ namespace rdmalib {
     #endif
 
     template<typename T>
-    ScatterGatherElement(const Buffer<T, MemoryRegion> & buf)
+    ScatterGatherElement(const Buffer<T, MemoryRegion, Domain, LKey> & buf)
     {
       add(buf);
     }
 
     template<typename T>
-    void add(const Buffer<T, MemoryRegion> & buf)
+    void add(const Buffer<T, MemoryRegion, Domain, LKey> & buf)
     {
       #ifdef USE_LIBFABRIC
       _sges.push_back({(void *)buf.address(), (size_t)buf.bytes()});
@@ -176,7 +186,7 @@ namespace rdmalib {
     }
 
     template<typename T>
-    void add(const Buffer<T, MemoryRegion> & buf, uint32_t size, size_t offset = 0)
+    void add(const Buffer<T, MemoryRegion, Domain, LKey> & buf, uint32_t size, size_t offset = 0)
     {
       #ifdef USE_LIBFABRIC
       _sges.push_back({(void *)(buf.address() + offset), (size_t)size});
