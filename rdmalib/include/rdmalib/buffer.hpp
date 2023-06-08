@@ -85,6 +85,8 @@ namespace rdmalib {
     };
   }
 
+  // RKey - rkey type: u32 for ibverbs, u64 for libfabric
+  template <typename RKey>
   struct RemoteBuffer {
     uintptr_t addr;
     uint64_t rkey;
@@ -92,13 +94,7 @@ namespace rdmalib {
 
     RemoteBuffer();
     // When accessing the remote buffer, we might not need to know the size.
-    RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size = 0);
-
-    #ifdef USE_LIBFABRIC
-    RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size);
-    #else
-    RemoteBuffer(uintptr_t addr, uint32_t rkey, uint32_t size);
-    #endif
+    RemoteBuffer(uintptr_t addr, RKey rkey, uint32_t size = 0);
 
     template<class Archive>
     void serialize(Archive & ar)

@@ -253,30 +253,18 @@ namespace rdmalib {
   }
   #endif
 
-  RemoteBuffer::RemoteBuffer():
+  template <typename RKey>
+  RemoteBuffer<RKey>::RemoteBuffer():
     addr(0),
     rkey(0),
     size(0)
   {}
 
-  RemoteBuffer::RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size):
+  template <typename RKey>
+  RemoteBuffer<RKey>::RemoteBuffer(uintptr_t addr, RKey rkey, uint32_t size):
     addr(addr),
     rkey(rkey),
     size(size)
   {}
-
-  #ifdef USE_LIBFABRIC
-  RemoteBuffer::RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size):
-    addr(addr),
-    rkey(rkey),
-    size(size)
-  {}
-  #else
-    RemoteBuffer::RemoteBuffer(uintptr_t addr, uint32_t rkey, uint32_t size):
-    addr(addr),
-    rkey(rkey),
-    size(size)
-  {}
-  #endif
 
 }
