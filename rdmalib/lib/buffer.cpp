@@ -201,8 +201,8 @@ namespace rdmalib { namespace impl {
     return this->_ptr;
   }
 
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  ScatterGatherElement<MemoryRegion, Domain, LKey> Buffer<Derived, MemoryRegion, Domain, LKey>::sge(uint32_t size, uint32_t offset) const
+  template <typename Derived, typename SGE, typename MemoryRegion, typename Domain, typename LKey>
+  ScatterGatherElement<Derived, SGE, MemoryRegion, Domain, LKey> Buffer<Derived, MemoryRegion, Domain, LKey>::sge(uint32_t size, uint32_t offset) const
   {
     return {address() + offset, size, lkey()};
   }
@@ -211,47 +211,42 @@ namespace rdmalib { namespace impl {
 
 namespace rdmalib {
 
-  template <typename MemoryRegion, typename Domain, typename LKey>
-  ScatterGatherElement<MemoryRegion, Domain, LKey>::ScatterGatherElement()
+  template <typename Derived, typename SGE, typename MemoryRegion, typename Domain, typename LKey>
+  ScatterGatherElement<Derived, SGE, MemoryRegion, Domain, LKey>::ScatterGatherElement()
   {
   }
 
-  #ifdef USE_LIBFABRIC
-  iovec *ScatterGatherElement::array() const
+  iovec *FabricScatterGatherElement::_array() const
   {
     return _sges.data();
   }
-  void **ScatterGatherElement::lkeys() const
+
+  void **FabricScatterGatherElement::lkeys() const
   {
     return _lkeys.data();
   }
-  #else
-  template <typename MemoryRegion, typename Domain, typename LKey>
-  ibv_sge * ScatterGatherElement<MemoryRegion, Domain, LKey>::array() const
+
+  ibv_sge *VerbsScatterGatherElement::_array() const
   {
     return _sges.data();
   }
-  #endif
 
-  template <typename MemoryRegion, typename Domain, typename LKey>
-  size_t ScatterGatherElement<MemoryRegion, Domain, LKey>::size() const
+  template <typename Derived, typename SGE, typename MemoryRegion, typename Domain, typename LKey>
+  size_t ScatterGatherElement<Derived, SGE, MemoryRegion, Domain, LKey>::size() const
   {
     return _sges.size();
   }
 
-  #ifdef USE_LIBFABRIC
-  ScatterGatherElement::ScatterGatherElement(uint64_t addr, uint32_t bytes, void *lkey)
+  FabricScatterGatherElement::FabricScatterGatherElement(uint64_t addr, uint32_t bytes, void *lkey)
   {
     _sges.push_back({(void *)addr, bytes});
     _lkeys.push_back(lkey);
   }
-  #else
-  template <typename MemoryRegion, typename Domain, typename LKey>
-  ScatterGatherElement<MemoryRegion, Domain, LKey>::ScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey)
+
+  VerbsScatterGatherElement::VerbsScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey)
   {
     _sges.push_back({addr, bytes, lkey});
   }
-  #endif
 
   template <typename RKey>
   RemoteBuffer<RKey>::RemoteBuffer():
