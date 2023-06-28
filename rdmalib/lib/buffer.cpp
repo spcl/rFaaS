@@ -13,8 +13,8 @@
 #include <rdmalib/util.hpp>
 
 namespace rdmalib { namespace impl {
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  Buffer<Derived, MemoryRegion, Domain, LKey>::Buffer():
+  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  Buffer<Derived, MemoryRegion, Domain, LKey, RKey>::Buffer():
     _size(0),
     _header(0),
     _bytes(0),
@@ -24,8 +24,8 @@ namespace rdmalib { namespace impl {
     _own_memory(false)
   {}
 
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  Buffer<Derived, MemoryRegion, Domain, LKey>::Buffer(Buffer && obj):
+  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  Buffer<Derived, MemoryRegion, Domain, LKey, RKey>::Buffer(Buffer && obj):
     _size(obj._size),
     _header(obj._header),
     _bytes(obj._bytes),
@@ -38,8 +38,8 @@ namespace rdmalib { namespace impl {
     obj._ptr = obj._mr = nullptr;
   }
 
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  Buffer<Derived, MemoryRegion, Domain, LKey>& Buffer<Derived, MemoryRegion, Domain, LKey>::operator=(Buffer<Derived, MemoryRegion, Domain, LKey> && obj)
+  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  Buffer<Derived, MemoryRegion, Domain, LKey, RKey>& Buffer<Derived, MemoryRegion, Domain, LKey, RKey>::operator=(Buffer<Derived, MemoryRegion, Domain, LKey, RKey> && obj)
   {
     _size = obj._size;
     _bytes = obj._bytes;
@@ -54,8 +54,8 @@ namespace rdmalib { namespace impl {
     return *this;
   }
 
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  Buffer<Derived, MemoryRegion, Domain, LKey>::Buffer(uint32_t size, uint32_t byte_size, uint32_t header):
+  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  Buffer<Derived, MemoryRegion, Domain, LKey, RKey>::Buffer(uint32_t size, uint32_t byte_size, uint32_t header):
     _size(size),
     _header(header),
     _bytes(size * byte_size + header),
@@ -76,8 +76,8 @@ namespace rdmalib { namespace impl {
     );
   }
 
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  Buffer<Derived, MemoryRegion, Domain, LKey>::Buffer(void* ptr, uint32_t size, uint32_t byte_size):
+  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  Buffer<Derived, MemoryRegion, Domain, LKey, RKey>::Buffer(void* ptr, uint32_t size, uint32_t byte_size):
     _size(size),
     _header(0),
     _bytes(size * byte_size),
@@ -92,8 +92,8 @@ namespace rdmalib { namespace impl {
     );
   }
   
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  Buffer<Derived, MemoryRegion, Domain, LKey>::~Buffer()
+  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  Buffer<Derived, MemoryRegion, Domain, LKey, RKey>::~Buffer()
   {
     SPDLOG_DEBUG(
       "Deallocate {} bytes, mr {}, ptr {}",
@@ -138,26 +138,26 @@ namespace rdmalib { namespace impl {
     );
   }
 
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  MemoryRegion* Buffer<Derived, MemoryRegion, Domain, LKey>::mr() const
+  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  MemoryRegion* Buffer<Derived, MemoryRegion, Domain, LKey, RKey>::mr() const
   {
     return this->_mr;
   }
 
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  uint32_t Buffer<Derived, MemoryRegion, Domain, LKey>::data_size() const
+  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  uint32_t Buffer<Derived, MemoryRegion, Domain, LKey, RKey>::data_size() const
   {
     return this->_size;
   }
 
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  uint32_t Buffer<Derived, MemoryRegion, Domain, LKey>::size() const
+  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  uint32_t Buffer<Derived, MemoryRegion, Domain, LKey, RKey>::size() const
   {
     return this->_size + this->_header;
   }
 
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  uint32_t Buffer<Derived, MemoryRegion, Domain, LKey>::bytes() const
+  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  uint32_t Buffer<Derived, MemoryRegion, Domain, LKey, RKey>::bytes() const
   {
     return this->_bytes;
   }
@@ -188,21 +188,25 @@ namespace rdmalib { namespace impl {
     return this->_mr->rkey;
   }
 
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  uintptr_t Buffer<Derived, MemoryRegion, Domain, LKey>::address() const
+  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  uintptr_t Buffer<Derived, MemoryRegion, Domain, LKey, RKey>::address() const
   {
     assert(this->_mr);
     return reinterpret_cast<uint64_t>(this->_ptr);
   }
 
-  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey>
-  void* Buffer<Derived, MemoryRegion, Domain, LKey>::ptr() const
+  template <typename Derived, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  void* Buffer<Derived, MemoryRegion, Domain, LKey, RKey>::ptr() const
   {
     return this->_ptr;
   }
 
-  template <typename Derived, typename SGE, typename MemoryRegion, typename Domain, typename LKey>
-  ScatterGatherElement<Derived, SGE, MemoryRegion, Domain, LKey> Buffer<Derived, MemoryRegion, Domain, LKey>::sge(uint32_t size, uint32_t offset) const
+  FabricScatterGatherElement FabricBuffer::_sge(uint32_t size, uint32_t offset) const
+  {
+    return {address() + offset, size, lkey()};
+  }
+
+  VerbsScatterGatherElement VerbsBuffer::_sge(uint32_t size, uint32_t offset) const
   {
     return {address() + offset, size, lkey()};
   }
@@ -211,8 +215,8 @@ namespace rdmalib { namespace impl {
 
 namespace rdmalib {
 
-  template <typename Derived, typename SGE, typename MemoryRegion, typename Domain, typename LKey>
-  ScatterGatherElement<Derived, SGE, MemoryRegion, Domain, LKey>::ScatterGatherElement()
+  template <typename Derived, typename SGE, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  ScatterGatherElement<Derived, SGE, MemoryRegion, Domain, LKey, RKey>::ScatterGatherElement()
   {
   }
 
@@ -231,8 +235,8 @@ namespace rdmalib {
     return _sges.data();
   }
 
-  template <typename Derived, typename SGE, typename MemoryRegion, typename Domain, typename LKey>
-  size_t ScatterGatherElement<Derived, SGE, MemoryRegion, Domain, LKey>::size() const
+  template <typename Derived, typename SGE, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  size_t ScatterGatherElement<Derived, SGE, MemoryRegion, Domain, LKey, RKey>::size() const
   {
     return _sges.size();
   }

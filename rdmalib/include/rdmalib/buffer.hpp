@@ -21,6 +21,9 @@ namespace rdmalib {
   template <typename Derived, typename SGE, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
   struct ScatterGatherElement;
 
+  struct FabricScatterGatherElement;
+  struct VerbsScatterGatherElement;
+
   namespace impl {
 
     // mregion - Memory region type: fid_mr* for libfabric, ibv_mr* for ibverbs
@@ -57,7 +60,7 @@ namespace rdmalib {
       }
       LKey lkey() const
       {
-        return static_cast<Derived*>(this)->_lkey();
+        return static_cast<const Derived*>(this)->_lkey();
       }
       RKey rkey() const
       {
@@ -65,7 +68,10 @@ namespace rdmalib {
       }
 
       template <typename SGE>
-      ScatterGatherElement<Derived, SGE, MemoryRegion, Domain, LKey> sge(uint32_t size, uint32_t offset) const;
+      ScatterGatherElement<Derived, SGE, MemoryRegion, Domain, LKey, RKey> sge(uint32_t size, uint32_t offset) const
+      {
+        return static_cast<Derived*>(this)->_sge(size, offset);
+      }
     };
 
     struct FabricBuffer : Buffer<FabricBuffer, fid_mr, fid_domain, void*, uint64_t> {
@@ -74,14 +80,18 @@ namespace rdmalib {
       void *_lkey() const;
       uint64_t _rkey() const;
 
+      FabricScatterGatherElement _sge(uint32_t size, uint32_t offset) const;
+
       void destroy_buffer();
     };
 
-    struct VerbsBuffer : Buffer<VerbsBuffer, ibv_mr, ibv_pd, uint32_t> {
+    struct VerbsBuffer : Buffer<VerbsBuffer, ibv_mr, ibv_pd, uint32_t, uint32_t> {
       void register_memory(ibv_pd* pd, int access);
 
       uint32_t _lkey() const;
       uint32_t _rkey() const;
+
+      VerbsScatterGatherElement _sge(uint32_t size, uint32_t offset) const;
 
       void destroy_buffer();
     };
@@ -105,11 +115,11 @@ namespace rdmalib {
     }
   };
 
-  template<typename T, typename MemoryRegion, typename Domain, typename LKey>
-  struct Buffer : impl::Buffer<Buffer<T, MemoryRegion, Domain, LKey>, MemoryRegion, Domain, LKey> {
+  template<typename T, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
+  struct Buffer : impl::Buffer<Buffer<T, MemoryRegion, Domain, LKey, RKey>, MemoryRegion, Domain, LKey, RKey> {
 
-    using Self = Buffer<T, MemoryRegion, Domain, LKey>;
-    using ImplBuffer = impl::Buffer<Self, MemoryRegion, Domain, LKey>;
+    using Self = Buffer<T, MemoryRegion, Domain, LKey, RKey>;
+    using ImplBuffer = impl::Buffer<Self, MemoryRegion, Domain, LKey, RKey>;
 
     Buffer():
       ImplBuffer()
@@ -148,7 +158,7 @@ namespace rdmalib {
   };
 
   // SGE - the scatter gather element type: iovec for libfabric, ibv_sge for verbs
-  template <typename Derived, typename SGE, typename MemoryRegion, typename Domain, typename LKey>
+  template <typename Derived, typename SGE, typename MemoryRegion, typename Domain, typename LKey, typename RKey>
   struct ScatterGatherElement {
     // smallvector in practice
     mutable std::vector<SGE> _sges;
@@ -161,19 +171,19 @@ namespace rdmalib {
     }
 
     template<typename T>
-    ScatterGatherElement(const Buffer<T, MemoryRegion, Domain, LKey> & buf)
+    ScatterGatherElement(const Buffer<T, MemoryRegion, Domain, LKey, RKey> & buf)
     {
       add(buf);
     }
 
     template<typename T>
-    void add(const Buffer<T, MemoryRegion, Domain, LKey> & buf)
+    void add(const Buffer<T, MemoryRegion, Domain, LKey, RKey> & buf)
     {
       static_cast<Derived*>(this)->_add(buf);
     }
 
     template<typename T>
-    void add(const Buffer<T, MemoryRegion, Domain, LKey> & buf, uint32_t size, size_t offset = 0)
+    void add(const Buffer<T, MemoryRegion, Domain, LKey, RKey> & buf, uint32_t size, size_t offset = 0)
     {
       static_cast<Derived*>(this)->_add(buf, size, offset);
     }
@@ -187,7 +197,7 @@ namespace rdmalib {
   };
 
 
-  struct FabricScatterGatherElement : ScatterGatherElement<FabricScatterGatherElement, iovec, fid_mr, fid_domain, void*>
+  struct FabricScatterGatherElement : ScatterGatherElement<FabricScatterGatherElement, iovec, fid_mr, fid_domain, void*, uint64_t>
   {
 
     mutable std::vector<void *> _lkeys;
@@ -195,14 +205,14 @@ namespace rdmalib {
     FabricScatterGatherElement(uint64_t addr, uint32_t bytes, void *lkey);
 
     template<typename T>
-    void _add(const Buffer<T, fid_mr, fid_domain, void*> & buf)
+    void _add(const Buffer<T, fid_mr, fid_domain, void*, uint64_t> & buf)
     {
       _sges.push_back({(void *)buf.address(), (size_t)buf.bytes()});
       _lkeys.push_back(buf.lkey());
     }
 
     template<typename T>
-    void _add(const Buffer<T, fid_mr, fid_domain, void*> & buf, uint32_t size, size_t offset = 0)
+    void _add(const Buffer<T, fid_mr, fid_domain, void*, uint64_t> & buf, uint32_t size, size_t offset = 0)
     {
       _sges.push_back({(void *)(buf.address() + offset), (size_t)size});
       _lkeys.push_back(buf.lkey());
@@ -212,20 +222,20 @@ namespace rdmalib {
     void **lkeys() const;
   };
 
-  struct VerbsScatterGatherElement : ScatterGatherElement<VerbsScatterGatherElement, ibv_sge, ibv_mr, ibv_pd, uint32_t>
+  struct VerbsScatterGatherElement : ScatterGatherElement<VerbsScatterGatherElement, ibv_sge, ibv_mr, ibv_pd, uint32_t, uint32_t>
   {
 
     VerbsScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey);
 
     template<typename T>
-    void _add(const Buffer<T, ibv_mr, ibv_pd, uint32_t> & buf)
+    void _add(const Buffer<T, ibv_mr, ibv_pd, uint32_t, uint32_t> & buf)
     {
       //emplace_back for structs will be supported in C++20
       _sges.push_back({buf.address(), buf.bytes(), buf.lkey()});
     }
 
     template<typename T>
-    void _add(const Buffer<T, ibv_mr, ibv_pd, uint32_t> & buf, uint32_t size, size_t offset = 0)
+    void _add(const Buffer<T, ibv_mr, ibv_pd, uint32_t, uint32_t> & buf, uint32_t size, size_t offset = 0)
     {
       //emplace_back for structs will be supported in C++20
       _sges.push_back({buf.address() + offset, size, buf.lkey()});
