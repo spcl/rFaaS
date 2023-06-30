@@ -15,6 +15,6 @@ services:
       #REGISTRY_HTTP_TLS_KEY: /certs/domain.unencrypted.key
       #REGISTRY_HTTP_SECRET: supersecrettext
     volumes:
-      - /home/ubuntu/rfaas/containers/registry:/var/lib/registry
-      - /home/ubuntu/rfaas/containers/config:/auth
+      - REGISTRY_LOCATION:/var/lib/registry
+      - REGISTRY_LOCATION:/auth
       #- /home/ubuntu/rfaas/containers/config/certs:/certs
