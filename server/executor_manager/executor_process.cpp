@@ -99,6 +99,7 @@ namespace rfaas::executor_manager {
       auto out_file = ("executor_" + std::to_string(mypid));
 
       spdlog::info("Child fork begins work on PID {}, using sandbox {}", mypid, sandbox_serialize(sandbox_type));
+
       int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
       dup2(fd, 1);
       dup2(fd, 2);
@@ -124,8 +125,7 @@ namespace rfaas::executor_manager {
           "--mgr-port", mgr_port.c_str(),
           "--mgr-secret", mgr_secret.c_str(),
           "--mgr-buf-addr", mgr_buf_addr.c_str(),
-          "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
-          nullptr
+          "--mgr-buf-rkey", mgr_buf_rkey.c_str()
         };
       } else if(sandbox_type == SandboxType::SARUS) {
 
@@ -159,7 +159,6 @@ namespace rfaas::executor_manager {
           "--mgr-secret", mgr_secret.c_str(),
           "--mgr-buf-addr", mgr_buf_addr.c_str(),
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
-          nullptr
         };
 
       } else if(sandbox_type == SandboxType::DOCKER) {
@@ -188,7 +187,6 @@ namespace rfaas::executor_manager {
           "--mgr-secret", mgr_secret.c_str(),
           "--mgr-buf-addr", mgr_buf_addr.c_str(),
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
-          nullptr
         };
 
       } else if(sandbox_type == SandboxType::SINGULARITY) {
@@ -196,6 +194,7 @@ namespace rfaas::executor_manager {
         SingularityConfiguration config = std::get<SingularityConfiguration>(*exec.sandbox_config);
       }
 
+      // Concat argv and additional_args
       std::vector<const char*> cstrings_argv;
       std::transform(argv.begin(), argv.end(), std::back_inserter(cstrings_argv),
         [](const std::string & input) -> const char* {
@@ -204,12 +203,18 @@ namespace rfaas::executor_manager {
       );
       std::copy(additional_args.begin(), additional_args.end(), std::back_inserter(cstrings_argv));
 
-      SPDLOG_DEBUG("Executor launch arguments");
-      for(const char* str : cstrings_argv)
-        if(str)
-            std::cout<<str<<std::endl;
-          //SPDLOG_DEBUG(str);
+      // Add a nullptr to the end of the arguments list (as expected by execvp)
+      cstrings_argv.push_back(nullptr);
 
+      // Print arguments for debug
+      SPDLOG_DEBUG("Executor launch arguments");
+      for(const char* str : cstrings_argv) {
+        if (str) {
+          SPDLOG_DEBUG(str);
+        }
+      }
+
+      // Run the executor with the given arguments
       int ret = execvp(cstrings_argv.data()[0], const_cast<char**>(&cstrings_argv.data()[0]));
       if(ret == -1) {
         spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
