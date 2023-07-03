@@ -19,6 +19,7 @@ struct ibv_sge;
 namespace rdmalib
 {
 
+  template <typename Library>
   struct ScatterGatherElement;
 
   struct ibverbs;
@@ -34,6 +35,7 @@ namespace rdmalib
     typedef ibv_pd *pd_t;
     typedef uint32_t lkey_t;
     typedef uint32_t rkey_t;
+    typedef iovec sge_t;
   };
 
   template <>
@@ -45,6 +47,7 @@ namespace rdmalib
     typedef fid_domain *pd_t;
     typedef void *lkey_t;
     typedef uint64_t rkey_t;
+    typedef ibv_sge sge_t;
   };
 
   namespace impl
@@ -55,10 +58,10 @@ namespace rdmalib
     struct Buffer
     {
     protected:
-      using mr_t   = library_traits<Library>::mr_t;
-      using pd_t   = library_traits<Library>::pd_t;  
-      using lkey_t = library_traits<Library>::lkey_t;
-      using rkey_t = library_traits<Library>::rkey_t;
+      using mr_t   = typename library_traits<Library>::mr_t;
+      using pd_t   = typename library_traits<Library>::pd_t;  
+      using lkey_t = typename library_traits<Library>::lkey_t;
+      using rkey_t = typename library_traits<Library>::rkey_t;
 
       uint32_t _size;
       uint32_t _header;
@@ -85,13 +88,17 @@ namespace rdmalib
       void register_memory(pd_t pd, int access);
       lkey_t lkey() const;
       rkey_t rkey() const;
-      ScatterGatherElement sge(uint32_t size, uint32_t offset) const;
+      ScatterGatherElement<Library> sge(uint32_t size, uint32_t offset) const;
     };
 
   }
 
+  template <typename Library>
   struct RemoteBuffer
   {
+
+    using rkey_t = typename library_traits<Library>::rkey_t;
+
     uintptr_t addr;
     uint64_t rkey;
     uint32_t size;
@@ -100,11 +107,7 @@ namespace rdmalib
     // When accessing the remote buffer, we might not need to know the size.
     RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size = 0);
 
-#ifdef USE_LIBFABRIC
-    RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size);
-#else
-    RemoteBuffer(uintptr_t addr, uint32_t rkey, uint32_t size);
-#endif
+    RemoteBuffer(uintptr_t addr, rkey_t rkey, uint32_t size);
 
     template <class Archive>
     void serialize(Archive &ar)
@@ -113,38 +116,39 @@ namespace rdmalib
     }
   };
 
-  template <typename T>
-  struct Buffer : impl::Buffer
+  template <typename T, typename Library>
+  struct Buffer : impl::Buffer<Buffer<T, Library>, Library>
   {
+    using ImplBuffer = impl::Buffer<Buffer<T, Library>, Library>;
 
-    Buffer() : impl::Buffer()
+    Buffer() : ImplBuffer()
     {
     }
 
     // Provide a buffer instance for existing memory pool
     // Does NOT free the associated resource
-    Buffer(T *ptr, uint32_t size) : impl::Buffer(ptr, size, sizeof(T))
+    Buffer(T *ptr, uint32_t size) : ImplBuffer(ptr, size, sizeof(T))
     {
     }
 
     // Provide a buffer instance for existing memory pool
     // Does NOT free the associated resource
-    Buffer(void *ptr, uint32_t size) : impl::Buffer(ptr, size, sizeof(T))
+    Buffer(void *ptr, uint32_t size) : ImplBuffer(ptr, size, sizeof(T))
     {
     }
 
-    Buffer(size_t size, size_t header = 0) : impl::Buffer(size, sizeof(T), header)
+    Buffer(size_t size, size_t header = 0) : ImplBuffer(size, sizeof(T), header)
     {
     }
 
-    Buffer<T> &operator=(Buffer<T> &&obj)
+    Buffer<T, Library> &operator=(Buffer<T, Library> &&obj)
     {
-      impl::Buffer::operator=(std::move(obj));
+      ImplBuffer::operator=(std::move(obj));
       return *this;
     }
 
-    Buffer(const Buffer<T> &obj) = delete;
-    Buffer(Buffer<T> &&obj) = default;
+    Buffer(const Buffer<T, Library> &obj) = delete;
+    Buffer(Buffer<T, Library> &&obj) = default;
 
     T *data() const
     {
@@ -153,32 +157,30 @@ namespace rdmalib
     }
   };
 
+  template <typename Library>
   struct ScatterGatherElement
   {
-// smallvector in practice
+
+    using sge_t  = typename library_traits<Library>::sge_t;
+    using lkey_t = typename library_traits<Library>::lkey_t;
+
+    mutable std::vector<sge_t> _sges;
 #ifdef USE_LIBFABRIC
-    mutable std::vector<iovec> _sges;
     mutable std::vector<void *> _lkeys;
-#else
-    mutable std::vector<ibv_sge> _sges;
 #endif
 
     ScatterGatherElement();
 
-#ifdef USE_LIBFABRIC
-    ScatterGatherElement(uint64_t addr, uint32_t bytes, void *lkey);
-#else
-    ScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey);
-#endif
+    ScatterGatherElement(uint64_t addr, uint32_t bytes, lkey_t lkey);
 
     template <typename T>
-    ScatterGatherElement(const Buffer<T> &buf)
+    ScatterGatherElement(const Buffer<T, Library> &buf)
     {
       add(buf);
     }
 
     template <typename T>
-    void add(const Buffer<T> &buf)
+    void add(const Buffer<T, Library> &buf)
     {
 #ifdef USE_LIBFABRIC
       _sges.push_back({(void *)buf.address(), (size_t)buf.bytes()});
@@ -190,7 +192,7 @@ namespace rdmalib
     }
 
     template <typename T>
-    void add(const Buffer<T> &buf, uint32_t size, size_t offset = 0)
+    void add(const Buffer<T, Library> &buf, uint32_t size, size_t offset = 0)
     {
 #ifdef USE_LIBFABRIC
       _sges.push_back({(void *)(buf.address() + offset), (size_t)size});
@@ -201,12 +203,12 @@ namespace rdmalib
 #endif
     }
 
+    sge_t *array() const;
+
 #ifdef USE_LIBFABRIC
-    iovec *array() const;
     void **lkeys() const;
-#else
-    ibv_sge *array() const;
 #endif
+
     size_t size() const;
   };
 }
