@@ -2,19 +2,20 @@
 // mmap
 #include <sys/mman.h>
 
-#ifdef USE_LIBFABRIC
+// #ifdef USE_LIBFABRIC
 #include <rdma/fabric.h>
 #include <rdma/fi_domain.h>
-#else
+// #else
 #include <infiniband/verbs.h>
-#endif
+// #endif
 
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/util.hpp>
 
 namespace rdmalib { namespace impl {
 
-  Buffer::Buffer():
+  template <typename Derived>
+  Buffer<Derived>::Buffer():
     _size(0),
     _header(0),
     _bytes(0),
@@ -24,7 +25,8 @@ namespace rdmalib { namespace impl {
     _own_memory(false)
   {}
 
-  Buffer::Buffer(Buffer && obj):
+  template <typename Derived>
+  Buffer<Derived>::Buffer(Buffer<Derived> && obj):
     _size(obj._size),
     _header(obj._header),
     _bytes(obj._bytes),
@@ -37,7 +39,8 @@ namespace rdmalib { namespace impl {
     obj._ptr = obj._mr = nullptr;
   }
 
-  Buffer & Buffer::operator=(Buffer && obj)
+  template <typename Derived>
+  Buffer<Derived> & Buffer<Derived>::operator=(Buffer<Derived> && obj)
   {
     _size = obj._size;
     _bytes = obj._bytes;
@@ -52,7 +55,8 @@ namespace rdmalib { namespace impl {
     return *this;
   }
 
-  Buffer::Buffer(uint32_t size, uint32_t byte_size, uint32_t header):
+  template <typename Derived>
+  Buffer<Derived>::Buffer(uint32_t size, uint32_t byte_size, uint32_t header):
     _size(size),
     _header(header),
     _bytes(size * byte_size + header),
@@ -73,7 +77,8 @@ namespace rdmalib { namespace impl {
     );
   }
 
-  Buffer::Buffer(void* ptr, uint32_t size, uint32_t byte_size):
+  template <typename Derived>
+  Buffer<Derived>::Buffer(void* ptr, uint32_t size, uint32_t byte_size):
     _size(size),
     _header(0),
     _bytes(size * byte_size),
@@ -88,24 +93,31 @@ namespace rdmalib { namespace impl {
     );
   }
   
-  Buffer::~Buffer()
+  void LibfabricBuffer::destroy()
   {
     SPDLOG_DEBUG(
       "Deallocate {} bytes, mr {}, ptr {}",
       _bytes, fmt::ptr(_mr), fmt::ptr(_ptr)
     );
     if(_mr)
-      #ifdef USE_LIBFABRIC
       impl::expect_zero(fi_close(&_mr->fid));
-      #else
-      ibv_dereg_mr(_mr);
-      #endif
     if(_own_memory)
       munmap(_ptr, _bytes);
   }
 
-  #ifdef USE_LIBFABRIC
-  void Buffer::register_memory(fid_domain *pd, int access)
+  void VerbsBuffer::destroy()
+  {
+    SPDLOG_DEBUG(
+      "Deallocate {} bytes, mr {}, ptr {}",
+      _bytes, fmt::ptr(_mr), fmt::ptr(_ptr)
+    );
+    if(_mr)
+      ibv_dereg_mr(_mr);
+    if(_own_memory)
+      munmap(_ptr, _bytes);
+  }
+
+  void LibfabricBuffer::register_memory(LibfabricBuffer::pd_t pd, int access)
   {
     int ret = fi_mr_reg(pd, _ptr, _bytes, access, 0, 0, 0, &_mr, nullptr);
     impl::expect_zero(ret);
@@ -114,8 +126,8 @@ namespace rdmalib { namespace impl {
       _bytes, fmt::ptr(_mr), fmt::ptr(_ptr), fmt::ptr(fi_mr_desc(_mr)), fi_mr_key(_mr)
     );
   }
-  #else
-  void Buffer::register_memory(ibv_pd* pd, int access)
+
+  void VerbsBuffer::register_memory(VerbsBuffer::pd_t pd, int access)
   {
     _mr = ibv_reg_mr(pd, _ptr, _bytes, access);
     impl::expect_nonnull(_mr);
@@ -124,77 +136,71 @@ namespace rdmalib { namespace impl {
       _bytes, fmt::ptr(_mr), fmt::ptr(_mr->addr), _mr->lkey, _mr->rkey
     );
   }
-  #endif
 
-  #ifdef USE_LIBFABRIC
-  fid_mr* Buffer::mr() const
+  template <typename Derived>
+  Buffer<Derived>::mr_t Buffer<Derived>::mr() const
   {
     return this->_mr;
   }
-  #else
-  ibv_mr* Buffer::mr() const
-  {
-    return this->_mr;
-  }
-  #endif
 
-  uint32_t Buffer::data_size() const
+  template <typename Derived>
+  uint32_t Buffer<Derived>::data_size() const
   {
     return this->_size;
   }
 
-  uint32_t Buffer::size() const
+  template <typename Derived>
+  uint32_t Buffer<Derived>::size() const
   {
     return this->_size + this->_header;
   }
 
-  uint32_t Buffer::bytes() const
+  template <typename Derived>
+  uint32_t Buffer<Derived>::bytes() const
   {
     return this->_bytes;
   }
 
-  #ifdef USE_LIBFABRIC
-  void *Buffer::lkey() const
+  LibfabricBuffer::lkey_t LibfabricBuffer::lkey() const
   {
     assert(this->_mr);
     return fi_mr_desc(this->_mr);
   }
-  #else
-  uint32_t Buffer::lkey() const
+
+  VerbsBuffer::lkey_t VerbsBuffer::lkey() const
   {
     assert(this->_mr);
     // Apparently it's not needed and better to skip that check.
     return this->_mr->lkey;
     //return 0;
   }
-  #endif
 
-  #ifdef USE_LIBFABRIC
-  uint64_t Buffer::rkey() const
+  LibfabricBuffer::rkey_t LibfabricBuffer::rkey() const
   {
     assert(this->_mr);
     return fi_mr_key(this->_mr);
   }
-  #else
-  uint32_t Buffer::rkey() const
+  VerbsBuffer::rkey_t VerbsBuffer::rkey() const
   {
     assert(this->_mr);
     return this->_mr->rkey;
   }
-  #endif
 
-  uintptr_t Buffer::address() const
+  template <typename Derived>
+  uintptr_t Buffer<Derived>::address() const
   {
     assert(this->_mr);
     return reinterpret_cast<uint64_t>(this->_ptr);
   }
 
-  void* Buffer::ptr() const
+  template <typename Derived>
+  void* Buffer<Derived>::ptr() const
   {
     return this->_ptr;
   }
 
-  ScatterGatherElement Buffer::sge(uint32_t size, uint32_t offset) const
+  template <typename Derived>
+  ScatterGatherElement<typename Derived::Library> Buffer<Derived>::sge(uint32_t size, uint32_t offset) const
   {
     return {address() + offset, size, lkey()};
   }

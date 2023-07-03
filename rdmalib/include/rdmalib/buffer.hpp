@@ -31,6 +31,7 @@ namespace rdmalib
   template <>
   struct library_traits<ibverbs>
   {
+    //using type = ibverbs;
     typedef ibv_mr *mr_t;
     typedef ibv_pd *pd_t;
     typedef uint32_t lkey_t;
@@ -41,8 +42,7 @@ namespace rdmalib
   template <>
   struct library_traits<libfabric>
   {
-    using type = libfabric;
-
+    //using type = libfabric;
     typedef fid_mr *mr_t;
     typedef fid_domain *pd_t;
     typedef void *lkey_t;
@@ -54,14 +54,23 @@ namespace rdmalib
   {
 
     // move non-template methods from header
-    template <typename Derived, typename Library>
+    template <typename Derived>
     struct Buffer
     {
     protected:
+      using Library = typename Derived::library;
       using mr_t   = typename library_traits<Library>::mr_t;
       using pd_t   = typename library_traits<Library>::pd_t;  
       using lkey_t = typename library_traits<Library>::lkey_t;
       using rkey_t = typename library_traits<Library>::rkey_t;
+
+      /*
+      typedef typename Derived::library                  Library;
+      typedef typename library_traits<Library>::mr_t    mr_t   ;
+      typedef typename library_traits<Library>::pd_t    pd_t   ;
+      typedef typename library_traits<Library>::lkey_t  lkey_t ;
+      typedef typename library_traits<Library>::rkey_t  rkey_t ;
+      */
 
       uint32_t _size;
       uint32_t _header;
@@ -76,7 +85,10 @@ namespace rdmalib
       Buffer(uint32_t size, uint32_t byte_size, uint32_t header);
       Buffer(Buffer &&);
       Buffer &operator=(Buffer &&obj);
-      ~Buffer();
+      ~Buffer()
+      {
+        static_cast<Derived *>(this)->destroy();
+      }
 
     public:
       uintptr_t address() const;
@@ -85,10 +97,37 @@ namespace rdmalib
       uint32_t data_size() const;
       uint32_t size() const;
       uint32_t bytes() const;
+      void register_memory(pd_t pd, int access)
+      {
+        static_cast<Derived*>(this)->register_memory(pd, access);
+      }
+      lkey_t lkey() const
+      {
+        static_cast<Derived*>(this)->lkey();
+      }
+      rkey_t rkey() const
+      {
+        static_cast<Derived*>(this)->rkey();
+      }
+      ScatterGatherElement<Library> sge(uint32_t size, uint32_t offset) const;
+    };
+
+    struct LibfabricBuffer : Buffer<LibfabricBuffer>
+    {
+      //using library = libfabric;
       void register_memory(pd_t pd, int access);
       lkey_t lkey() const;
       rkey_t rkey() const;
-      ScatterGatherElement<Library> sge(uint32_t size, uint32_t offset) const;
+      void destroy();
+    };
+
+    struct VerbsBuffer : Buffer<VerbsBuffer>
+    {
+      //using library = ibverbs;
+      void register_memory(pd_t pd, int access);
+      lkey_t lkey() const;
+      rkey_t rkey() const;
+      void destroy();
     };
 
   }
@@ -117,9 +156,9 @@ namespace rdmalib
   };
 
   template <typename T, typename Library>
-  struct Buffer : impl::Buffer<Buffer<T, Library>, Library>
+  struct Buffer : impl::Buffer<Buffer<T, Library>>
   {
-    using ImplBuffer = impl::Buffer<Buffer<T, Library>, Library>;
+    using ImplBuffer = impl::Buffer<Buffer<T, Library>>;
 
     Buffer() : ImplBuffer()
     {
@@ -157,17 +196,14 @@ namespace rdmalib
     }
   };
 
-  template <typename Library>
+  template <typename Derived>
   struct ScatterGatherElement
   {
-
+    using Library = Derived::library;
     using sge_t  = typename library_traits<Library>::sge_t;
     using lkey_t = typename library_traits<Library>::lkey_t;
 
     mutable std::vector<sge_t> _sges;
-#ifdef USE_LIBFABRIC
-    mutable std::vector<void *> _lkeys;
-#endif
 
     ScatterGatherElement();
 
@@ -180,35 +216,57 @@ namespace rdmalib
     }
 
     template <typename T>
+    void add(const Buffer<T, Library> &buf);
+
+    template <typename T>
+    void add(const Buffer<T, Library> &buf, uint32_t size, size_t offset = 0);
+
+    sge_t *array() const;
+
+    size_t size() const;
+  };
+
+  struct VerbsScatterGatherElement : ScatterGatherElement<VerbsScatterGatherElement>
+  {
+    template <typename T>
     void add(const Buffer<T, Library> &buf)
     {
-#ifdef USE_LIBFABRIC
-      _sges.push_back({(void *)buf.address(), (size_t)buf.bytes()});
-      _lkeys.push_back(buf.lkey());
-#else
       // emplace_back for structs will be supported in C++20
       _sges.push_back({buf.address(), buf.bytes(), buf.lkey()});
-#endif
     }
 
     template <typename T>
     void add(const Buffer<T, Library> &buf, uint32_t size, size_t offset = 0)
     {
-#ifdef USE_LIBFABRIC
-      _sges.push_back({(void *)(buf.address() + offset), (size_t)size});
-      _lkeys.push_back(buf.lkey());
-#else
       // emplace_back for structs will be supported in C++20
       _sges.push_back({buf.address() + offset, size, buf.lkey()});
-#endif
     }
 
     sge_t *array() const;
+    size_t size() const;
 
-#ifdef USE_LIBFABRIC
-    void **lkeys() const;
-#endif
+  };
 
+  struct LibfabricScatterGatherElement : ScatterGatherElement<LibfabricScatterGatherElement>
+  {
+    mutable std::vector<lkey_t> _lkeys;
+
+    template <typename T>
+    void add(const Buffer<T, Library> &buf)
+    {
+      _sges.push_back({(void *)buf.address(), (size_t)buf.bytes()});
+      _lkeys.push_back(buf.lkey());
+    }
+
+    template <typename T>
+    void add(const Buffer<T, Library> &buf, uint32_t size, size_t offset = 0)
+    {
+      _sges.push_back({(void *)(buf.address() + offset), (size_t)size});
+      _lkeys.push_back(buf.lkey());
+    }
+
+    sge_t *array() const;
+    lkey_t *lkeys() const;
     size_t size() const;
   };
 }
