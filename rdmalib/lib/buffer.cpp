@@ -14,8 +14,8 @@
 
 namespace rdmalib { namespace impl {
 
-  template <typename Derived>
-  Buffer<Derived>::Buffer():
+  template <typename Derived, typename Library>
+  Buffer<Derived, Library>::Buffer():
     _size(0),
     _header(0),
     _bytes(0),
@@ -25,8 +25,8 @@ namespace rdmalib { namespace impl {
     _own_memory(false)
   {}
 
-  template <typename Derived>
-  Buffer<Derived>::Buffer(Buffer<Derived> && obj):
+  template <typename Derived, typename Library>
+  Buffer<Derived, Library>::Buffer(Buffer<Derived, Library> && obj):
     _size(obj._size),
     _header(obj._header),
     _bytes(obj._bytes),
@@ -39,8 +39,8 @@ namespace rdmalib { namespace impl {
     obj._ptr = obj._mr = nullptr;
   }
 
-  template <typename Derived>
-  Buffer<Derived> & Buffer<Derived>::operator=(Buffer<Derived> && obj)
+  template <typename Derived, typename Library>
+  Buffer<Derived, Library> & Buffer<Derived, Library>::operator=(Buffer<Derived, Library> && obj)
   {
     _size = obj._size;
     _bytes = obj._bytes;
@@ -55,8 +55,8 @@ namespace rdmalib { namespace impl {
     return *this;
   }
 
-  template <typename Derived>
-  Buffer<Derived>::Buffer(uint32_t size, uint32_t byte_size, uint32_t header):
+  template <typename Derived, typename Library>
+  Buffer<Derived, Library>::Buffer(uint32_t size, uint32_t byte_size, uint32_t header):
     _size(size),
     _header(header),
     _bytes(size * byte_size + header),
@@ -77,8 +77,8 @@ namespace rdmalib { namespace impl {
     );
   }
 
-  template <typename Derived>
-  Buffer<Derived>::Buffer(void* ptr, uint32_t size, uint32_t byte_size):
+  template <typename Derived, typename Library>
+  Buffer<Derived, Library>::Buffer(void* ptr, uint32_t size, uint32_t byte_size):
     _size(size),
     _header(0),
     _bytes(size * byte_size),
@@ -137,26 +137,20 @@ namespace rdmalib { namespace impl {
     );
   }
 
-  template <typename Derived>
-  Buffer<Derived>::mr_t Buffer<Derived>::mr() const
-  {
-    return this->_mr;
-  }
-
-  template <typename Derived>
-  uint32_t Buffer<Derived>::data_size() const
+  template <typename Derived, typename Library>
+  uint32_t Buffer<Derived, Library>::data_size() const
   {
     return this->_size;
   }
 
-  template <typename Derived>
-  uint32_t Buffer<Derived>::size() const
+  template <typename Derived, typename Library>
+  uint32_t Buffer<Derived, Library>::size() const
   {
     return this->_size + this->_header;
   }
 
-  template <typename Derived>
-  uint32_t Buffer<Derived>::bytes() const
+  template <typename Derived, typename Library>
+  uint32_t Buffer<Derived, Library>::bytes() const
   {
     return this->_bytes;
   }
@@ -186,91 +180,25 @@ namespace rdmalib { namespace impl {
     return this->_mr->rkey;
   }
 
-  template <typename Derived>
-  uintptr_t Buffer<Derived>::address() const
+  template <typename Derived, typename Library>
+  uintptr_t Buffer<Derived, Library>::address() const
   {
     assert(this->_mr);
     return reinterpret_cast<uint64_t>(this->_ptr);
   }
 
-  template <typename Derived>
-  void* Buffer<Derived>::ptr() const
+  template <typename Derived, typename Library>
+  void* Buffer<Derived, Library>::ptr() const
   {
     return this->_ptr;
   }
 
-  template <typename Derived>
-  ScatterGatherElement<typename Derived::Library> Buffer<Derived>::sge(uint32_t size, uint32_t offset) const
+  template <typename Derived, typename Library>
+  ScatterGatherElement<Derived, Library> Buffer<Derived, Library>::sge(uint32_t size, uint32_t offset) const
   {
     return {address() + offset, size, lkey()};
   }
 
 }}
 
-namespace rdmalib {
-
-  ScatterGatherElement::ScatterGatherElement()
-  {
-  }
-
-  #ifdef USE_LIBFABRIC
-  iovec *ScatterGatherElement::array() const
-  {
-    return _sges.data();
-  }
-  void **ScatterGatherElement::lkeys() const
-  {
-    return _lkeys.data();
-  }
-  #else
-  ibv_sge * ScatterGatherElement::array() const
-  {
-    return _sges.data();
-  }
-  #endif
-
-  size_t ScatterGatherElement::size() const
-  {
-    return _sges.size();
-  }
-
-  #ifdef USE_LIBFABRIC
-  ScatterGatherElement::ScatterGatherElement(uint64_t addr, uint32_t bytes, void *lkey)
-  {
-    _sges.push_back({(void *)addr, bytes});
-    _lkeys.push_back(lkey);
-  }
-  #else
-  ScatterGatherElement::ScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey)
-  {
-    _sges.push_back({addr, bytes, lkey});
-  }
-  #endif
-
-  RemoteBuffer::RemoteBuffer():
-    addr(0),
-    rkey(0),
-    size(0)
-  {}
-
-  RemoteBuffer::RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size):
-    addr(addr),
-    rkey(rkey),
-    size(size)
-  {}
-
-  #ifdef USE_LIBFABRIC
-  RemoteBuffer::RemoteBuffer(uintptr_t addr, uint64_t rkey, uint32_t size):
-    addr(addr),
-    rkey(rkey),
-    size(size)
-  {}
-  #else
-    RemoteBuffer::RemoteBuffer(uintptr_t addr, uint32_t rkey, uint32_t size):
-    addr(addr),
-    rkey(rkey),
-    size(size)
-  {}
-  #endif
-
-}
+namespace rdmalib {}
