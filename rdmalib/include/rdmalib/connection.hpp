@@ -10,16 +10,17 @@
 #include <vector>
 #include <optional>
 
-#ifdef USE_LIBFABRIC
+//#ifdef USE_LIBFABRIC
 #include <rdma/fi_endpoint.h>
 #include <rdma/fi_rma.h>
 #include <spdlog/spdlog.h>
-#else
+//#else
 #include <infiniband/verbs.h>
 
 #include <rdma/rdma_cma.h>
-#endif
+//#endif
 #include <rdmalib/buffer.hpp>
+#include <rdmalib/libraries.hpp>
 
 namespace rdmalib {
 

@@ -9,6 +9,7 @@
 #include <infiniband/verbs.h>
 // #endif
 
+#include <rdmalib/libraries.hpp>
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/util.hpp>
 
