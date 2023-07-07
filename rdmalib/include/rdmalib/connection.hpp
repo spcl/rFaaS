@@ -53,37 +53,43 @@ namespace rdmalib {
   // State of a communication:
   // a) communication ID
   // b) Queue Pair
+  template <typename Derived, typename Library>
   struct Connection {
   private:
+    // Bring types into scope
+    using qp_t      = library_traits<Library>::qp_t;
+    using channel_t = library_traits<Library>::channel_t;
+    using wc_t      = library_traits<Library>::wc_t;
+
     #ifdef USE_LIBFABRIC
-    fid_ep* _qp;
-    fid_cq* _rcv_channel;
-    fid_cq* _trx_channel;
+    channel_t _rcv_channel;
+    channel_t _trx_channel;
     fid_cntr* _write_counter;
     uint64_t _counter;
     #else
     rdma_cm_id* _id;
-    ibv_qp* _qp; 
-    ibv_comp_channel* _channel;
+    channel_t* _channel;
     #endif
+
+    qp_t _qp; 
+
     int32_t _req_count;
     int32_t _private_data;
     bool _passive;
     ConnectionStatus _status;
     static const int _wc_size = 32; 
     // FIXME: associate this with RecvBuffer
+    std::array<wc_t, _wc_size> _swc; // fast fix for overlapping polling
+    std::array<wc_t, _wc_size> _rwc;
     #ifdef USE_LIBFABRIC
-    std::array<fi_cq_data_entry, _wc_size> _swc; // fast fix for overlapping polling
-    std::array<fi_cq_data_entry, _wc_size> _rwc;
     fi_cq_err_entry _ewc;
-    #else
-    std::array<ibv_wc, _wc_size> _swc; // fast fix for overlapping polling
-    std::array<ibv_wc, _wc_size> _rwc;
     #endif
-    std::array<ScatterGatherElement, _wc_size> _rwc_sges;
+
+    std::array<ScatterGatherElement<Derived, Library>, _wc_size> _rwc_sges;
     int _send_flags;
 
     static const int _rbatch = 32; // 32 for faster division in the code
+
     #ifndef USE_LIBFABRIC
     struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
     #endif
@@ -180,6 +186,16 @@ namespace rdmalib {
     #else
     int32_t _post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
     #endif
+  };
+
+  struct LibfabricConnection : Connection<LibfabricConnection, libfabric>
+  {
+
+  };
+
+  struct LibfabricConnection : Connection<LibfabricConnection, libfabric>
+  {
+
   };
 }
 
