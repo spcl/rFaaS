@@ -1,12 +1,18 @@
 #ifndef __RDMALIB_LIBRARIES_HPP__
 #define __RDMALIB_LIBRARIES_HPP__
 
+#include <rdma/rdma_cma.h>
 #include <rdma/fabric.h>
 
+// Forward declare ibverbs structs
 struct ibv_pd;
 struct ibv_mr;
 struct ibv_sge;
+struct ibv_qp;
+struct ibv_comp_channel;
+struct ibv_wc;
 
+// Library parameter definitions
 struct ibverbs;
 struct libfabric;
 
@@ -14,35 +20,37 @@ template <typename Library>
 struct library_traits;
 
 template <>
-struct library_traits<ibverbs>
+struct library_traits<libfabric>
 {
-  typedef ibverbs type;
+  using type = libfabric;
 
-  typedef ibv_mr *mr_t;
-  typedef ibv_pd *pd_t;
-  typedef uint32_t lkey_t;
-  typedef uint32_t rkey_t;
-  typedef ibv_sge sge_t;
+  using mr_t = fid_mr *;
+  using pd_t = fid_domain *;
+  using lkey_t = void *;
+  using rkey_t = uint64_t;
+  using sge_t = iovec;
 
-  typedef ibv_qp *qp_t;
-  typedef ibv_comp_channel *channel_t;
-  typedef ibv_wc wc_t;
+  using qp_t = fid_ep *;
+  using wc_t = fi_cq_data_entry;
+  using id_t = fid *;
+  using channel_t = fid_cq *;
 };
 
 template <>
-struct library_traits<libfabric>
+struct library_traits<ibverbs>
 {
-  typedef libfabric type;
+  using type = ibverbs;
 
-  typedef fid_mr *mr_t;
-  typedef fid_domain *pd_t;
-  typedef void *lkey_t;
-  typedef uint64_t rkey_t;
-  typedef iovec sge_t;
+  using mr_t = ibv_mr *;
+  using pd_t = ibv_pd *;
+  using lkey_t = uint32_t;
+  using rkey_t = uint32_t;
+  using sge_t = ibv_sge;
 
-  typedef fid_ep *qp_t;
-  typedef fid_cq *channel_t;
-  typedef fi_cq_data_entry wc_t;
+  using qp_t = ibv_qp *;
+  using wc_t = ibv_wc;
+  using id_t = rdma_cm_id *; 
+  using channel_t = ibv_comp_channel *;
 };
 
 #endif
