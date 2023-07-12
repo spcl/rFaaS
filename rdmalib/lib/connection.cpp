@@ -7,14 +7,14 @@
 #include <rdma/fi_errno.h>
 #include <rdma/fi_rma.h>
 #include <chrono>
-#ifdef USE_LIBFABRIC
+// #ifdef USE_LIBFABRIC
 #include <rdma/fabric.h>
 #include <rdma/fi_endpoint.h>
 #include <rdma/fi_eq.h>
 #include "rdmalib/buffer.hpp"
 #include <arpa/inet.h>
 #include <rdma/fi_atomic.h>
-#endif
+// #endif
 #include <spdlog/spdlog.h>
 #include <thread>
 
@@ -31,28 +31,30 @@ namespace rdmalib {
   }
   #endif
 
-  Connection::Connection(bool passive):
-    _qp(nullptr),
-    #ifdef USE_LIBFABRIC
-    _rcv_channel(nullptr),
-    _trx_channel(nullptr),
-    _write_counter(nullptr),
-    #else
-    _id(nullptr),
-    _channel(nullptr),
-    #endif
-    _req_count(0),
-    _private_data(0),
-    _passive(passive),
-    _status(ConnectionStatus::UNKNOWN)
+  LibfabricConnection::LibfabricConnection(bool passive)
   {
-    #ifndef USE_LIBFABRIC
-    inlining(false);
-    #endif
-
-    #ifdef USE_LIBFABRIC
+    _qp = nullptr;
+    _rcv_channel = nullptr;
+    _trx_channel = nullptr;
+    _write_counter = nullptr;
+    _req_count = 0;
+    _private_data = 0;
+    _passive = passive;
+    _status= ConnectionStatus::UNKNOWN;
     SPDLOG_DEBUG("Allocate a connection {}", fmt::ptr(this));
-    #else
+  }
+  
+  VerbsConnection::VerbsConnection(bool passive)
+  {
+    _qp = nullptr;
+    _id = nullptr;
+    _channel = nullptr;
+    _req_count = 0;
+    _private_data = 0;
+    _passive = passive;
+    _status = ConnectionStatus::UNKNOWN;
+    inlining(false);
+
     for(int i=0; i < _rbatch; i++){
       _batch_wrs[i].wr_id = i;
       _batch_wrs[i].sg_list = 0;
@@ -61,42 +63,50 @@ namespace rdmalib {
     }
     _batch_wrs[_rbatch-1].next = NULL;
     SPDLOG_DEBUG("Allocate a connection with id {}", fmt::ptr(_id));
-    #endif
   }
 
-  Connection::~Connection()
+  LibfabricConnection::~LibfabricConnection()
   {
-    #ifdef USE_LIBFABRIC
     SPDLOG_DEBUG("Deallocate connection {} with qp fid {}", fmt::ptr(this), fmt::ptr(&_qp->fid));
-    #else
-    SPDLOG_DEBUG("Deallocate a connection with id {}", fmt::ptr(_id));
-    #endif
     close();
   }
 
-  Connection::Connection(Connection&& obj):
-    _qp(obj._qp),
-    #ifdef USE_LIBFABRIC
-    _rcv_channel(obj._rcv_channel),
-    _trx_channel(obj._trx_channel),
-    _write_counter(nullptr),
-    #else
-    _id(obj._id),
-    _channel(obj._channel),
-    #endif
-    _req_count(obj._req_count),
-    _private_data(obj._private_data),
-    _passive(obj._passive),
-    _status(obj._status),
-    _send_flags(obj._send_flags)
+  VerbsConnection::~VerbsConnection()
   {
-    #ifndef USE_LIBFABRIC
+    SPDLOG_DEBUG("Deallocate a connection with id {}", fmt::ptr(_id));
+    close();
+  }
+
+  LibfabricConnection::LibfabricConnection(LibfabricConnection&& obj)
+  {
+    _qp = obj._qp;
+    _rcv_channel = obj._rcv_channel;
+    _trx_channel = obj._trx_channel;
+    _write_counter = nullptr;
+    _req_count = obj._req_count;
+    _private_data = obj._private_data;
+    _passive = obj._passive;
+    _status = obj._status;
+    _send_flags = obj._send_flags;
+    
+    obj._qp = nullptr;
+    obj._req_count = 0;
+  }
+
+  VerbsConnection::VerbsConnection(VerbsConnection&& obj)
+  {
+    _qp = obj._qp;
+    _id = obj._id;
+    _channel = obj._channel;
+    _req_count = obj._req_count;
+    _private_data = obj._private_data;
+    _passive = obj._passive;
+    _status = obj._status;
+    _send_flags = obj._send_flags;
     obj._id = nullptr;
-    #endif
     obj._qp = nullptr;
     obj._req_count = 0;
 
-    #ifndef USE_LIBFABRIC
     for(int i=0; i < _rbatch; i++){
       _batch_wrs[i].wr_id = i;
       _batch_wrs[i].sg_list = 0;
@@ -104,7 +114,6 @@ namespace rdmalib {
       _batch_wrs[i].next=&(_batch_wrs[i+1]);
     }
     _batch_wrs[_rbatch-1].next = NULL;
-    #endif
   }
 
   void Connection::initialize_batched_recv(const rdmalib::impl::Buffer & buf, size_t offset)

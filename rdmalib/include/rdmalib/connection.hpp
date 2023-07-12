@@ -55,6 +55,7 @@ namespace rdmalib {
   // b) Queue Pair
   template <typename Derived, typename Library>
   struct Connection {
+  protected:
     // Bring types into scope
     using qp_t      = typename library_traits<Library>::qp_t;
     using wc_t      = typename library_traits<Library>::wc_t;
@@ -63,7 +64,6 @@ namespace rdmalib {
     template <typename S>
     using SGE = ScatterGatherElement<S, Library>;
     using RemoteBuffer_ = RemoteBuffer<Library>;
-  private:
     qp_t _qp; 
 
     int32_t _req_count;
@@ -78,12 +78,15 @@ namespace rdmalib {
     std::array<SGE<Derived>, _wc_size> _rwc_sges;
     int _send_flags;
 
-
   public:
     static const int _rbatch = 32; // 32 for faster division in the code
 
-    Connection(bool passive = false);
-    ~Connection();
+    Connection(bool passive = false) {
+      static_cast<Derived*>(this)->Derived(passive);
+    }
+    ~Connection() {
+      static_cast<Derived*>(this)->~Derived();
+    }
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;
     Connection(Connection&&);
@@ -138,6 +141,10 @@ namespace rdmalib {
 
     fi_cq_err_entry _ewc;
 
+    LibfabricConnection(bool passive);
+    LibfabricConnection(LibfabricConnection&& obj);
+    ~LibfabricConnection();
+
     void initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel);
 
     fid_wait* wait_set() const;
@@ -182,6 +189,10 @@ namespace rdmalib {
     channel_t *_channel;
 
     struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
+
+    VerbsConnection(bool passive);
+    VerbsConnection(VerbsConnection&& obj);
+    ~VerbsConnection();
 
     void inlining(bool enable);
     void initialize(rdma_cm_id* id);
