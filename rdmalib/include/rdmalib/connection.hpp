@@ -64,8 +64,8 @@ namespace rdmalib {
     template <typename S>
     using SGE = ScatterGatherElement<S, Library>;
     using RemoteBuffer_ = RemoteBuffer<Library>;
-    qp_t _qp; 
 
+    qp_t _qp; 
     int32_t _req_count;
     int32_t _private_data;
     bool _passive;
@@ -145,6 +145,9 @@ namespace rdmalib {
     LibfabricConnection(LibfabricConnection&& obj);
     ~LibfabricConnection();
 
+    template <typename B>
+    void initialize_batched_recv(const rdmalib::impl::Buffer<B, libfabric> & sge, size_t offset);
+
     void initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel);
 
     fid_wait* wait_set() const;
@@ -195,6 +198,8 @@ namespace rdmalib {
     ~VerbsConnection();
 
     void inlining(bool enable);
+    template <typename B>
+    void initialize_batched_recv(const rdmalib::impl::Buffer<B, ibverbs> & sge, size_t offset);
     void initialize(rdma_cm_id* id);
     ibv_comp_channel* completion_channel() const;
 

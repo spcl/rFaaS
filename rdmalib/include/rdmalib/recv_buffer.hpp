@@ -3,6 +3,7 @@
 #define __RDMALIB_RECV_BUFFER_HPP__
 
 #include <optional>
+#include <tuple>
 
 #include <rdmalib/connection.hpp>
 
@@ -10,7 +11,10 @@
 
 namespace rdmalib {
 
+  template <typename Derived, typename Library>
   struct RecvBuffer {
+    using wc_t = library_traits<Library>::wc_t;
+
     int _rcv_buf_size;
     int _refill_threshold;
     int _requests;
@@ -31,25 +35,10 @@ namespace rdmalib {
       refill();
     }
 
-    #ifdef USE_LIBFABRIC
-    inline std::tuple<fi_cq_data_entry *,int> poll(bool blocking = false)
+    inline std::tuple<wc_t *, int> poll(bool blocking = false)
     {
-      auto wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);
-      if(std::get<1>(wc))
-        SPDLOG_DEBUG("Polled reqs {}, left {}", std::get<1>(wc), _requests);
-      _requests -= std::get<1>(wc);
-      return wc;
+      return static_cast<Derived*>(this)->poll(blocking);
     }
-    #else
-    inline std::tuple<ibv_wc*,int> poll(bool blocking = false)
-    {
-      auto wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);
-      if(std::get<1>(wc))
-        SPDLOG_DEBUG("Polled reqs {}, left {}", std::get<1>(wc), _requests);
-      _requests -= std::get<1>(wc);
-      return wc;
-    }
-    #endif
 
     inline bool refill()
     {
@@ -62,6 +51,29 @@ namespace rdmalib {
       }
       return false;
     }
+  };
+
+  struct LibfabricRecvBuffer : RecvBuffer<LibfabricRecvBuffer, libfabric> {
+    inline std::tuple<wc_t *,int> poll(bool blocking = false)
+    {
+      auto wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);
+      if(std::get<1>(wc))
+        SPDLOG_DEBUG("Polled reqs {}, left {}", std::get<1>(wc), _requests);
+      _requests -= std::get<1>(wc);
+      return wc;
+    }
+  };
+
+  struct VerbsRecvBuffer : RecvBuffer<VerbsRecvBuffer, ibverbs> {
+    inline std::tuple<wc_t *,int> poll(bool blocking = false)
+    {
+      auto wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);
+      if(std::get<1>(wc))
+        SPDLOG_DEBUG("Polled reqs {}, left {}", std::get<1>(wc), _requests);
+      _requests -= std::get<1>(wc);
+      return wc;
+    }
+
   };
 }
 

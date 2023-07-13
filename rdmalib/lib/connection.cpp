@@ -31,6 +31,8 @@ namespace rdmalib {
   }
   #endif
 
+  
+
   LibfabricConnection::LibfabricConnection(bool passive)
   {
     _qp = nullptr;
@@ -53,6 +55,7 @@ namespace rdmalib {
     _private_data = 0;
     _passive = passive;
     _status = ConnectionStatus::UNKNOWN;
+
     inlining(false);
 
     for(int i=0; i < _rbatch; i++){
@@ -116,16 +119,26 @@ namespace rdmalib {
     _batch_wrs[_rbatch-1].next = NULL;
   }
 
-  void Connection::initialize_batched_recv(const rdmalib::impl::Buffer & buf, size_t offset)
+
+  template <typename B>
+  void LibfabricConnection::initialize_batched_recv(const rdmalib::impl::Buffer<B, libfabric> & buf, size_t offset)
   {
     for(int i = 0; i < _rbatch; i++){
       _rwc_sges[i] = buf.sge(offset, i*offset);
       //for(auto & sg : _rwc_sges[i]._sges)
       //sg.addr += i*offset;
-      #ifndef USE_LIBFABRIC
+    }
+  }
+
+  template <typename B>
+  void VerbsConnection::initialize_batched_recv(const rdmalib::impl::Buffer<B, ibverbs> & buf, size_t offset)
+  {
+    for(int i = 0; i < _rbatch; i++){
+      _rwc_sges[i] = buf.sge(offset, i*offset);
+      //for(auto & sg : _rwc_sges[i]._sges)
+      //sg.addr += i*offset;
       _batch_wrs[i].sg_list = _rwc_sges[i].array();
       _batch_wrs[i].num_sge = _rwc_sges[i].size();
-      #endif
     }
   }
 
