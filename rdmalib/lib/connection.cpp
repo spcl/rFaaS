@@ -31,8 +31,6 @@ namespace rdmalib {
   }
   #endif
 
-  
-
   LibfabricConnection::LibfabricConnection(bool passive)
   {
     _qp = nullptr;
@@ -142,8 +140,7 @@ namespace rdmalib {
     }
   }
 
-  #ifdef USE_LIBFABRIC
-  void Connection::initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel)
+  void LibfabricConnection::initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel)
   {
     // Create the endpoint and set its flags up so that we get completions on RDM
     impl::expect_zero(fi_endpoint(pd, info, &_qp, reinterpret_cast<void*>(this)));
@@ -163,29 +160,25 @@ namespace rdmalib {
     impl::expect_zero(fi_enable(_qp));
     SPDLOG_DEBUG("Initialize connection {}", fmt::ptr(this));
   }
-  #else
-  void Connection::initialize(rdma_cm_id* id)
+
+  void VerbsConnection::initialize(rdma_cm_id* id)
   {
     this->_id = id;
     this->_channel = _id->recv_cq_channel;
     this->_qp = this->_id->qp;
     SPDLOG_DEBUG("Initialize a connection with id {}", fmt::ptr(_id));
   }
-  #endif
 
-  #ifndef USE_LIBFABRIC
-  void Connection::inlining(bool enable)
+  void VerbsConnection::inlining(bool enable)
   {
     if(enable)
       _send_flags = IBV_SEND_SIGNALED | IBV_SEND_INLINE;
     else
       _send_flags = IBV_SEND_SIGNALED;
   }
-  #endif
 
-  void Connection::close()
+  void LibfabricConnection::close()
   {
-    #ifdef USE_LIBFABRIC
     SPDLOG_DEBUG("Connection close called for {} with qp fid {}", fmt::ptr(this), fmt::ptr(&this->_qp->fid));
     // We need to close the transmit and receive channels and the endpoint
     if (_status != ConnectionStatus::DISCONNECTED) {
@@ -215,7 +208,10 @@ namespace rdmalib {
       // }
       _status = ConnectionStatus::DISCONNECTED;
     }
-    #else
+  }
+
+  void VerbsConnection::close()
+  {
     SPDLOG_DEBUG("Connection close called for {} id {}", fmt::ptr(this), fmt::ptr(this->_id));
     if(_id) {
       // When the connection is allocated on active side
@@ -236,32 +232,25 @@ namespace rdmalib {
       _id = nullptr;
       _status = ConnectionStatus::DISCONNECTED;
     }
-    #endif
   }
 
-  #ifdef USE_LIBFABRIC
-  fid* Connection::id() const
+  id_t LibfabricConnection::id() const
   {
     return &this->_qp->fid;
   }
-  #else
-  rdma_cm_id* Connection::id() const
+  id_t VerbsConnection::id() const
   {
     return this->_id;
   }
-  #endif
 
-  #ifdef USE_LIBFABRIC
-  fid_ep* Connection::qp() const
+  qp_t Connection::qp() const
   {
     return this->_qp;
   }
-  #else
-  ibv_qp* Connection::qp() const
+  qp_t Connection::qp() const
   {
     return this->_qp;
   }
-  #endif
 
   #ifdef USE_LIBFABRIC
   fid_cq* Connection::receive_completion_channel() const

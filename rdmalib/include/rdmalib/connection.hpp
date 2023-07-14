@@ -93,10 +93,18 @@ namespace rdmalib {
 
     template <typename B>
     void initialize_batched_recv(const rdmalib::impl::Buffer<B, Library> & sge, size_t offset);
-    void close();
-
-    id_t* id() const;
-    qp_t* qp() const;
+    void close()
+    {
+      static_cast<Derived*>(this)->close();
+    }
+    id_t id() const
+    {
+      return static_cast<Derived*>(this)->id();
+    }
+    qp_t qp() const
+    {
+      return static_cast<Derived*>(this)->qp();
+    }
 
     uint32_t private_data() const;
     ConnectionStatus status() const;
@@ -145,10 +153,14 @@ namespace rdmalib {
     LibfabricConnection(LibfabricConnection&& obj);
     ~LibfabricConnection();
 
+    id_t id() const;
+    qp_t qp() const;
+
     template <typename B>
     void initialize_batched_recv(const rdmalib::impl::Buffer<B, libfabric> & sge, size_t offset);
 
     void initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel);
+    void close();
 
     fid_wait* wait_set() const;
     channel_t receive_completion_channel() const;
@@ -188,14 +200,18 @@ namespace rdmalib {
     template <typename S> // S for SGE's Derived class
     using SGE = ScatterGatherElement<S, ibverbs>;
 
-    id_t* _id;
-    channel_t *_channel;
+    id_t _id;
+    channel_t _channel;
 
     struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
 
     VerbsConnection(bool passive);
     VerbsConnection(VerbsConnection&& obj);
     ~VerbsConnection();
+    void close();
+
+    id_t id() const;
+    qp_t qp() const;
 
     void inlining(bool enable);
     template <typename B>
