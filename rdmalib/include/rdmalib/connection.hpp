@@ -61,9 +61,9 @@ namespace rdmalib {
     using wc_t      = typename library_traits<Library>::wc_t;
     using id_t      = typename library_traits<Library>::id_t;
     using channel_t = typename library_traits<Library>::channel_t;
-    template <typename S>
+    template <typename S> // TODO: remove this generic. should be a trait
     using SGE = ScatterGatherElement<S, Library>;
-    using RemoteBuffer_ = RemoteBuffer<Library>;
+    using RemoteBuffer = RemoteBuffer<Library>;
 
     qp_t _qp; 
     int32_t _req_count;
@@ -103,7 +103,7 @@ namespace rdmalib {
     }
     qp_t qp() const
     {
-      return static_cast<Derived*>(this)->qp();
+      return this->_id;
     }
 
     uint32_t private_data() const;
@@ -122,24 +122,24 @@ namespace rdmalib {
 
     int32_t post_batched_empty_recv(int32_t count = 1);
     template <typename S>
-    int32_t post_write(SGE<S> && elems, const RemoteBuffer_ & buf, bool force_inline = false);
+    int32_t post_write(SGE<S> && elems, const RemoteBuffer & buf, bool force_inline = false);
     // Solicited makes sense only for RDMA write with immediate
     template <typename S>
-    int32_t post_write(SGE<S> && elems, const RemoteBuffer_ & buf,
+    int32_t post_write(SGE<S> && elems, const RemoteBuffer & buf,
       uint32_t immediate,
       bool force_inline = false,
       bool solicited = false
     );
     template <typename S>
-    int32_t post_cas(SGE<S> && elems, const RemoteBuffer_ & buf, uint64_t compare, uint64_t swap);
+    int32_t post_cas(SGE<S> && elems, const RemoteBuffer & buf, uint64_t compare, uint64_t swap);
   };
 
   struct LibfabricConnection : Connection<LibfabricConnection, libfabric>
   {
     template <typename T>
-    using Buffer_ = Buffer<T, libfabric>;
-    template <typename S> // S = SGE's Derived class
-    using SGE = ScatterGatherElement<S, libfabric>;
+    using Buffer = Buffer<T, libfabric>;
+    //using RemoteBuffer = RemoteBuffer<libfabric>;
+    using SGE = LibfabricScatterGatherElement;
 
     fid_cq *_rcv_channel;
     fid_cq *_trx_channel;
@@ -153,8 +153,10 @@ namespace rdmalib {
     LibfabricConnection(LibfabricConnection&& obj);
     ~LibfabricConnection();
 
-    id_t id() const;
-    qp_t qp() const;
+    id_t id() const
+    {
+      return &this->_qp->fid;
+    }
 
     template <typename B>
     void initialize_batched_recv(const rdmalib::impl::Buffer<B, libfabric> & sge, size_t offset);
@@ -166,7 +168,12 @@ namespace rdmalib {
     channel_t receive_completion_channel() const;
     channel_t transmit_completion_channel() const;
 
-    template<typename T> inline int32_t post_write(const Buffer_<T> & buf, const size_t size, const uint64_t offset, const RemoteBuffer_ & rbuf, const uint32_t immediate) {
+    int32_t post_cas(SGE && elems, const RemoteBuffer & rbuf, uint64_t compare, uint64_t swap);
+    int32_t post_send(const SGE & elems, int32_t id, bool force_inline);
+    int32_t post_batched_empty_recv(int count);
+    int32_t post_recv(SGE && elem, int32_t id, int count);
+
+    template<typename T> inline int32_t post_write(const Buffer<T> & buf, const size_t size, const uint64_t offset, const RemoteBuffer & rbuf, const uint32_t immediate) {
       int ret = fi_writedata(_qp, (void *)(buf.address() + offset), size, buf.lkey(), immediate + (size << 32), NULL, rbuf.addr, rbuf.rkey, (void *)(_req_count++));
       if(ret) {
         spdlog::error("Post write unsuccessful, reason {} {}, buf size {}, id {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
@@ -186,19 +193,21 @@ namespace rdmalib {
       return _req_count - 1;
     }
 
-    int32_t post_atomic_fadd(const Buffer_<uint64_t> & _accounting_buf, const RemoteBuffer_& rbuf, uint64_t add);
+    int32_t post_atomic_fadd(const Buffer<uint64_t> & _accounting_buf, const RemoteBuffer & rbuf, uint64_t add);
 
     // Register to be notified about all events, including unsolicited ones
     int wait_events(int timeout = -1);
 
-    template <typename S>
-    int32_t _post_write(SGE<S> && elems, const RemoteBuffer_ & rbuf, const uint32_t immediate = 0);
+    int32_t _post_write(SGE && elems, const RemoteBuffer & rbuf, const uint32_t immediate = 0);
+    int32_t post_write(SGE && elems, const RemoteBuffer & rbuf, bool force_inline);
+
+    std::tuple<fi_cq_data_entry *, int> poll_wc(QueueType type, bool blocking, int count, bool update);
   };
 
   struct VerbsConnection : Connection<VerbsConnection, ibverbs>
   {
-    template <typename S> // S for SGE's Derived class
-    using SGE = ScatterGatherElement<S, ibverbs>;
+    using SGE = ScatterGatherElement<VerbsScatterGatherElement, ibverbs>;
+    // using RemoteBuffer = RemoteBuffer<ibverbs>; // handled in parent
 
     id_t _id;
     channel_t _channel;
@@ -210,8 +219,10 @@ namespace rdmalib {
     ~VerbsConnection();
     void close();
 
-    id_t id() const;
-    qp_t qp() const;
+    id_t id() const
+    {
+      return this->_id;
+    }
 
     void inlining(bool enable);
     template <typename B>
@@ -219,15 +230,18 @@ namespace rdmalib {
     void initialize(rdma_cm_id* id);
     ibv_comp_channel* completion_channel() const;
 
-    template <typename S>
-    int32_t post_atomic_fadd(SGE<S> && elems, const RemoteBuffer_ & rbuf, uint64_t add);
+    int32_t post_send(const SGE & elems, int32_t id, bool force_inline);
+    int32_t post_batched_empty_recv(int count);
+    int32_t post_recv(SGE && elem, int32_t id, int count);
+    int32_t post_cas(SGE && elems, const RemoteBuffer & rbuf, uint64_t compare, uint64_t swap);
+    int32_t post_atomic_fadd(SGE && elems, const RemoteBuffer & rbuf, uint64_t add);
 
     void notify_events(bool only_solicited = false);
     ibv_cq* wait_events();
     void ack_events(ibv_cq* cq, int len);
 
-    template <typename S>
-    int32_t _post_write(SGE<S> && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
+    int32_t _post_write(SGE && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
+    int32_t post_write(SGE && elems, const RemoteBuffer & rbuf, bool force_inline);
 
     std::tuple<ibv_wc*, int> poll_wc(QueueType type, bool blocking, int count);
 

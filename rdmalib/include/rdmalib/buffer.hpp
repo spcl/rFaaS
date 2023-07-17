@@ -31,6 +31,7 @@ namespace rdmalib
       using lkey_t = typename library_traits<Library>::lkey_t;
       using rkey_t = typename library_traits<Library>::rkey_t;
       //using SGE = library_traits<Library>::LibSGE;
+      // TODO: DEAL WITH THIS
 
       uint32_t _size;
       uint32_t _header;
@@ -211,7 +212,7 @@ namespace rdmalib
 
   struct VerbsScatterGatherElement : ScatterGatherElement<VerbsScatterGatherElement, ibverbs>
   {
-
+    using Library = ibverbs;
     VerbsScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey);
 
     template <typename T>
@@ -234,6 +235,7 @@ namespace rdmalib
 
   struct LibfabricScatterGatherElement : ScatterGatherElement<LibfabricScatterGatherElement, libfabric>
   {
+    using Library = libfabric;
     mutable std::vector<lkey_t> _lkeys;
 
     LibfabricScatterGatherElement(uint64_t addr, uint32_t bytes, lkey_t lkey)

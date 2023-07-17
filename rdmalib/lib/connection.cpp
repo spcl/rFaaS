@@ -234,24 +234,6 @@ namespace rdmalib {
     }
   }
 
-  id_t LibfabricConnection::id() const
-  {
-    return &this->_qp->fid;
-  }
-  id_t VerbsConnection::id() const
-  {
-    return this->_id;
-  }
-
-  qp_t LibfabricConnection::qp() const
-  {
-    return this->_qp;
-  }
-  qp_t VerbsConnection::qp() const
-  {
-    return this->_qp;
-  }
-
   fid_cq* LibfabricConnection::receive_completion_channel() const
   {
     return this->_rcv_channel;
@@ -289,7 +271,7 @@ namespace rdmalib {
     this->_private_data = private_data;
   }
 
-  int32_t LibfabricConnection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline)
+  int32_t LibfabricConnection::post_send(const SGE & elems, int32_t id, bool force_inline)
   {
     // FIXME: extend with multiple sges
     id = id == -1 ? _req_count++ : id;
@@ -308,7 +290,7 @@ namespace rdmalib {
     return _req_count - 1;
   }
   
-  int32_t VerbsConnection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline)
+  int32_t VerbsConnection::post_send(const SGE & elems, int32_t id, bool force_inline)
   {
     // FIXME: extend with multiple sges
     struct ibv_send_wr wr, *bad;
@@ -427,7 +409,7 @@ namespace rdmalib {
     return count;
   }
 
-  int32_t LibfabricConnection::post_recv(ScatterGatherElement && elem, int32_t id, int count)
+  int32_t LibfabricConnection::post_recv(SGE && elem, int32_t id, int count)
   {
     fi_addr_t temp = 0;
     id = id == -1 ? _req_count++ : id;
@@ -453,7 +435,7 @@ namespace rdmalib {
     return id;
   }
 
-  int32_t VerbsConnection::post_recv(ScatterGatherElement && elem, int32_t id, int count)
+  int32_t VerbsConnection::post_recv(SGE && elem, int32_t id, int count)
   {
     // FIXME: extend with multiple sges
     struct ibv_recv_wr wr, *bad;
@@ -483,7 +465,7 @@ namespace rdmalib {
     return wr.wr_id;
   }
 
-  int32_t LibfabricConnection::_post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, const uint32_t immediate)
+  int32_t LibfabricConnection::_post_write(SGE && elems, const RemoteBuffer & rbuf, const uint32_t immediate)
   {
     fi_addr_t temp = 0;
     int32_t id = _req_count++;
@@ -509,7 +491,7 @@ namespace rdmalib {
 
   }
 
-  int32_t VerbsConnection::_post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline, bool force_solicited)
+  int32_t VerbsConnection::_post_write(SGE && elems, ibv_send_wr wr, bool force_inline, bool force_solicited)
   {
     ibv_send_wr* bad;
     wr.wr_id = _req_count++;
@@ -527,26 +509,26 @@ namespace rdmalib {
       spdlog::error("Post write unsuccesful, reason {} {}, sges_count {}, wr_id {}, remote addr {}, remote rkey {}, imm data {}",
         ret, strerror(ret), wr.num_sge, wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
       );
-      if(IBV_SEND_INLINE & wr.send_flags)
-        spdlog::error("The write of size {} was inlined, is it supported by the device?",
-          wr.sg_list[0].length
-        );
+      if(IBV_SEND_INLINE & wr.send_flags) {
+        spdlog::error("The write of size {} was inlined, is it supported by the device?", wr.sg_list[0].length);
+      }
       return -1;
     }
-    if(wr.num_sge > 0)
+
+    if(wr.num_sge > 0) {
       SPDLOG_DEBUG(
-          "Post write succesfull id: {}, sge size: {}, first lkey {} len {}, remote addr {}, remote rkey {}, imm data {}",
+          "Post write successful id: {}, sge size: {}, first lkey {} len {}, remote addr {}, remote rkey {}, imm data {}",
           wr.wr_id, wr.num_sge, wr.sg_list[0].lkey, wr.sg_list[0].length, wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
       );
-    else
+    } else {
       SPDLOG_DEBUG(
-          "Post write succesfull id: {}, remote addr {}, remote rkey {}, imm data {}", wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
+          "Post write successful id: {}, remote addr {}, remote rkey {}, imm data {}", wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, ntohl(wr.imm_data)
       );
+    }
     return _req_count - 1;
-
   }
 
-  int32_t LibfabricConnection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, bool force_inline)
+  int32_t LibfabricConnection::post_write(SGE && elems, const RemoteBuffer & rbuf, bool force_inline)
   {
     if (elems.size() > 1) {
       spdlog::error("Post write unsuccessful on connection {}, reason Function not implemented for multiple sges.", fmt::ptr(this));
@@ -555,7 +537,7 @@ namespace rdmalib {
     return _post_write(std::forward<ScatterGatherElement>(elems), rbuf);
   }
 
-  int32_t VerbsConnection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, bool force_inline)
+  int32_t VerbsConnection::post_write(SGE && elems, const RemoteBuffer & rbuf, bool force_inline)
   {
     ibv_send_wr wr;
     memset(&wr, 0, sizeof(wr));
@@ -565,7 +547,7 @@ namespace rdmalib {
     return _post_write(std::forward<ScatterGatherElement>(elems), wr, force_inline, false);
   }
 
-  int32_t LibfabricConnection::post_cas(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t compare, uint64_t swap)
+  int32_t LibfabricConnection::post_cas(SGE && elems, const RemoteBuffer & rbuf, uint64_t compare, uint64_t swap)
   {
     // TODO check if 
     fi_addr_t temp = 0;
@@ -581,7 +563,7 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  int32_t VerbsConnection::post_cas(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t compare, uint64_t swap)
+  int32_t VerbsConnection::post_cas(SGE && elems, const RemoteBuffer & rbuf, uint64_t compare, uint64_t swap)
   {
     ibv_send_wr wr, *bad;
     memset(&wr, 0, sizeof(wr));
@@ -620,7 +602,7 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  int32_t VerbsConnection::post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add)
+  int32_t VerbsConnection::post_atomic_fadd(SGE && elems, const RemoteBuffer & rbuf, uint64_t add)
   {
     ibv_send_wr wr, *bad;
     memset(&wr, 0, sizeof(wr));
@@ -639,9 +621,7 @@ namespace rdmalib {
       spdlog::error("Post write unsuccesful, reason {} {}", errno, strerror(errno));
       return -1;
     }
-    SPDLOG_DEBUG(
-        "Post atomic fadd succesfull id: {}, remote addr {}, remote rkey {}, val {}", wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, wr.wr.atomic.compare_add
-    );
+    SPDLOG_DEBUG("Post atomic fadd succesfull id: {}, remote addr {}, remote rkey {}, val {}", wr.wr_id,  wr.wr.rdma.remote_addr, wr.wr.rdma.rkey, wr.wr.atomic.compare_add);
     return _req_count - 1;
   }
 
@@ -659,15 +639,16 @@ namespace rdmalib {
       );
       if (ret == -FI_EAVAIL) {
         ret = fi_cq_readerr(type == QueueType::RECV ? _rcv_channel : _trx_channel, &_ewc, 0);
-        if (ret != 1)
+        if (ret != 1) {
           ret = -1;
-        else
+        } else {
           spdlog::error(
-              "Queue {} connection {} WC {} finished with an error {}",
-              type == QueueType::RECV ? "recv" : "send", fmt::ptr(this),
-              reinterpret_cast<uint64_t>(_ewc.op_context),
-              fi_strerror(_ewc.err)
-            );
+            "Queue {} connection {} WC {} finished with an error {}",
+            type == QueueType::RECV ? "recv" : "send", fmt::ptr(this),
+            reinterpret_cast<uint64_t>(_ewc.op_context),
+            fi_strerror(_ewc.err)
+          );
+        }
       }
     } while(blocking && (ret == -EAGAIN || ret == 0));
 
@@ -703,7 +684,7 @@ namespace rdmalib {
       spdlog::error("Failure of polling events from: {} queue! Return value {}, errno {}", type == QueueType::RECV ? "recv" : "send", ret, errno);
       return std::make_tuple(nullptr, -1);
     }
-    if(ret)
+    if(ret) {
       for(int i = 0; i < ret; ++i) {
         if(wcs[i].status != IBV_WC_SUCCESS) {
           spdlog::error(
@@ -714,6 +695,7 @@ namespace rdmalib {
         }
         SPDLOG_DEBUG("Queue {} Ret {}/{} WC {} Status {}", type == QueueType::RECV ? "recv" : "send", i + 1, ret, wcs[i].wr_id, ibv_wc_status_str(wcs[i].status));
       }
+    }
     return std::make_tuple(wcs, ret);
   }
 
