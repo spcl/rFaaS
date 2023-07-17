@@ -26,18 +26,11 @@ namespace rdmalib
     struct Buffer
     {
     protected:
-      using mr_t   = typename library_traits<Library>::mr_t;
-      using pd_t   = typename library_traits<Library>::pd_t;  
+      using mr_t = typename library_traits<Library>::mr_t;
+      using pd_t = typename library_traits<Library>::pd_t;
       using lkey_t = typename library_traits<Library>::lkey_t;
       using rkey_t = typename library_traits<Library>::rkey_t;
-
-      /*
-      typedef typename Derived::library                  Library;
-      typedef typename library_traits<Library>::mr_t    mr_t   ;
-      typedef typename library_traits<Library>::pd_t    pd_t   ;
-      typedef typename library_traits<Library>::lkey_t  lkey_t ;
-      typedef typename library_traits<Library>::rkey_t  rkey_t ;
-      */
+      //using SGE = library_traits<Library>::LibSGE;
 
       uint32_t _size;
       uint32_t _header;
@@ -69,22 +62,21 @@ namespace rdmalib
       uint32_t bytes() const;
       void register_memory(pd_t pd, int access)
       {
-        static_cast<Derived*>(this)->register_memory(pd, access);
+        static_cast<Derived *>(this)->register_memory(pd, access);
       }
       lkey_t lkey() const
       {
-        static_cast<Derived*>(this)->lkey();
+        static_cast<Derived *>(this)->lkey();
       }
       rkey_t rkey() const
       {
-        static_cast<Derived*>(this)->rkey();
+        static_cast<Derived *>(this)->rkey();
       }
-      ScatterGatherElement<Derived, Library> sge(uint32_t size, uint32_t offset) const;
+      SGE sge(uint32_t size, uint32_t offset) const;
     };
 
     struct LibfabricBuffer : Buffer<LibfabricBuffer, libfabric>
     {
-      //using library = libfabric;
       void register_memory(pd_t pd, int access);
       lkey_t lkey() const;
       rkey_t rkey() const;
@@ -93,7 +85,6 @@ namespace rdmalib
 
     struct VerbsBuffer : Buffer<VerbsBuffer, ibverbs>
     {
-      //using library = ibverbs;
       void register_memory(pd_t pd, int access);
       lkey_t lkey() const;
       rkey_t rkey() const;
@@ -112,17 +103,19 @@ namespace rdmalib
     rkey_t rkey;
     uint32_t size;
 
-    RemoteBuffer():
+    RemoteBuffer() :
       addr(0),
       rkey(0),
       size(0)
-    {}
+    {
+    }
     // When accessing the remote buffer, we might not need to know the size.
-    RemoteBuffer(uintptr_t addr, rkey_t rkey, uint32_t size = 0):
+    RemoteBuffer(uintptr_t addr, rkey_t rkey, uint32_t size = 0) :
       addr(addr),
       rkey(rkey),
       size(size)
-    {}
+    {
+    }
 
     template <class Archive>
     void serialize(Archive &ar)
@@ -144,6 +137,7 @@ namespace rdmalib
     // Does NOT free the associated resource
     Buffer(T *ptr, uint32_t size) : ImplBuffer(ptr, size, sizeof(T))
     {
+    
     }
 
     // Provide a buffer instance for existing memory pool
@@ -175,18 +169,18 @@ namespace rdmalib
   template <typename Derived, typename Library>
   struct ScatterGatherElement
   {
-    //using Library = typename Derived::library;
-    using sge_t  = typename library_traits<Library>::sge_t;
+    using sge_t = typename library_traits<Library>::sge_t;
     using lkey_t = typename library_traits<Library>::lkey_t;
 
     mutable std::vector<sge_t> _sges;
 
     ScatterGatherElement()
-    {}
+    {
+    }
 
     ScatterGatherElement(uint64_t addr, uint32_t bytes, lkey_t lkey)
     {
-      static_cast<Derived*>(this)->Derived(addr, bytes, lkey);
+      static_cast<Derived *>(this)->Derived(addr, bytes, lkey);
     }
 
     template <typename T>
@@ -198,18 +192,18 @@ namespace rdmalib
     template <typename T>
     void add(const Buffer<T, Library> &buf)
     {
-      static_cast<Derived*>(this)->add(buf);
+      static_cast<Derived *>(this)->add(buf);
     }
 
     template <typename T>
     void add(const Buffer<T, Library> &buf, uint32_t size, size_t offset = 0)
     {
-      static_cast<Derived*>(this)->add(buf, size, offset);
+      static_cast<Derived *>(this)->add(buf, size, offset);
     }
 
     sge_t *array() const
     {
-      return static_cast<Derived*>(this)->array();
+      return static_cast<Derived *>(this)->array();
     }
 
     size_t size() const;
@@ -217,7 +211,6 @@ namespace rdmalib
 
   struct VerbsScatterGatherElement : ScatterGatherElement<VerbsScatterGatherElement, ibverbs>
   {
-    using Library = ibverbs;
 
     VerbsScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey);
 
@@ -237,13 +230,11 @@ namespace rdmalib
 
     sge_t *array() const;
     size_t size() const;
-
   };
 
   struct LibfabricScatterGatherElement : ScatterGatherElement<LibfabricScatterGatherElement, libfabric>
   {
     mutable std::vector<lkey_t> _lkeys;
-    using Library = libfabric;
 
     LibfabricScatterGatherElement(uint64_t addr, uint32_t bytes, lkey_t lkey)
     {

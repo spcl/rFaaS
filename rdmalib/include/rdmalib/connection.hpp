@@ -229,6 +229,8 @@ namespace rdmalib {
     template <typename S>
     int32_t _post_write(SGE<S> && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
 
+    std::tuple<ibv_wc*, int> poll_wc(QueueType type, bool blocking, int count);
+
   };
 }
 

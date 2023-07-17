@@ -243,54 +243,54 @@ namespace rdmalib {
     return this->_id;
   }
 
-  qp_t Connection::qp() const
+  qp_t LibfabricConnection::qp() const
   {
     return this->_qp;
   }
-  qp_t Connection::qp() const
+  qp_t VerbsConnection::qp() const
   {
     return this->_qp;
   }
 
-  #ifdef USE_LIBFABRIC
-  fid_cq* Connection::receive_completion_channel() const
+  fid_cq* LibfabricConnection::receive_completion_channel() const
   {
     return this->_rcv_channel;
   }
-  fid_cq* Connection::transmit_completion_channel() const
+  fid_cq* LibfabricConnection::transmit_completion_channel() const
   {
     return this->_trx_channel;
   }
-  #else
-  ibv_comp_channel* Connection::completion_channel() const
+  ibv_comp_channel* VerbsConnection::completion_channel() const
   {
     return this->_channel;
   }
-  #endif
 
-  uint32_t Connection::private_data() const
+  template <typename D, typename L>
+  uint32_t Connection<D,L>::private_data() const
   {
     return this->_private_data;
   }
 
-  ConnectionStatus Connection::status() const
+  template <typename D, typename L>
+  ConnectionStatus Connection<D,L>::status() const
   {
     return this->_status;
   }
 
-  void Connection::set_status(ConnectionStatus status)
+  template <typename D, typename L>
+  void Connection<D,L>::set_status(ConnectionStatus status)
   {
     this->_status = status;
   }
 
-  void Connection::set_private_data(uint32_t private_data)
+  template <typename D, typename L>
+  void Connection<D,L>::set_private_data(uint32_t private_data)
   {
     this->_private_data = private_data;
   }
 
-  int32_t Connection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline)
+  int32_t LibfabricConnection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline)
   {
-    #ifdef USE_LIBFABRIC
     // FIXME: extend with multiple sges
     id = id == -1 ? _req_count++ : id;
     SPDLOG_DEBUG("Post send to local Local QPN on connection {} fid {}", fmt::ptr(this), fmt::ptr(&_qp->fid));
@@ -306,7 +306,10 @@ namespace rdmalib {
       fmt::ptr(this), elems.size(), elems.array()[0].iov_base, elems.array()[0].iov_len, id
     );
     return _req_count - 1;
-    #else
+  }
+  
+  int32_t VerbsConnection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline)
+  {
     // FIXME: extend with multiple sges
     struct ibv_send_wr wr, *bad;
     wr.wr_id = id == -1 ? _req_count++ : id;
@@ -328,12 +331,10 @@ namespace rdmalib {
       wr.num_sge, wr.sg_list[0].addr, wr.sg_list[0].length, wr.wr_id, wr.send_flags
     );
     return _req_count - 1;
-    #endif
   }
 
-  int32_t Connection::post_batched_empty_recv(int count)
+  int32_t LibfabricConnection::post_batched_empty_recv(int count)
   {
-    #ifdef USE_LIBFABRIC
     int loops = count / _rbatch;
     int reminder = count % _rbatch;
     SPDLOG_DEBUG("Batch {} {} to local QPN on connection {} fid {}", loops, reminder, fmt::ptr(this), fmt::ptr(&_qp->fid));
@@ -378,7 +379,10 @@ namespace rdmalib {
 
     SPDLOG_DEBUG("Batched Post empty recv successfull on connection {}", fmt::ptr(this));
     return count;
-    #else
+  }
+  
+  int32_t VerbsConnection::post_batched_empty_recv(int count)
+  {
     struct ibv_recv_wr* bad = nullptr;
     int loops = count / _rbatch;
     int reminder = count % _rbatch;
@@ -421,12 +425,10 @@ namespace rdmalib {
 
     SPDLOG_DEBUG("Batched Post empty recv succesfull");
     return count;
-    #endif
   }
 
-  int32_t Connection::post_recv(ScatterGatherElement && elem, int32_t id, int count)
+  int32_t LibfabricConnection::post_recv(ScatterGatherElement && elem, int32_t id, int count)
   {
-    #ifdef USE_LIBFABRIC
     fi_addr_t temp = 0;
     id = id == -1 ? _req_count++ : id;
     SPDLOG_DEBUG("post recv to local Local QPN fid {} connection {}", fmt::ptr(&_qp->fid), fmt::ptr(this));
@@ -450,9 +452,10 @@ namespace rdmalib {
       SPDLOG_DEBUG("Post recv successfull on connection {}", fmt::ptr(this));
     return id;
   }
-  #else
-    // FIXME: extend with multiple sges
 
+  int32_t VerbsConnection::post_recv(ScatterGatherElement && elem, int32_t id, int count)
+  {
+    // FIXME: extend with multiple sges
     struct ibv_recv_wr wr, *bad;
     wr.wr_id = id == -1 ? _req_count++ : id;
     wr.next = nullptr;
@@ -479,10 +482,8 @@ namespace rdmalib {
       SPDLOG_DEBUG("Post recv succesfull");
     return wr.wr_id;
   }
-  #endif
 
-  #ifdef USE_LIBFABRIC
-  int32_t Connection::_post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, const uint32_t immediate)
+  int32_t LibfabricConnection::_post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, const uint32_t immediate)
   {
     fi_addr_t temp = 0;
     int32_t id = _req_count++;
@@ -507,8 +508,8 @@ namespace rdmalib {
     return _req_count - 1;
 
   }
-  #else
-  int32_t Connection::_post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline, bool force_solicited)
+
+  int32_t VerbsConnection::_post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline, bool force_solicited)
   {
     ibv_send_wr* bad;
     wr.wr_id = _req_count++;
@@ -544,48 +545,28 @@ namespace rdmalib {
     return _req_count - 1;
 
   }
-  #endif
 
-  int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, bool force_inline)
+  int32_t LibfabricConnection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, bool force_inline)
   {
-    #ifdef USE_LIBFABRIC
     if (elems.size() > 1) {
       spdlog::error("Post write unsuccessful on connection {}, reason Function not implemented for multiple sges.", fmt::ptr(this));
       return -1;
     }
     return _post_write(std::forward<ScatterGatherElement>(elems), rbuf);
-    #else
+  }
+
+  int32_t VerbsConnection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, bool force_inline)
+  {
     ibv_send_wr wr;
     memset(&wr, 0, sizeof(wr));
     wr.opcode = IBV_WR_RDMA_WRITE;
     wr.wr.rdma.remote_addr = rbuf.addr;
     wr.wr.rdma.rkey = rbuf.rkey;
     return _post_write(std::forward<ScatterGatherElement>(elems), wr, force_inline, false);
-    #endif
   }
 
-  int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint32_t immediate, bool force_inline, bool force_solicited)
+  int32_t LibfabricConnection::post_cas(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t compare, uint64_t swap)
   {
-    #ifdef USE_LIBFABRIC
-    if (elems.size() > 1) {
-      spdlog::error("Post write unsuccessful on connection {}, reason Function not implemented for multiple sges.", fmt::ptr(this));
-      return -1;
-    }
-    return _post_write(std::forward<ScatterGatherElement>(elems), rbuf, immediate);
-    #else
-    ibv_send_wr wr;
-    memset(&wr, 0, sizeof(wr));
-    wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
-    wr.imm_data = htonl(immediate);
-    wr.wr.rdma.remote_addr = rbuf.addr;
-    wr.wr.rdma.rkey = rbuf.rkey;
-    return _post_write(std::forward<ScatterGatherElement>(elems), wr, force_inline, force_solicited);
-    #endif
-  }
-
-  int32_t Connection::post_cas(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t compare, uint64_t swap)
-  {
-    #ifdef USE_LIBFABRIC
     // TODO check if 
     fi_addr_t temp = 0;
     int32_t id = _req_count++;
@@ -598,7 +579,10 @@ namespace rdmalib {
     }
     SPDLOG_DEBUG("Post write id {} successful on connection", id, fmt::ptr(this));
     return _req_count - 1;
-    #else
+  }
+
+  int32_t VerbsConnection::post_cas(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t compare, uint64_t swap)
+  {
     ibv_send_wr wr, *bad;
     memset(&wr, 0, sizeof(wr));
     wr.wr_id = _req_count++;
@@ -619,11 +603,9 @@ namespace rdmalib {
     }
     SPDLOG_DEBUG("Post write succesfull");
     return _req_count - 1;
-    #endif
   }
 
-  #ifdef USE_LIBFABRIC
-  int32_t Connection::post_atomic_fadd(const Buffer<uint64_t> & _accounting_buf, const RemoteBuffer & rbuf, uint64_t add)
+  int32_t LibfabricConnection::post_atomic_fadd(const Buffer<uint64_t> & _accounting_buf, const RemoteBuffer & rbuf, uint64_t add)
   {
     int32_t id = _req_count++;
     memcpy(_accounting_buf.data(), &add, sizeof(add));
@@ -637,8 +619,8 @@ namespace rdmalib {
     );
     return _req_count - 1;
   }
-  #else
-  int32_t Connection::post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add)
+
+  int32_t VerbsConnection::post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add)
   {
     ibv_send_wr wr, *bad;
     memset(&wr, 0, sizeof(wr));
@@ -662,11 +644,8 @@ namespace rdmalib {
     );
     return _req_count - 1;
   }
-  #endif
 
-
-  #ifdef USE_LIBFABRIC
-  std::tuple<fi_cq_data_entry *, int> Connection::poll_wc(QueueType type, bool blocking, int count, bool update)
+  std::tuple<fi_cq_data_entry *, int> LibfabricConnection::poll_wc(QueueType type, bool blocking, int count, bool update)
   {
     int ret = 0;
     fi_cq_data_entry* wcs = (type == QueueType::RECV ? _rwc.data() : _swc.data());
@@ -705,8 +684,8 @@ namespace rdmalib {
     }
     return std::make_tuple(wcs, ret == -EAGAIN ? 0 : ret);
   }
-  #else
-  std::tuple<ibv_wc*, int> Connection::poll_wc(QueueType type, bool blocking, int count)
+  
+  std::tuple<ibv_wc*, int> VerbsConnection::poll_wc(QueueType type, bool blocking, int count)
   {
     int ret = 0;
     ibv_wc* wcs = (type == QueueType::RECV ? _rwc.data() : _swc.data());
@@ -737,35 +716,27 @@ namespace rdmalib {
       }
     return std::make_tuple(wcs, ret);
   }
-  #endif
 
-  #ifndef USE_LIBFABRIC
-  void Connection::notify_events(bool only_solicited)
+  void VerbsConnection::notify_events(bool only_solicited)
   {
     impl::expect_zero(ibv_req_notify_cq(_qp->recv_cq, only_solicited));
   }
-  #endif
 
-  #ifdef USE_LIBFABRIC
-  int Connection::wait_events(int timeout)
+  int LibfabricConnection::wait_events(int timeout)
   {
     return fi_cntr_wait(_write_counter, _counter+1, timeout);
   }
-  #else
-  ibv_cq* Connection::wait_events()
+
+  ibv_cq* VerbsConnection::wait_events()
   {
     ibv_cq* ev_cq = nullptr;
     void* ev_ctx = nullptr;
     impl::expect_zero(ibv_get_cq_event(_channel, &ev_cq, &ev_ctx));
     return ev_cq;
   }
-  #endif
 
-  #ifndef USE_LIBFABRIC
-  void Connection::ack_events(ibv_cq* cq, int len)
+  void VerbsConnection::ack_events(ibv_cq* cq, int len)
   {
     ibv_ack_cq_events(cq, len);
   }
-  #endif
-
 }
