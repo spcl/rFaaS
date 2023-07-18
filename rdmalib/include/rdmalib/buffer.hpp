@@ -70,11 +70,11 @@ namespace rdmalib
       }
       lkey_t lkey() const
       {
-        static_cast<Derived *>(this)->lkey();
+        return static_cast<const Derived *>(this)->lkey();
       }
       rkey_t rkey() const
       {
-        static_cast<Derived *>(this)->rkey();
+        return static_cast<const Derived *>(this)->rkey();
       }
       template <typename S>
       SGE<S> sge(uint32_t size, uint32_t offset) const
@@ -221,6 +221,7 @@ namespace rdmalib
   {
     using Library = ibverbs;
     VerbsScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey);
+    VerbsScatterGatherElement();
 
     template <typename T>
     void add(const Buffer<T, Library> &buf)
@@ -245,6 +246,7 @@ namespace rdmalib
     using Library = libfabric;
     mutable std::vector<lkey_t> _lkeys;
 
+    LibfabricScatterGatherElement();
     LibfabricScatterGatherElement(uint64_t addr, uint32_t bytes, lkey_t lkey)
     {
       _sges.push_back({(void *)addr, bytes});

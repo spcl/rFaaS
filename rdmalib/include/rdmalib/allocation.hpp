@@ -20,14 +20,12 @@ namespace rdmalib {
     char listen_address[16];
   };
 
+  template <typename Library>
   struct BufferInformation
   {
+    using rkey_t = library_traits<Library>::rkey_t;
     uint64_t r_addr;
-    #ifdef USE_LIBFABRIC
-    uint64_t r_key;
-    #else
-    uint32_t r_key;
-    #endif
+    rkey_t r_key;
   };
 
 }

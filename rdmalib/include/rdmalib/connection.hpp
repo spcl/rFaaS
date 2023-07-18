@@ -75,17 +75,16 @@ namespace rdmalib {
     std::array<wc_t, _wc_size> _swc; // fast fix for overlapping polling
     std::array<wc_t, _wc_size> _rwc;
 
-    std::array<SGE<Derived>, _wc_size> _rwc_sges;
     int _send_flags;
 
   public:
     static const int _rbatch = 32; // 32 for faster division in the code
 
     Connection(bool passive = false) {
-      static_cast<Derived*>(this)->Derived(passive);
+      
     }
     ~Connection() {
-      static_cast<Derived*>(this)->~Derived();
+      
     }
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;
@@ -147,6 +146,8 @@ namespace rdmalib {
     uint64_t _counter;
     fid_domain* _domain = nullptr;
 
+    std::array<SGE, _wc_size> _rwc_sges;
+
     fi_cq_err_entry _ewc;
 
     LibfabricConnection(bool passive);
@@ -206,13 +207,14 @@ namespace rdmalib {
 
   struct VerbsConnection : Connection<VerbsConnection, ibverbs>
   {
-    using SGE = ScatterGatherElement<VerbsScatterGatherElement, ibverbs>;
+    using SGE = VerbsScatterGatherElement;
     // using RemoteBuffer_ = RemoteBuffer_<ibverbs>; // handled in parent
 
     id_t _id;
     channel_t _channel;
 
     struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
+    std::array<SGE, _wc_size> _rwc_sges;
 
     VerbsConnection(bool passive);
     VerbsConnection(VerbsConnection&& obj);
