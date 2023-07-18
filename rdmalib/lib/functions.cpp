@@ -5,7 +5,8 @@
 
 namespace rdmalib { namespace functions {
 
-  constexpr int Submission::DATA_HEADER_SIZE;
+  constexpr int LibfabricSubmission::DATA_HEADER_SIZE;
+  constexpr int VerbsSubmission::DATA_HEADER_SIZE;
 
   void FunctionsDB::test_function(void* args, void* res)
   {

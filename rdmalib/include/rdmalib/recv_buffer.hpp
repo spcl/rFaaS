@@ -16,7 +16,7 @@ namespace rdmalib
   struct RecvBuffer
   {
     using wc_t = library_traits<Library>::wc_t;
-    using LibConnection = library_traits<Library>::LibConnection;
+    //using LibConnection = library_traits<Library>::LibConnection; // TODO
 
     int _rcv_buf_size;
     int _refill_threshold;

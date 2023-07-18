@@ -5,17 +5,20 @@
 
 namespace rdmalib { namespace server {
 
-  ServerStatus::ServerStatus():
+  template <typename Library>
+  ServerStatus<Library>::ServerStatus():
     _address(""),
     _port(0)
   {}
 
-  ServerStatus::ServerStatus(std::string address, int port):
+  template <typename Library>
+  ServerStatus<Library>::ServerStatus(std::string address, int port):
     _address(address),
     _port(port)
   {}
 
-  ServerStatus ServerStatus::deserialize(std::istream & in)
+  template <typename Library>
+  ServerStatus<Library> ServerStatus<Library>::deserialize(std::istream & in)
   {
     ServerStatus status;
     cereal::JSONInputArchive archive_in(in);
@@ -23,7 +26,8 @@ namespace rdmalib { namespace server {
     return status;
   }
 
-  void ServerStatus::serialize(std::ostream & out) const
+  template <typename Library>
+  void ServerStatus<Library>::serialize(std::ostream & out) const
   {
     cereal::JSONOutputArchive archive_out(out);
     archive_out(*this);

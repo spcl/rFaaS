@@ -16,9 +16,10 @@
 
 namespace rdmalib { namespace server {
 
+  template <typename Library>
   struct ServerStatus {
-    std::vector<rdmalib::RemoteBuffer> _buffers;
-    rdmalib::RemoteBuffer _threads_allocator;
+    std::vector<rdmalib::RemoteBuffer<Library>> _buffers;
+    rdmalib::RemoteBuffer<Library> _threads_allocator;
     std::string _address;
     int _port;
 
