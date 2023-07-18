@@ -30,8 +30,11 @@ namespace rdmalib
       using pd_t = typename library_traits<Library>::pd_t;
       using lkey_t = typename library_traits<Library>::lkey_t;
       using rkey_t = typename library_traits<Library>::rkey_t;
-      //using SGE = library_traits<Library>::LibSGE;
+
       // TODO: DEAL WITH THIS
+      //using SGE = library_traits<Library>::LibSGE;
+      template <typename S>
+      using SGE = ScatterGatherElement<S, Library>;
 
       uint32_t _size;
       uint32_t _header;
@@ -73,7 +76,11 @@ namespace rdmalib
       {
         static_cast<Derived *>(this)->rkey();
       }
-      SGE sge(uint32_t size, uint32_t offset) const;
+      template <typename S>
+      SGE<S> sge(uint32_t size, uint32_t offset) const
+      {
+        return {address() + offset, size, lkey()};
+      }
     };
 
     struct LibfabricBuffer : Buffer<LibfabricBuffer, libfabric>

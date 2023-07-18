@@ -188,13 +188,6 @@ namespace rdmalib
       return this->_ptr;
     }
 
-    template <typename Derived, typename Library>
-    typename Buffer<Derived, Library>::SGE
-    Buffer<Derived, Library>::sge(uint32_t size, uint32_t offset) const
-    {
-      return {address() + offset, size, lkey()};
-    }
-
   }
 }
 
