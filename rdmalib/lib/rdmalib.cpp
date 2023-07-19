@@ -466,17 +466,22 @@ namespace rdmalib {
     _pd = nullptr;
   }
 
-  RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize, int max_inline_data):
+  LibfabricRDMAPassive::LibfabricRDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize, int max_inline_data):
     _addr(ip, port, true),
     _ec(nullptr),
-    #ifndef USE_LIBFABRIC
-    _listen_id(nullptr),
-    #endif
     _pd(nullptr)
   {
-    #ifdef USE_LIBFABRIC
     impl::expect_zero(fi_domain(_addr.fabric, _addr.addrinfo, &_pd, nullptr));
-    #else
+    if(initialize)
+      this->allocate();
+  }
+
+  VerbsRDMAPassive::VerbsRDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize, int max_inline_data):
+    _addr(ip, port, true),
+    _ec(nullptr),
+    _listen_id(nullptr),
+    _pd(nullptr)
+  {
     // Size of Queue Pair
     // FIXME: configurable -> parallel workers
     _cfg.attr.cap.max_send_wr = 40;
@@ -492,30 +497,29 @@ namespace rdmalib {
     _cfg.conn_param.initiator_depth = 4;
     _cfg.conn_param.retry_count = 3; 
     _cfg.conn_param.rnr_retry_count = 3;
-    #endif
 
     if(initialize)
       this->allocate();
   }
 
-  RDMAPassive::~RDMAPassive()
+  LibfabricRDMAPassive::~LibfabricRDMAPassive()
   {
-    #ifdef USE_LIBFABRIC
     if (_pd)
       impl::expect_zero(fi_close(&_pd->fid));
     if (_pep)
       impl::expect_zero(fi_close(&_pep->fid));
     if (_ec)
       impl::expect_zero(fi_close(&_ec->fid));
-    #else
-    rdma_destroy_id(this->_listen_id);
-    rdma_destroy_event_channel(this->_ec);
-    #endif
   }
 
-  void RDMAPassive::allocate()
+  VerbsRDMAPassive::~VerbsRDMAPassive()
   {
-    #ifdef USE_LIBFABRIC
+    rdma_destroy_id(this->_listen_id);
+    rdma_destroy_event_channel(this->_ec);
+  }
+
+  void LibfabricRDMAPassive::allocate()
+  {
     // Start listening
     fi_eq_attr eq_attr;
     memset(&eq_attr, 0, sizeof(eq_attr));
@@ -550,7 +554,10 @@ namespace rdmalib {
     // uint32_t val;
     // _ops->get_val(&_pd->fid, GNI_CONN_TABLE_MAX_SIZE, &val);
     // std::cout << "MAXIMUM VALUE: " << val << std::endl;
-    #else
+  }
+
+  void VerbsRDMAPassive::allocate()
+  {
         // Start listening
     impl::expect_nonzero(this->_ec = rdma_create_event_channel());
     impl::expect_zero(rdma_create_id(this->_ec, &this->_listen_id, NULL, RDMA_PS_TCP));
@@ -566,23 +573,9 @@ namespace rdmalib {
       "[RDMAPassive]: listening id {}, protection domain {}",
       fmt::ptr(this->_listen_id), _pd->handle
     );
-    #endif
   }
 
-  #ifdef USE_LIBFABRIC
-  fid_domain* RDMAPassive::pd() const
-  {
-    return this->_pd;
-  }
-  #else
-  ibv_pd* RDMAPassive::pd() const
-  {
-    return this->_pd;
-  }
-  #endif
-
-  #ifndef USE_LIBFABRIC
-  void RDMAPassive::set_nonblocking_poll()
+  void VerbsRDMAPassive::set_nonblocking_poll()
   {
     int fd = this->_ec->fd;
     int flags = fcntl(fd, F_GETFL);
@@ -592,18 +585,19 @@ namespace rdmalib {
       return;
     }
   }
-  #endif
 
-  bool RDMAPassive::nonblocking_poll_events(int timeout)
+  bool LibfabricRDMAPassive::nonblocking_poll_events(int timeout)
   {
-    #ifdef USE_LIBFABRIC
     uint32_t event;
     fi_eq_entry entry;
     int ret = fi_eq_sread(_ec, &event, &entry, sizeof(entry), timeout, FI_PEEK);
     if (ret < 0 && ret != -FI_EAGAIN && ret != -FI_EAVAIL) 
       spdlog::error("RDMA event poll failed");
     return ret > 0 || ret == -FI_EAVAIL;
-    #else
+  }
+
+  bool VerbsRDMAPassive::nonblocking_poll_events(int timeout)
+  {
     pollfd my_pollfd;
     my_pollfd.fd      = this->_ec->fd;
     my_pollfd.events  = POLLIN;
@@ -614,17 +608,15 @@ namespace rdmalib {
       return false;
     }
     return rc > 0;
-    #endif
   }
 
-  std::tuple<Connection*, ConnectionStatus> RDMAPassive::poll_events(bool share_cqs)
+  std::tuple<LibfabricConnection*, ConnectionStatus> LibfabricRDMAPassive::poll_events(bool share_cqs)
   {
-    #ifdef USE_LIBFABRIC
     uint32_t event;
     // Need those additional bytes in fi_eq_cm_entry so that we can transfer the secret
     int total_size = sizeof(fi_eq_cm_entry) + sizeof(uint32_t);
     fi_eq_cm_entry *entry = (fi_eq_cm_entry *)malloc(total_size);
-  	Connection* connection = nullptr;
+  	LibfabricConnection* connection = nullptr;
     ConnectionStatus status = ConnectionStatus::UNKNOWN;
 
     // Poll rdma cm events.
@@ -643,7 +635,7 @@ namespace rdmalib {
 
     switch (event) { 
       case FI_CONNREQ:
-        connection = new Connection{true};
+        connection = new LibfabricConnection{true};
 
         SPDLOG_DEBUG("[RDMAPassive] Connection request with ret {}", ret);
 
@@ -686,7 +678,7 @@ namespace rdmalib {
           "[RDMAPassive] Connection is established for id {}, and connection {}",
           fmt::ptr(entry->fid), fmt::ptr(entry->fid->context)
         );
-        connection = reinterpret_cast<Connection*>(entry->fid->context);
+        connection = reinterpret_cast<LibfabricConnection*>(entry->fid->context);
         status = ConnectionStatus::ESTABLISHED;
         break;
       case FI_SHUTDOWN:
@@ -694,7 +686,7 @@ namespace rdmalib {
           "[RDMAPassive] Disconnect for id {}, and connection {}",
           fmt::ptr(entry->fid), fmt::ptr(entry->fid->context)
         );
-        connection = reinterpret_cast<Connection*>(entry->fid->context);
+        connection = reinterpret_cast<LibfabricConnection*>(entry->fid->context);
         //connection->close();
         status = ConnectionStatus::DISCONNECTED;
         _active_connections.erase(connection);
@@ -704,9 +696,14 @@ namespace rdmalib {
         break;
     }
     free(entry);
-    #else
+
+    return std::make_tuple(connection, status);
+  }
+
+  std::tuple<VerbsConnection*, ConnectionStatus> VerbsRDMAPassive::poll_events(bool share_cqs)
+  {
     rdma_cm_event* event = nullptr;
-		Connection* connection = nullptr;
+		VerbsConnection* connection = nullptr;
     ConnectionStatus status = ConnectionStatus::UNKNOWN;
 
     // Poll rdma cm events.
@@ -721,7 +718,7 @@ namespace rdmalib {
 
     switch (event->event) { 
       case RDMA_CM_EVENT_CONNECT_REQUEST:
-        connection = new Connection{true};
+        connection = new VerbsConnection{true};
         if(event->param.conn.private_data_len != 0) {
           uint32_t data = *reinterpret_cast<const uint32_t*>(event->param.conn.private_data);
           connection->set_private_data(data);
@@ -762,7 +759,7 @@ namespace rdmalib {
           "[RDMAPassive] Connection is established for id {}, and connection {}",
           fmt::ptr(event->id), fmt::ptr(event->id->context)
         );
-        connection = reinterpret_cast<Connection*>(event->id->context);
+        connection = reinterpret_cast<VerbsConnection*>(event->id->context);
         status = ConnectionStatus::ESTABLISHED;
         break;
       case RDMA_CM_EVENT_DISCONNECTED:
@@ -770,7 +767,7 @@ namespace rdmalib {
           "[RDMAPassive] Disconnect for id {}, and connection {}",
           fmt::ptr(event->id), fmt::ptr(event->id->context)
         );
-        connection = reinterpret_cast<Connection*>(event->id->context);
+        connection = reinterpret_cast<VerbsConnection*>(event->id->context);
         //connection->close();
         status = ConnectionStatus::DISCONNECTED;
         _active_connections.erase(connection);
@@ -795,23 +792,23 @@ namespace rdmalib {
         break;
     }
     rdma_ack_cm_event(event);
-    #endif
 
     return std::make_tuple(connection, status);
   }
 
-  void RDMAPassive::accept(Connection* connection) {
-    #ifdef USE_LIBFABRIC
+  void LibfabricRDMAPassive::accept(LibfabricConnection* connection) {
     if(fi_accept(connection->qp(), nullptr, 0)) {
       spdlog::error("Conection accept unsuccessful, reason {} {}", errno, strerror(errno));
       connection = nullptr;
     }
-    #else
+    SPDLOG_DEBUG("[RDMAPassive] Connection accepted at QP {}", fmt::ptr(connection->qp()));
+  }
+
+  void VerbsRDMAPassive::accept(VerbsConnection* connection) {
     if(rdma_accept(connection->id(), &_cfg.conn_param)) {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
       connection = nullptr;
     }
-    #endif
     SPDLOG_DEBUG("[RDMAPassive] Connection accepted at QP {}", fmt::ptr(connection->qp()));
   }
 }

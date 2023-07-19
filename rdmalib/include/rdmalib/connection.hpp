@@ -102,7 +102,7 @@ namespace rdmalib {
     }
     qp_t qp() const
     {
-      return this->_id;
+      return this->_qp; // TODO sure?
     }
 
     uint32_t private_data() const;

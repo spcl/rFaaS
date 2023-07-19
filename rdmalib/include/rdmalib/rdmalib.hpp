@@ -34,7 +34,7 @@ namespace rdmalib {
 }
 
 template <>
-struct rdmalib_traits<libfabric> {
+struct rdmalib_traits<libfabric> { // TODO make static?
   using Connection = rdmalib::LibfabricConnection;
   using Address = rdmalib::LibfabricAddress;
 };
@@ -136,7 +136,7 @@ namespace rdmalib {
       return static_cast<const Derived*>(this)->pd();
     }
     Connection_t & connection() { return _conn; }
-    bool is_connected() { return conn_.get(); }
+    bool is_connected() { return _conn.get(); }
   };
 
   struct LibfabricRDMAActive : RDMAActive<LibfabricRDMAActive, libfabric> {
@@ -156,9 +156,6 @@ namespace rdmalib {
     bool connect(uint32_t secret = 0);
     void disconnect();
     pd_t pd() const { return this->_pd; }
-
-    LibfabricConnection & connection();
-    bool is_connected();
   };
 
   struct VerbsRDMAActive : RDMAActive<VerbsRDMAActive, ibverbs> {
@@ -175,9 +172,6 @@ namespace rdmalib {
     bool connect(uint32_t secret = 0);
     void disconnect();
     pd_t pd() const { return this->_pd; }
-
-    VerbsConnection & connection();
-    bool is_connected();
   };
 
   template <typename Derived, typename Library>
@@ -191,6 +185,7 @@ namespace rdmalib {
     std::unordered_set<Connection_t*> _active_connections;
 
     RDMAPassive(const std::string & ip, int port, int recv_buf = 1, bool initialize = true, int max_inline_data = 0);
+    RDMAPassive();
     ~RDMAPassive();
     void allocate();
     pd_t pd() const { return static_cast<const Derived*>(this)->pd(); }
