@@ -150,7 +150,7 @@ namespace rdmalib {
 
     fi_cq_err_entry _ewc;
 
-    LibfabricConnection(bool passive);
+    LibfabricConnection(bool passive=false);
     LibfabricConnection(LibfabricConnection&& obj);
     ~LibfabricConnection();
 
@@ -216,7 +216,7 @@ namespace rdmalib {
     struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
     std::array<SGE, _wc_size> _rwc_sges;
 
-    VerbsConnection(bool passive);
+    VerbsConnection(bool passive=false);
     VerbsConnection(VerbsConnection&& obj);
     ~VerbsConnection();
     void close();

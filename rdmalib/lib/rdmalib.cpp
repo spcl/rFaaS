@@ -234,13 +234,12 @@ namespace rdmalib {
     #endif
   }
 
-  RDMAActive::RDMAActive(const std::string & ip, int port, int recv_buf, int max_inline_data):
+  LibfabricRDMAActive::LibfabricRDMAActive(const std::string & ip, int port, int recv_buf, int max_inline_data):
     _conn(nullptr),
     _addr(ip, port, false),
     _ec(nullptr),
     _pd(nullptr)
   {
-    #ifdef USE_LIBFABRIC
     // Create a domain (need to do that now so that we can register memory for the domain)
     impl::expect_zero(fi_domain(_addr.fabric, _addr.addrinfo, &_pd, nullptr));
 
@@ -263,7 +262,14 @@ namespace rdmalib {
     cq_attr.size = _addr.addrinfo->rx_attr->size;
     impl::expect_zero(fi_cq_open(_pd, &cq_attr, &_trx_channel, nullptr));
     impl::expect_zero(fi_cq_open(_pd, &cq_attr, &_rcv_channel, nullptr));
-    #else
+    SPDLOG_DEBUG("Create LibfabricRDMAActive");
+  }
+  VerbsRDMAActive::VerbsRDMAActive(const std::string & ip, int port, int recv_buf, int max_inline_data):
+    _conn(nullptr),
+    _addr(ip, port, false),
+    _ec(nullptr),
+    _pd(nullptr)
+  {
     // Size of Queue Pair
     // Maximum requests in send queue
     // FIXME: configurable -> parallel workers
@@ -285,30 +291,28 @@ namespace rdmalib {
     _cfg.conn_param.initiator_depth =  4;
     _cfg.conn_param.retry_count = 3;
     _cfg.conn_param.rnr_retry_count = 3;
-    #endif
-    SPDLOG_DEBUG("Create RDMAActive");
+    SPDLOG_DEBUG("Create VerbsRDMAActive");
   }
 
-  RDMAActive::RDMAActive() {}
-
-  RDMAActive::~RDMAActive()
+  LibfabricRDMAActive::~LibfabricRDMAActive()
   {
-    #ifdef USE_LIBFABRIC
     if (_pd)
       impl::expect_zero(fi_close(&_pd->fid));
     if (_ec)
       impl::expect_zero(fi_close(&_ec->fid));
-    #else
-    //ibv_dealloc_pd(this->_pd);
-    #endif
-    SPDLOG_DEBUG("Destroy RDMAActive");
+    SPDLOG_DEBUG("Destroy LibfabricRDMAActive");
   }
 
-  void RDMAActive::allocate()
+  VerbsRDMAActive::~VerbsRDMAActive()
+  {
+    //ibv_dealloc_pd(this->_pd);
+    SPDLOG_DEBUG("Destroy VerbsRDMAActive");
+  }
+
+  void LibfabricRDMAActive::allocate()
   {
     if(!_conn) {
-      _conn = std::unique_ptr<Connection>(new Connection());
-      #ifdef USE_LIBFABRIC
+      _conn = std::unique_ptr<LibfabricConnection>(new LibfabricConnection());
       // Enable the event queue
       fi_eq_attr eq_attr;
       memset(&eq_attr, 0, sizeof(eq_attr));
@@ -317,13 +321,6 @@ namespace rdmalib {
       impl::expect_zero(fi_eq_open(_addr.fabric, &eq_attr, &_ec, NULL));
       // Create and enable the endpoint together with all the accompanying queues
       _conn->initialize(_addr.fabric, _pd, _addr.addrinfo, _ec, _write_counter, _rcv_channel, _trx_channel);
-      #else
-      rdma_cm_id* id;
-      impl::expect_zero(rdma_create_ep(&id, _addr.addrinfo, nullptr, nullptr));
-      impl::expect_zero(rdma_create_qp(id, _pd, &_cfg.attr));
-      _conn->initialize(id);
-      _pd = _conn->id()->pd;
-      #endif
 
       //struct ibv_qp_attr attr;
       //struct ibv_qp_init_attr init_attr;
@@ -375,10 +372,21 @@ namespace rdmalib {
     //spdlog::info("{} {} {} {} {} {}", ret, errno, conn != nullptr, conn->verbs != nullptr, conn->pd != nullptr, conn->qp != nullptr);
   }
 
-  bool RDMAActive::connect(uint32_t secret)
+  void VerbsRDMAActive::allocate()
+  {
+    if(!_conn) {
+      _conn = std::unique_ptr<VerbsConnection>(new VerbsConnection());
+      rdma_cm_id* id;
+      impl::expect_zero(rdma_create_ep(&id, _addr.addrinfo, nullptr, nullptr));
+      impl::expect_zero(rdma_create_qp(id, _pd, &_cfg.attr));
+      _conn->initialize(id);
+      _pd = _conn->id()->pd;
+    }
+  }
+
+  bool LibfabricRDMAActive::connect(uint32_t secret)
   {
     allocate();
-    #ifdef USE_LIBFABRIC
     uint32_t *param = nullptr;
     size_t paramlen = 0;
     if(secret) {
@@ -409,7 +417,18 @@ namespace rdmalib {
       _pd = nullptr;
       return false;
     }
-    #else
+
+    //struct ibv_qp_attr attr;
+    //struct ibv_qp_init_attr init_attr;
+    //impl::expect_zero(ibv_query_qp(_conn->_qp, &attr, IBV_QP_DEST_QPN, &init_attr ));
+    //SPDLOG_DEBUG("Local QPN {}, remote QPN {} ",_conn->_qp->qp_num, attr.dest_qp_num);
+
+    return true;
+  }
+
+  bool VerbsRDMAActive::connect(uint32_t secret)
+  {
+    allocate();
     if(secret) {
       _cfg.conn_param.private_data = &secret;
       _cfg.conn_param.private_data_len = sizeof(uint32_t);
@@ -426,52 +445,25 @@ namespace rdmalib {
         _addr._port, _addr._port, ibv_get_device_name(this->_conn->id()->verbs->device)
       );
     }
-    #endif
-
-    //struct ibv_qp_attr attr;
-    //struct ibv_qp_init_attr init_attr;
-    //impl::expect_zero(ibv_query_qp(_conn->_qp, &attr, IBV_QP_DEST_QPN, &init_attr ));
-    //SPDLOG_DEBUG("Local QPN {}, remote QPN {} ",_conn->_qp->qp_num, attr.dest_qp_num);
 
     return true;
   }
 
-  void RDMAActive::disconnect()
+  void LibfabricRDMAActive::disconnect()
   {
-    #ifdef USE_LIBFABRIC
     // TODO: Add the disconnectin id
     spdlog::debug("[RDMAActive] Disconnecting connection with id {}", fmt::ptr(&_conn->qp()->fid));
     _conn->close();
     _conn.reset();
     _pd = nullptr;
-    #else
+  }
+
+  void VerbsRDMAActive::disconnect()
+  {
         spdlog::debug("[RDMAActive] Disonnecting connection with id {}", fmt::ptr(_conn->id()));
     impl::expect_zero(rdma_disconnect(_conn->id()));
     _conn.reset();
     _pd = nullptr;
-    #endif
-  }
-
-  #ifdef USE_LIBFABRIC
-  fid_domain* RDMAActive::pd() const
-  {
-    return this->_pd;
-  }
-  #else
-  ibv_pd* RDMAActive::pd() const
-  {
-    return this->_pd;
-  }
-  #endif
-
-  Connection & RDMAActive::connection()
-  {
-    return *this->_conn;
-  }
-
-  bool RDMAActive::is_connected()
-  {
-    return this->_conn.get();
   }
 
   RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize, int max_inline_data):
