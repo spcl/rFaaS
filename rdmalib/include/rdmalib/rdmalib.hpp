@@ -59,10 +59,11 @@ namespace rdmalib {
   // Implemented as IPV4
   template <typename Derived, typename Library>
   struct Address {
+    uint16_t _port;
+    // TODO do usings here for addrinfo & hints
     #ifdef USE_GNI_AUTH
     uint64_t cookie;
     #endif
-    uint16_t _port;
 
     Address(const std::string & ip, int port, bool passive);
     Address(const std::string & sip, const std::string & dip, int port);
@@ -97,21 +98,9 @@ namespace rdmalib {
 
   template <typename Derived, typename Library>
   struct RDMAActive {
-    #ifndef USE_LIBFABRIC
-    ConnectionConfiguration _cfg;
-    #endif
+    using pd_t = typename library_traits<Library>::pd_t;
     std::unique_ptr<Connection> _conn;
     Address _addr;
-    #ifdef USE_LIBFABRIC
-    fid_eq* _ec = nullptr;
-    fid_domain* _pd = nullptr;
-    fid_cq* _rcv_channel = nullptr;
-    fid_cq* _trx_channel = nullptr;
-    fid_cntr* _write_counter = nullptr;
-    #else
-    rdma_event_channel * _ec;
-    ibv_pd* _pd;
-    #endif
 
     RDMAActive(const std::string & ip, int port, int recv_buf = 1, int max_inline_data = 0);
     RDMAActive();
@@ -119,74 +108,62 @@ namespace rdmalib {
     void allocate();
     bool connect(uint32_t secret = 0);
     void disconnect();
-    #ifdef USE_LIBFABRIC
-    fid_domain* pd() const;
-    #else
-    ibv_pd* pd() const;
-    #endif
-    Connection & connection();
-    bool is_connected();
-  };struct RDMAActive {
-    #ifndef USE_LIBFABRIC
-    ConnectionConfiguration _cfg;
-    #endif
-    std::unique_ptr<Connection> _conn;
-    Address _addr;
-    #ifdef USE_LIBFABRIC
-    fid_eq* _ec = nullptr;
-    fid_domain* _pd = nullptr;
-    fid_cq* _rcv_channel = nullptr;
-    fid_cq* _trx_channel = nullptr;
-    fid_cntr* _write_counter = nullptr;
-    #else
-    rdma_event_channel * _ec;
-    ibv_pd* _pd;
-    #endif
-
-    RDMAActive(const std::string & ip, int port, int recv_buf = 1, int max_inline_data = 0);
-    RDMAActive();
-    ~RDMAActive();
-    void allocate();
-    bool connect(uint32_t secret = 0);
-    void disconnect();
-    #ifdef USE_LIBFABRIC
-    fid_domain* pd() const;
-    #else
-    ibv_pd* pd() const;
-    #endif
+    pd_t* pd() const;
     Connection & connection();
     bool is_connected();
   };
 
-  struct RDMAPassive {
-    #ifndef USE_LIBFABRIC
-    ConnectionConfiguration _cfg;
-    #endif
-    Address _addr;
-    #ifdef USE_LIBFABRIC
+  struct LibfabricRDMAActive : RDMAActive<LibfabricRDMAActive, libfabric> {
+    std::unique_ptr<LibfabricConnection> _conn;
+    LibfabricAddress _addr;
+
     fid_eq* _ec = nullptr;
     fid_domain* _pd = nullptr;
-    fid_pep* _pep = nullptr;
-    fid_cq* _rcv_channel;
-    fid_cq* _trx_channel;
+    fid_cq* _rcv_channel = nullptr;
+    fid_cq* _trx_channel = nullptr;
     fid_cntr* _write_counter = nullptr;
-    // fi_gni_ops_domain* _ops;
-    #else
+
+    LibfabricRDMAActive(const std::string & ip, int port, int recv_buf = 1, int max_inline_data = 0);
+    LibfabricRDMAActive();
+    ~LibfabricRDMAActive();
+    void allocate();
+    bool connect(uint32_t secret = 0);
+    void disconnect();
+    pd_t pd() const;
+    LibfabricConnection & connection();
+    bool is_connected();
+  };
+
+  struct VerbsRDMAActive : RDMAActive<VerbsRDMAActive, ibverbs> {
+    ConnectionConfiguration _cfg;
+    std::unique_ptr<VerbsConnection> _conn;
+    VerbsAddress _addr;
     rdma_event_channel * _ec;
-    rdma_cm_id* _listen_id;
     ibv_pd* _pd;
-    #endif
+
+    VerbsRDMAActive(const std::string & ip, int port, int recv_buf = 1, int max_inline_data = 0);
+    VerbsRDMAActive();
+    ~VerbsRDMAActive();
+    void allocate();
+    bool connect(uint32_t secret = 0);
+    void disconnect();
+    pd_t pd() const;
+
+    VerbsConnection & connection();
+    bool is_connected();
+  };
+
+  template <typename Derived, typename Library>
+  struct RDMAPassive {
+    Address _addr;
     // Set of connections that have been
     std::unordered_set<Connection*> _active_connections;
 
     RDMAPassive(const std::string & ip, int port, int recv_buf = 1, bool initialize = true, int max_inline_data = 0);
     ~RDMAPassive();
     void allocate();
-    #ifdef USE_LIBFABRIC
-    fid_domain* pd() const;
-    #else
-    ibv_pd* pd() const;
-    #endif
+    pd_t pd() const;
+
     // Blocking poll for new rdmacm events.
     // Returns connection pointer and connection change status.
     // When connection is REQUESTED and ESTABLISHED, the pointer points to a valid connection.
@@ -196,6 +173,60 @@ namespace rdmalib {
     std::tuple<Connection*, ConnectionStatus> poll_events(bool share_cqs = false);
     bool nonblocking_poll_events(int timeout = 100);
     void accept(Connection* connection);
+    void set_nonblocking_poll();
+  };
+
+  struct LibfabricRDMAPassive : RDMAPassive<LibfabricRDMAPassive, libfabric> {
+    LibfabricAddress _addr;
+    fid_eq* _ec = nullptr;
+    fid_domain* _pd = nullptr;
+    fid_pep* _pep = nullptr;
+    fid_cq* _rcv_channel;
+    fid_cq* _trx_channel;
+    fid_cntr* _write_counter = nullptr;
+    // fi_gni_ops_domain* _ops;
+    // Set of connections that have been
+    std::unordered_set<LibfabricConnection*> _active_connections;
+
+    LibfabricRDMAPassive(const std::string & ip, int port, int recv_buf = 1, bool initialize = true, int max_inline_data = 0);
+    ~LibfabricRDMAPassive();
+    void allocate();
+
+    // Blocking poll for new rdmacm events.
+    // Returns connection pointer and connection change status.
+    // When connection is REQUESTED and ESTABLISHED, the pointer points to a valid connection.
+    // When the status is DISCONNECTED, the pointer points to a closed connection.
+    // User should deallocate the closed connection.
+    // When the status is UNKNOWN, the pointer is null.
+    std::tuple<LibfabricConnection*, ConnectionStatus> poll_events(bool share_cqs = false);
+    bool nonblocking_poll_events(int timeout = 100);
+    void accept(LibfabricConnection* connection);
+    void set_nonblocking_poll();
+  };
+
+  struct VerbsRDMAPassive : RDMAPassive<VerbsRDMAPassive, ibverbs> {
+    ConnectionConfiguration _cfg;
+    VerbsAddress _addr;
+    rdma_event_channel * _ec;
+    rdma_cm_id* _listen_id;
+    ibv_pd* _pd;
+
+    // Set of connections that have been
+    std::unordered_set<VerbsConnection*> _active_connections;
+
+    VerbsRDMAPassive(const std::string & ip, int port, int recv_buf = 1, bool initialize = true, int max_inline_data = 0);
+    ~VerbsRDMAPassive();
+    void allocate();
+    
+    // Blocking poll for new rdmacm events.
+    // Returns connection pointer and connection change status.
+    // When connection is REQUESTED and ESTABLISHED, the pointer points to a valid connection.
+    // When the status is DISCONNECTED, the pointer points to a closed connection.
+    // User should deallocate the closed connection.
+    // When the status is UNKNOWN, the pointer is null.
+    std::tuple<VerbsConnection*, ConnectionStatus> poll_events(bool share_cqs = false);
+    bool nonblocking_poll_events(int timeout = 100);
+    void accept(VerbsConnection* connection);
     void set_nonblocking_poll();
   };
 }
