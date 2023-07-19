@@ -14,7 +14,7 @@
 #include <fcntl.h>
 #include <rdma/fi_endpoint.h>
 
-#ifdef USE_LIBFABRIC
+// #ifdef USE_LIBFABRIC
 #include <rdma/fabric.h>
 #include <rdma/fi_domain.h>
 #include <rdma/fi_cm.h>
@@ -25,7 +25,7 @@ extern "C" {
 #include "rdmacred.h"
 }
 #endif
-#endif
+// #endif
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bundled/format.h>
 
@@ -93,9 +93,8 @@ namespace rdmalib {
   Configuration Configuration::_instance;
 
   // FIXME: Add credential support
-  Address::Address(const std::string & ip, int port, bool passive)
+  LibfabricAddress::LibfabricAddress(const std::string & ip, int port, bool passive)
   {
-    #ifdef USE_LIBFABRIC
     // Set the hints and addrinfo to clear structures
     hints = fi_allocinfo();
     addrinfo = fi_allocinfo();
@@ -129,21 +128,22 @@ namespace rdmalib {
     addrinfo->ep_attr->auth_key_size = sizeof(cookie);
     spdlog::info("Saved Cray credentials cookie {}", cookie);
     #endif
-    #else
+   
+    this->_port = port;
+    this->_ip = ip;
+  }
+  VerbsAddress::VerbsAddress(const std::string & ip, int port, bool passive)
+  {
     memset(&hints, 0, sizeof hints);
     hints.ai_port_space = RDMA_PS_TCP;
     if(passive)
       hints.ai_flags = RAI_PASSIVE;
 
     impl::expect_zero(rdma_getaddrinfo(ip.c_str(), std::to_string(port).c_str(), &hints, &addrinfo));
-    #endif
     this->_port = port;
-    #ifdef USE_LIBFABRIC
-    this->_ip = ip;
-    #endif
   }
 
-  Address::Address(const std::string & sip,  const std::string & dip, int port)
+  LibfabricAddress::LibfabricAddress(const std::string & sip,  const std::string & dip, int port)
   {
     struct sockaddr_in server_in, local_in;
     memset(&server_in, 0, sizeof(server_in));
@@ -158,7 +158,6 @@ namespace rdmalib {
     local_in.sin_family = AF_INET; 
     inet_pton(AF_INET, sip.c_str(), &local_in.sin_addr);
 
-    #ifdef USE_LIBFABRIC
     // Set the hints and addrinfo to clear structures
     hints = fi_allocinfo();
     addrinfo = fi_allocinfo();
@@ -180,7 +179,23 @@ namespace rdmalib {
     impl::expect_zero(fi_getinfo(FI_VERSION(1, 13), nullptr, nullptr, 0, hints, &addrinfo));
     fi_freeinfo(hints);
     fi_fabric(addrinfo->fabric_attr, &fabric, nullptr);
-    #else
+    this->_port = port;
+  }
+  VerbsAddress::VerbsAddress(const std::string & sip,  const std::string & dip, int port)
+  {
+    struct sockaddr_in server_in, local_in;
+    memset(&server_in, 0, sizeof(server_in));
+    memset(&local_in, 0, sizeof(local_in));
+
+    /*address of remote node*/
+    server_in.sin_family = AF_INET;
+    server_in.sin_port = htons(port);  
+    inet_pton(AF_INET, dip.c_str(),   &server_in.sin_addr);
+
+    /*address of local device*/
+    local_in.sin_family = AF_INET; 
+    inet_pton(AF_INET, sip.c_str(), &local_in.sin_addr);
+
     memset(&hints, 0, sizeof hints);
     hints.ai_port_space = RDMA_PS_TCP;
     hints.ai_src_len = sizeof(local_in);
@@ -189,13 +204,22 @@ namespace rdmalib {
     hints.ai_dst_addr = (struct sockaddr *)(&server_in);
 
     impl::expect_zero(rdma_getaddrinfo(NULL, NULL, &hints, &addrinfo));
-    #endif
     this->_port = port;
   }
 
-  Address::Address() {}
-
-  Address::~Address()
+  LibfabricAddress::~LibfabricAddress()
+  {
+    #ifdef USE_LIBFABRIC
+    // TODO Check how to free those and if it's necessary at all.
+    //      When closing the addringo we obtain a double free or corruption problem.
+    //      It seems that the problem is coming from the the ep_attr.
+    // if (fabric)
+    //   impl::expect_zero(fi_close(&fabric->fid));
+    // if (addrinfo)
+    //   fi_freeinfo(addrinfo); 
+    #endif
+  }
+  VerbsAddress::~VerbsAddress()
   {
     #ifdef USE_LIBFABRIC
     // TODO Check how to free those and if it's necessary at all.

@@ -1,4 +1,3 @@
-
 #ifndef __RDMALIB_RDMALIB_HPP__
 #define __RDMALIB_RDMALIB_HPP__
 
@@ -10,7 +9,7 @@
 #include <mutex>
 #include <functional>
 
-#ifdef USE_LIBFABRIC
+// #ifdef USE_LIBFABRIC
 #include <rdma/fabric.h>
 #include <arpa/inet.h>
 // #include <rdma/fi_ext_gni.h>
@@ -18,13 +17,13 @@
 extern "C" {
 #include "rdmacred.h"
 }
-#endif
 #else
 #include <rdma/rdma_cma.h>
 #endif
 
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/connection.hpp>
+#include <rdmalib/libraries.hpp>
 
 namespace rdmalib {
 
@@ -58,18 +57,10 @@ namespace rdmalib {
   };
 
   // Implemented as IPV4
+  template <typename Derived, typename Library>
   struct Address {
-    #ifdef USE_LIBFABRIC
-    fi_info* addrinfo = nullptr;
-    fi_info* hints = nullptr;
-    fid_fabric* fabric = nullptr;
-    std::string _ip;
     #ifdef USE_GNI_AUTH
     uint64_t cookie;
-    #endif
-    #else
-    rdma_addrinfo *addrinfo;
-    rdma_addrinfo hints;
     #endif
     uint16_t _port;
 
@@ -80,7 +71,62 @@ namespace rdmalib {
     ~Address();
   };
 
+  struct LibfabricAddress : Address<LibfabricAddress, libfabric> {
+    fi_info* addrinfo = nullptr;
+    fi_info* hints = nullptr;
+    fid_fabric* fabric = nullptr;
+    std::string _ip;
+
+    LibfabricAddress(const std::string & ip, int port, bool passive);
+    LibfabricAddress(const std::string & sip, const std::string & dip, int port);
+    LibfabricAddress() {}
+
+    ~LibfabricAddress();
+  };
+
+  struct VerbsAddress : Address<VerbsAddress, ibverbs> {
+    rdma_addrinfo *addrinfo;
+    rdma_addrinfo hints;
+
+    VerbsAddress(const std::string & ip, int port, bool passive);
+    VerbsAddress(const std::string & sip, const std::string & dip, int port);
+    VerbsAddress() {}
+
+    ~VerbsAddress();
+  };
+
+  template <typename Derived, typename Library>
   struct RDMAActive {
+    #ifndef USE_LIBFABRIC
+    ConnectionConfiguration _cfg;
+    #endif
+    std::unique_ptr<Connection> _conn;
+    Address _addr;
+    #ifdef USE_LIBFABRIC
+    fid_eq* _ec = nullptr;
+    fid_domain* _pd = nullptr;
+    fid_cq* _rcv_channel = nullptr;
+    fid_cq* _trx_channel = nullptr;
+    fid_cntr* _write_counter = nullptr;
+    #else
+    rdma_event_channel * _ec;
+    ibv_pd* _pd;
+    #endif
+
+    RDMAActive(const std::string & ip, int port, int recv_buf = 1, int max_inline_data = 0);
+    RDMAActive();
+    ~RDMAActive();
+    void allocate();
+    bool connect(uint32_t secret = 0);
+    void disconnect();
+    #ifdef USE_LIBFABRIC
+    fid_domain* pd() const;
+    #else
+    ibv_pd* pd() const;
+    #endif
+    Connection & connection();
+    bool is_connected();
+  };struct RDMAActive {
     #ifndef USE_LIBFABRIC
     ConnectionConfiguration _cfg;
     #endif
