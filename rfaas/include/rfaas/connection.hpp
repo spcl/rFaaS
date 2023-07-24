@@ -13,18 +13,24 @@
 
 namespace rfaas {
 
+  template <typename Library>
   struct manager_connection {
+
+    using RDMAActive_t = typename rdmalib_traits<Library>::RDMAActive;
+    using RecvBuffer_t = typename rdmalib_traits<Library>::RecvBuffer;
+    using Connection_t = typename rdmalib_traits<Library>::Connection;
+
     std::string _address;
     int _port;
-    rdmalib::Buffer<char> _submit_buffer;
-    rdmalib::RDMAActive _active;
-    rdmalib::RecvBuffer _rcv_buffer;
-    rdmalib::Buffer<rdmalib::AllocationRequest> _allocation_buffer;
+    rdmalib::Buffer<char, Library> _submit_buffer;
+    RDMAActive_t _active;
+    RecvBuffer_t _rcv_buffer;
+    rdmalib::Buffer<rdmalib::AllocationRequest, Library> _allocation_buffer;
     int _max_inline_data;
 
     manager_connection(std::string address, int port, int rcv_buf, int max_inline_data);
 
-    rdmalib::Connection & connection();
+    Connection_t & connection();
     rdmalib::AllocationRequest & request();
     bool connect();
     void disconnect();

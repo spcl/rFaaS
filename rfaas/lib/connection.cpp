@@ -11,7 +11,8 @@
 
 namespace rfaas {
 
-  manager_connection::manager_connection(std::string address, int port,
+  template <typename Library>
+  manager_connection<Library>::manager_connection(std::string address, int port,
       int rcv_buf, int max_inline_data):
     _address(address),
     _port(port),
@@ -23,7 +24,8 @@ namespace rfaas {
     _active.allocate();
   }
 
-  bool manager_connection::connect()
+  template <typename Library>
+  bool manager_connection<Library>::connect()
   {
     SPDLOG_DEBUG("Connecting to manager at {}:{}", _address, _port);
     bool ret = _active.connect();
@@ -42,7 +44,8 @@ namespace rfaas {
     return ret;
   }
 
-  void manager_connection::disconnect()
+  template <typename Library>
+  void manager_connection<Library>::disconnect()
   {
     SPDLOG_DEBUG("Disconnecting from manager at {}:{}", _address, _port);
     // Send deallocation request only if we're connected
@@ -57,17 +60,20 @@ namespace rfaas {
     }
   }
 
-  rdmalib::Connection & manager_connection::connection()
+  template <typename Library>
+  manager_connection<Library>::Connection_t & manager_connection<Library>::connection()
   {
     return _active.connection();
   }
 
-  rdmalib::AllocationRequest & manager_connection::request()
+  template <typename Library>
+  rdmalib::AllocationRequest & manager_connection<Library>::request()
   {
     return *(_allocation_buffer.data() + _rcv_buffer._rcv_buf_size);
   }
 
-  bool manager_connection::submit()
+  template <typename Library>
+  bool manager_connection<Library>::submit()
   {
     rdmalib::ScatterGatherElement sge;
     size_t obj_size = sizeof(rdmalib::AllocationRequest);

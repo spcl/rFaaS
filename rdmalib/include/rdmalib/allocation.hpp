@@ -23,7 +23,7 @@ namespace rdmalib {
   template <typename Library>
   struct BufferInformation
   {
-    using rkey_t = library_traits<Library>::rkey_t;
+    using rkey_t = typename library_traits<Library>::rkey_t;
     uint64_t r_addr;
     rkey_t r_key;
   };

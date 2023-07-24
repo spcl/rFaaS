@@ -15,14 +15,15 @@ namespace rdmalib
   template <typename Derived, typename Library>
   struct RecvBuffer
   {
-    using wc_t = library_traits<Library>::wc_t;
+    using wc_t = typename library_traits<Library>::wc_t;
+    using Connection_t = typename rdmalib_traits<Library>::Connection;
     //using LibConnection = library_traits<Library>::LibConnection; // TODO
 
     int _rcv_buf_size;
     int _refill_threshold;
     int _requests;
     constexpr static int DEFAULT_REFILL_THRESHOLD = 8;
-    LibConnection *_conn;
+    Connection_t *_conn;
 
     RecvBuffer(int rcv_buf_size) : _rcv_buf_size(rcv_buf_size),
       _refill_threshold(std::min(_rcv_buf_size, DEFAULT_REFILL_THRESHOLD)),
@@ -31,7 +32,7 @@ namespace rdmalib
     {
     }
 
-    inline void connect(LibConnection *conn)
+    inline void connect(Connection_t *conn)
     {
       this->_conn = conn;
       _requests = 0;

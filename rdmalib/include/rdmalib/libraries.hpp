@@ -3,7 +3,7 @@
 
 #include <rdma/rdma_cma.h>
 #include <rdma/fabric.h>
-//#include "rdmalib/rdmalib.hpp"
+#include <rdma/fi_eq.h>
 
 // Forward declare ibverbs structs
 struct ibv_pd;
@@ -17,9 +17,11 @@ struct ibv_wc;
 struct ibverbs;
 struct libfabric;
 
+// Base trait
 template <typename Library>
 struct library_traits;
 
+// Library-specialized traits
 template <>
 struct library_traits<libfabric>
 {
@@ -35,11 +37,6 @@ struct library_traits<libfabric>
   using wc_t = fi_cq_data_entry;
   using id_t = fid *;
   using channel_t = fid_cq *;
-
-  // template <typename T>
-  // using LibBuffer = rdmalib::Buffer<T, libfabric>;
-  // using LibSGE = rdmalib::LibfabricScatterGatherElement;
-  // using LibConnection = rdmalib::LibfabricConnection;
 };
 
 template <>
@@ -57,12 +54,6 @@ struct library_traits<ibverbs>
   using wc_t = ibv_wc;
   using id_t = rdma_cm_id *;
   using channel_t = ibv_comp_channel *;
-
-  // These are going to need to go elsewhere
-  // template <typename T>
-  // using LibBuffer = rdmalib::Buffer<T, ibverbs>;
-  // using LibSGE = rdmalib::VerbsScatterGatherElement;
-  // using LibConnection = rdmalib::VerbsConnection;
 };
 
 #endif

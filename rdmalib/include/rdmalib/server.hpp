@@ -27,12 +27,12 @@ namespace rdmalib { namespace server {
     ServerStatus(std::string address, int port);
 
     template<typename T>
-    void add_buffer(const rdmalib::Buffer<T> & mr)
+    void add_buffer(const rdmalib::Buffer<T, Library> & mr)
     {
       _buffers.push_back({mr.address(), mr.rkey(), mr.size()});  
     }
 
-    void set_thread_allocator(const rdmalib::Buffer<int> & mr)
+    void set_thread_allocator(const rdmalib::Buffer<int, Library> & mr)
     {
       _threads_allocator = {mr.address(), mr.rkey(), mr.size()};
     }

@@ -202,7 +202,7 @@ namespace rdmalib {
     int32_t _post_write(SGE && elems, const RemoteBuffer_ & rbuf, const uint32_t immediate = 0);
     int32_t post_write(SGE && elems, const RemoteBuffer_ & rbuf, bool force_inline);
 
-    std::tuple<fi_cq_data_entry *, int> poll_wc(QueueType type, bool blocking, int count, bool update);
+    std::tuple<fi_cq_data_entry *, int> poll_wc(QueueType type, bool blocking=true, int count=-1, bool update=false);
   };
 
   struct VerbsConnection : Connection<VerbsConnection, ibverbs>
@@ -245,7 +245,7 @@ namespace rdmalib {
     int32_t _post_write(SGE && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
     int32_t post_write(SGE && elems, const RemoteBuffer_ & rbuf, bool force_inline);
 
-    std::tuple<ibv_wc*, int> poll_wc(QueueType type, bool blocking, int count);
+    std::tuple<ibv_wc*, int> poll_wc(QueueType type, bool blocking=true, int count=-1);
 
   };
 }

@@ -31,18 +31,28 @@ struct rdmalib_traits;
 namespace rdmalib {
   struct LibfabricAddress;
   struct VerbsAddress;
+
+  struct LibfabricRDMAActive;
+  struct VerbsRDMAActive;
+
+  struct LibfabricRecvBuffer;
+  struct VerbsRecvBuffer;
 }
 
 template <>
 struct rdmalib_traits<libfabric> { // TODO make static?
   using Connection = rdmalib::LibfabricConnection;
   using Address = rdmalib::LibfabricAddress;
+  using RDMAActive = rdmalib::LibfabricRDMAActive;
+  using RecvBuffer = rdmalib::LibfabricRecvBuffer;
 };
 
 template <>
 struct rdmalib_traits<ibverbs> {
   using Connection = rdmalib::VerbsConnection;
   using Address = rdmalib::VerbsAddress;
+  using RDMAActive = rdmalib::VerbsRDMAActive;
+  using RecvBuffer = rdmalib::VerbsRecvBuffer;
 };
 
 namespace rdmalib {
