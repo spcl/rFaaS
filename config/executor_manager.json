@@ -1,7 +1,7 @@
 {
   "config": {
-    "rdma_device": "",
-    "rdma_device_port": ,
+    "rdma_device": "rxe_eth0",
+    "rdma_device_port": 10000,
     "resource_manager_address": "",
     "resource_manager_port": 0,
     "resource_manager_secret": 0

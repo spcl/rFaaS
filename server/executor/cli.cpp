@@ -39,13 +39,17 @@ int main(int argc, char ** argv)
   spdlog::info(
     "My manager runs at {}:{}, its secret is {}, the accounting buffer is at {} with rkey {}, cookie {}",
     opts.mgr_address, opts.mgr_port, opts.mgr_secret,
-    opts.accounting_buffer_addr, opts.accounting_buffer_rkey,
-    opts.authentication_cookie
+    opts.accounting_buffer_addr, opts.accounting_buffer_rkey
+    #ifdef USE_GNI_AUTH
+    ,opts.authentication_cookie
+    #endif
   );
 
+  #ifdef USE_GNI_AUTH
   rdmalib::Configuration::get_instance().configure_cookie(
     opts.authentication_cookie
   );
+  #endif
 
   executor::ManagerConnection mgr{
     opts.mgr_address,

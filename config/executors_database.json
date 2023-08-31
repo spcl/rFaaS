@@ -1,9 +1,9 @@
 {
     "executors": [
         {
-            "address": "",
-            "port": 1,
-            "cores": 0
+            "address": "172.31.82.200",
+            "port": 10000,
+            "cores": 1
         }
     ]
 }
