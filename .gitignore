@@ -53,3 +53,4 @@ benchmarks/parallel_invocations
 benchmarks/cold_benchmarker
 benchmarks/cpp_interface
 
+*.btr

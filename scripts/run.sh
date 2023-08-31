@@ -1,11 +1,19 @@
 #!/bin/bash
 
 cmake --build .
-cd config/
 
-if [[ "$1" -eq "server" ]]; then
-    PATH=$PATH:../bin/ ../bin/executor_manager -c executor_manager.json --device-database devices.json --skip-resource-manager
-elif [[ "$1" -eq "bench" ]]; then
-    PATH=$PATH:../bin/ ../benchmarks/warm_benchmarker --config benchmark.json --device-database devices.json --name empty --functions ../examples/libfunctions.so --executors-database executors_database.json -s 1000
+cmd=''
+
+if [[ "$1" == "server" ]]; then
+    cmd="./bin/executor_manager -c config/executor_manager.json --device-database config/devices.json --skip-resource-manager"
+elif [[ "$1" == "bench" ]]; then
+    cmd="./benchmarks/warm_benchmarker --config config/benchmark.json --device-database config/devices.json --name empty --functions ./examples/libfunctions.so --executors-database config/executors_database.json -s 1000"
 fi
+
+if [[ "$2" == "debug" ]]; then
+    cmd="gdb --args $cmd"
+fi
+
+final="PATH=$PATH:bin/ $cmd"
+eval "$final"
 
