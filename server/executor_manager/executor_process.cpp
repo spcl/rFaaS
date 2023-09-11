@@ -1,4 +1,5 @@
 
+#include <iterator>
 #include <tuple>
 
 #include <unistd.h>
@@ -8,6 +9,7 @@
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/allocation.hpp>
+#include <rdmalib/rdmalib.hpp>
 
 #include "executor_process.hpp"
 #include "settings.hpp"
@@ -81,14 +83,14 @@ namespace rfaas::executor_manager {
       executor_pin_threads = std::to_string(0);//counter++);
     else
       executor_pin_threads = std::to_string(exec.pin_threads);
-    bool use_docker = exec.use_docker;
+    auto sandbox_type = exec.sandbox_type;
 
     std::string mgr_port = std::to_string(conn.port);
     std::string mgr_secret = std::to_string(conn.secret);
     std::string mgr_buf_addr = std::to_string(conn.r_addr);
     std::string mgr_buf_rkey = std::to_string(conn.r_key);
 
-    int mypid = fork();
+    int mypid = vfork();
     if(mypid < 0) {
       spdlog::error("Fork failed! {}", mypid);
     }
@@ -96,12 +98,16 @@ namespace rfaas::executor_manager {
       mypid = getpid();
       auto out_file = ("executor_" + std::to_string(mypid));
 
-      spdlog::info("Child fork begins work on PID {}, using Docker? {}", mypid, use_docker);
+      spdlog::info("Child fork begins work on PID {}, using sandbox {}", mypid, sandbox_serialize(sandbox_type));
+
       int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
       dup2(fd, 1);
       dup2(fd, 2);
-      if(!use_docker) {
-        const char * argv[] = {
+
+      std::vector<std::string> argv;
+      std::vector<const char*> additional_args;
+      if(sandbox_type == SandboxType::PROCESS) {
+        argv = {
           "executor",
           "-a", client_addr.c_str(),
           "-p", client_port.c_str(),
@@ -119,56 +125,22 @@ namespace rfaas::executor_manager {
           "--mgr-port", mgr_port.c_str(),
           "--mgr-secret", mgr_secret.c_str(),
           "--mgr-buf-addr", mgr_buf_addr.c_str(),
-          "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
-          nullptr
+          "--mgr-buf-rkey", mgr_buf_rkey.c_str()
         };
-        int ret = execvp(argv[0], const_cast<char**>(&argv[0]));
-        if(ret == -1) {
-          spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
-          close(fd);
-          exit(1);
-        }
-      } else {
-        //const char * argv[] = {
-        //  "docker_rdma_sriov", "run",
-        //  "--rm",
-        //  "--net=mynet", "-i", //"-it",
-        //  // FIXME: make configurable
-        //  "--ip=148.187.105.220",
-        //  // FIXME: make configurable
-        //  "--volume", "/users/mcopik/projects/rdma/repo/build_repo2:/opt",
-        //  // FIXME: make configurable
-        //  "rdma-test",
-        //  "/opt/bin/executor",
-        //  "-a", client_addr.c_str(),
-        //  "-p", client_port.c_str(),
-        //  "--polling-mgr", "thread",
-        //  "-r", executor_repetitions.c_str(),
-        //  "-x", executor_recv_buf.c_str(),
-        //  "-s", client_in_size.c_str(),
-        //  "--pin-threads", "true",
-        //  "--fast", client_cores.c_str(),
-        //  "--warmup-iters", executor_warmups.c_str(),
-        //  "--max-inline-data", executor_max_inline.c_str(),
-        //  "--func-size", client_func_size.c_str(),
-        //  "--timeout", client_timeout.c_str(),
-        //  "--mgr-address", conn.addr.c_str(),
-        //  "--mgr-port", mgr_port.c_str(),
-        //  "--mgr-secret", mgr_secret.c_str(),
-        //  "--mgr-buf-addr", mgr_buf_addr.c_str(),
-        //  "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
-        //  nullptr
-        //};
-        const char * argv[] = {
-          "docker_rdma_sriov", "run",
-          "--rm",
-          "--net=mynet", "-i", //"-it",
-          // FIXME: make configurable
-          "--ip=148.187.105.250",
-          // FIXME: make configurable
-          "--volume", "/users/mcopik/projects/rdma/repo/build_repo2:/opt",
-          // FIXME: make configurable
-          "rdma-test",
+      } else if(sandbox_type == SandboxType::SARUS) {
+
+        argv = {
+          "sarus", "run"
+        };
+
+        SarusConfiguration config = std::get<SarusConfiguration>(*exec.sandbox_config);
+        config.generate_args(argv, exec.sandbox_user);
+
+        argv.emplace_back(exec.sandbox_name);
+
+        argv.emplace_back(config.get_executor_path());
+
+        additional_args = {
           "/opt/bin/executor",
           "-a", client_addr.c_str(),
           "-p", client_port.c_str(),
@@ -187,16 +159,69 @@ namespace rfaas::executor_manager {
           "--mgr-secret", mgr_secret.c_str(),
           "--mgr-buf-addr", mgr_buf_addr.c_str(),
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
-          nullptr
         };
-        int ret = execvp(argv[0], const_cast<char**>(&argv[0]));
-        if(ret == -1) {
-          spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
-          close(fd);
-          exit(1);
-        }
 
+      } else if(sandbox_type == SandboxType::DOCKER) {
+        argv = {
+            "docker_rdma_sriov", "run", "--rm", "-i"
+        };
+        DockerConfiguration config = std::get<DockerConfiguration>(*exec.sandbox_config);
+        config.generate_args(argv);
+
+        additional_args = {
+          "/opt/bin/executor",
+          "-a", client_addr.c_str(),
+          "-p", client_port.c_str(),
+          "--polling-mgr", "thread",
+          "-r", executor_repetitions.c_str(),
+          "-x", executor_recv_buf.c_str(),
+          "-s", client_in_size.c_str(),
+          "--pin-threads", executor_pin_threads.c_str(),
+          "--fast", client_cores.c_str(),
+          "--warmup-iters", executor_warmups.c_str(),
+          "--max-inline-data", executor_max_inline.c_str(),
+          "--func-size", client_func_size.c_str(),
+          "--timeout", client_timeout.c_str(),
+          "--mgr-address", conn.addr.c_str(),
+          "--mgr-port", mgr_port.c_str(),
+          "--mgr-secret", mgr_secret.c_str(),
+          "--mgr-buf-addr", mgr_buf_addr.c_str(),
+          "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
+        };
+
+      } else if(sandbox_type == SandboxType::SINGULARITY) {
+        // Handle Singularity case
+        SingularityConfiguration config = std::get<SingularityConfiguration>(*exec.sandbox_config);
       }
+
+      // Concat argv and additional_args
+      std::vector<const char*> cstrings_argv;
+      std::transform(argv.begin(), argv.end(), std::back_inserter(cstrings_argv),
+        [](const std::string & input) -> const char* {
+          return input.c_str();
+        }
+      );
+      std::copy(additional_args.begin(), additional_args.end(), std::back_inserter(cstrings_argv));
+
+      // Add a nullptr to the end of the arguments list (as expected by execvp)
+      cstrings_argv.push_back(nullptr);
+
+      // Print arguments for debug
+      SPDLOG_DEBUG("Executor launch arguments");
+      for(const char* str : cstrings_argv) {
+        if (str) {
+          SPDLOG_DEBUG(str);
+        }
+      }
+
+      // Run the executor with the given arguments
+      int ret = execvp(cstrings_argv.data()[0], const_cast<char**>(&cstrings_argv.data()[0]));
+      if(ret == -1) {
+        spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
+        close(fd);
+        exit(1);
+      }
+
       //close(fd);
       exit(0);
     }

@@ -1,16 +1,73 @@
 {
   "config": {
     "rdma_device": "",
-    "rdma_device_port": 10000,
+    "rdma_device_port": 10004,
     "resource_manager_address": "",
     "resource_manager_port": 0,
     "resource_manager_secret": 0
   },
   "executor": {
-    "use_docker": false,
+    "sandbox_type": "process",
     "repetitions": 100,
     "warmup_iters": 0,
     "pin_threads": false
-  }
+  },
+  "sandbox-configuration": [
+    {
+      "key": "sarus",
+      "value": {
+        "index": 1,
+        "data": {
+          "user": "mcopik",
+          "name": "spcleth/hpc-disagg:rfaas-executor-daint",
+          "devices": [
+            "/dev/kgni0", "dev/kdreg"
+          ],
+          "mounts": [
+            "/opt/cray",
+            "/tmp/drcc.sock",
+            "/etc/opt/cray/rdma-credentials",
+            "/etc/alternatives/cray-ugni",
+            "/etc/alternatives/cray-xpmem",
+            "/etc/alternatives/cray-alps",
+            "/etc/alternatives/cray-udreg",
+            "/etc/alternatives/cray-wlm_detect"
+          ],
+          "mount_filesystem": [
+            "/scratch/snx3000/{user}"
+          ],
+          "env": [
+            {
+              "key": "LD_LIBRARY_PATH",
+              "value": "/opt/cray/xpmem/default/lib64/;/opt/cray/udreg/default/lib64;/opt/cray/alps/default/lib64;/opt/cray/wlm_detect/default/lib64/"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "docker",
+      "value": {
+        "index": 0,
+        "data": {
+          "image": "rfaas-registry/rfaas-base",
+          "network": "mynet",
+          "ip": "172.31.82.202",
+          "volume": "/home/ubuntu/rfaas/containers/opt",
+          "registry_ip": "172.31.82.200",
+          "registry_port": 5000
+        }
+      }
+    },
+    {
+      "key": "singularity",
+      "value": {
+        "index": 2,
+        "data": {
+          "container": "rfaas-container-singularity"
+        }
+      }
+    }
+  ]
 }
 
