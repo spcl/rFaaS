@@ -17,7 +17,7 @@ endif()
 ###
 # spdlog
 ###
-find_package(spdlog 1.8...<1.10)
+find_package(spdlog 1.8...<1.10 QUIET)
 if(NOT spdlog_FOUND)
   message(STATUS "Downloading and building spdlog dependency")
   FetchContent_Declare(spdlog
