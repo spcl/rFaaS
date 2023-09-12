@@ -1,0 +1,8 @@
+
+struct Settings
+{
+  static constexpr const char * FLIB_PATH = "@CMAKE_BINARY_DIR@/examples/libfunctions.so";
+  static constexpr const char * DEVICE_JSON_PATH = "@CMAKE_BINARY_DIR@/configuration/devices.json";
+  static constexpr const char * TESTING_CFG_PATH = "@CMAKE_BINARY_DIR@/configuration/testing.json";
+  static constexpr const char * TEST_DEVICE = "@TEST_DEVICE@";
+};

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 usage() {
-  echo "Usage: $0 [ -d DEVICE ] [ -o OUTPUT ]" 1>&2 
+  echo "Usage: $0 [ -d DEVICE ] [ -p PORT] [ -o OUTPUT ]" 1>&2 
 }
 
 echoerr() {
@@ -14,24 +14,26 @@ function log () {
   fi
 }
 
-
 get_device() {
   device=$1
+  port=$2
   addr=$(ip -j address show dev $device | jq -r '.[0].addr_info[] | select(.family=="inet") | .local')
 
   # case-insensitive comparison
   if [[ -z "${addr}" || "${addr,,}" = "null" ]]; then
     echoerr "Could not determine the address of device $device"
   else
-    output_json=$(jq --arg device $device --arg addr $addr '.devices += [{"name": $device, "ip_address": $addr, "port": 0, "default_receive_buffer_size": 32, "max_inline_data": 0}]' <<< ${output_json})
+    output_json=$(jq --arg device $device --arg addr $addr --argjson port $port '.devices += [{"name": $device, "ip_address": $addr, "port": $port, "default_receive_buffer_size": 32, "max_inline_data": 0}]' <<< ${output_json})
   fi
 }
 
 output=""
 verbose='false'
-while getopts "d:o:hv" opt; do
+port=0
+while getopts "d:o:p:hv" opt; do
     case $opt in
         d) devices+=("$OPTARG");;
+        p) port="$OPTARG";;
         o) output="$OPTARG";;
         v) verbose='true';;
         h) usage
@@ -48,7 +50,7 @@ if [[ -n $devices ]]; then
   for netdev in "${devices[@]}"
   do
     log "Process $netdev"
-    get_device "$netdev" 
+    get_device "$netdev" "$port"
   done
 else
   log "Querying devices from the rdma command."
@@ -57,7 +59,7 @@ else
   while read -r _ _ _ state _ _ _ netdev; do
     if [ "$state" = "ACTIVE" ]; then
       log "Process $netdev"
-      get_device "$netdev" 
+      get_device "$netdev" "$port"
     fi
   done <<< "${rdma_devices}"
 

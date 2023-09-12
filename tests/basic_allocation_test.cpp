@@ -20,9 +20,11 @@ protected:
   {
     {
       // Read connection details to the managers
-      std::ifstream in_cfg("servers.json");
+      std::ifstream in_cfg("../config/executors_database.json");
       rfaas::servers::deserialize(in_cfg);
     }
+
+    _device_name = Settings::TEST_DEVICE;
 
     {
       // Read device details to the managers
@@ -75,6 +77,7 @@ TEST_F(BasicAllocationTest, UnfinishedAllocation) {
 
 // FIXME: test two cores
 // FIXME: test multiple cores
+// FIXME: test multiple clients
 // FIXME: too many cores
 // FIXME: algorithm of allocating multiple executors
 // FIXME: timeout
