@@ -9,7 +9,7 @@
 [<img alt="rFaaS vs HPC vs FaaS" src="docs/systems_comparison.png" height="200" align="right" title="rFaaS vs HPC vs FaaS"/>](docs/systems_comparison.png)
 The cloud paradigm Function-as-a-Service (FaaS) provides an ability to execute stateless and fine-grained functions on elastic and ephemeral resources. However, serverless struggles to achieve the performance needed in high-performance computing: slow invocations, low network bandwidth, and the overheads of the FaaS management system make it difficult to incorporate serverless functions when every millisecond counts. Therefore, we decided to combine the best of both worlds: elasticity of FaaS and high-performance of cluster batch systems. We built a new FaaS platform with RDMA-accelerated network transport.
 
-rFaaS is a serverless platform redesigned to support high-performance and low-latency invocations with a direct RDMA connection. 
+rFaaS is a serverless platform redesigned to support high-performance and low-latency invocations with a direct RDMA connection.
 In rFaaS, the centralized schedulers and API gateway are replaced with a decentralized allocation mechanism. Instead of using a traditional cloud trigger, HPC applications query executor servers, obtain resource allocation and establish RDMA connections to remote workers. Every function is invoked by writing input data directly to the memory of the worker. This allows us to achieve a single-digit microsecond hot invocation latency - hot invocations add less than 350 nanoseconds overhead on top of the fastest available network transmission.
 
 To use rFaaS, please read the documentation on [software and hardware requirements](#requirements), [installation instructions](#installation), and [the basic example of using rFaaS](#usage). rFaaS comes with a set of [benchmark](docs/benchmarks.md) applications and [tests](docs/testing). We provide an extended set of [C++ serverless functions](docs/examples.md), including multimedia and ML inference examples from [the serverless benchmarking suite SeBS](https://github.com/spcl/serverless-benchmarks). Finally, you can find more details about rFaaS in the documentation on the [system](docs/system.md) and the [client rFaaS library](docs/client_library.md).
@@ -47,15 +47,16 @@ its `ugni` provider.
 - C++ compiler with C++17 support.
 - `libibverbs` with headers installed.
 - `librdmacm` with headers installed.
-- [pistache](https://github.com/pistacheio/pistache) - HTTP and REST framework.
 
 Furthermore, we fetch and build the following dependencies during CMake build - unless
 they are found already in the system.
 
 - [spdlog](https://github.com/gabime/spdlog) 1.8
 - [cereal](https://uscilab.github.io/cereal/) 1.3
-- [cxxopts](https://github.com/jarro2783/cxxopts) 
+- [cxxopts](https://github.com/jarro2783/cxxopts)
 - [googletest](https://github.com/google/googletest)
+- [readerwriterqueue](https://github.com/cameron314/readerwriterqueue)
+- [pistache](https://github.com/pistacheio/pistache) - HTTP and REST framework.
 
 **Containers**
 `rFaaS` supports two types of function executors - a bare-metal process and a Docker container. For Docker, we use the SR-IOV plugin from Mellanox to run Docker-based function executors with virtual NIC device functions. Please follow [Mellanox documentation and instructions](https://community.mellanox.com/s/article/Docker-RDMA-SRIOV-Networking-with-ConnectX4-ConnectX5-ConnectX6) to install and configure the plugin.
@@ -76,24 +77,24 @@ To enable more verbose logging, change the CMake configuration parameter to: `-D
 
 The CMake installation has the following optional configuration parameters.
 
-| Arguments                                                            	|                                              		|
-|-------------------------------------------------------------------|----------------------------------------------|
-| <i>WITH_EXAMPLES</i>                                       	| **EXPERIMENTAL** Build additional examples ([see examples subsection](docs/examples.md) for details on additional dependencies).              						|
-| <i>WITH_TESTING</i>                                        	| **EXPERIMENTAL** Enable testing - requires providing device database and testing configuration (see below). See [testing](#testing) subsection for details.	|
-| <i>DEVICES_CONFIG</i>                                         | File path for the JSON device configuration. |
-| <i>TESTING_CONFIG</i>                                         | File path for the JSON device configuration. |
-| <i>CXXOPTS_PATH</i>                                         	 | Path to an existing installation of the `cxxopts` library; disables the automatic fetch and build of the library. |
-| <i>SPDLOG_PATH</i>                                         	 | Path to an existing installation of the `spdlog` library; disables the automatic fetch and build of the library. |
-| <i>LIBRDMACM_PATH</i>                                        | Path to a installation directory of the `librdmacm` library. |
+| Arguments             |                                                                                                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <i>WITH_EXAMPLES</i>  | **EXPERIMENTAL** Build additional examples ([see examples subsection](docs/examples.md) for details on additional dependencies).                            |
+| <i>WITH_TESTING</i>   | **EXPERIMENTAL** Enable testing - requires providing device database and testing configuration (see below). See [testing](#testing) subsection for details. |
+| <i>DEVICES_CONFIG</i> | File path for the JSON device configuration.                                                                                                                |
+| <i>TESTING_CONFIG</i> | File path for the JSON device configuration.                                                                                                                |
+| <i>CXXOPTS_PATH</i>   | Path to an existing installation of the `cxxopts` library; disables the automatic fetch and build of the library.                                           |
+| <i>SPDLOG_PATH</i>    | Path to an existing installation of the `spdlog` library; disables the automatic fetch and build of the library.                                            |
+| <i>LIBRDMACM_PATH</i> | Path to a installation directory of the `librdmacm` library.                                                                                                |
 
 ## Usage
 
-To learn how to use rFaaS, please follow the [tutorial](docs/tutorial.md) 
+To learn how to use rFaaS, please follow the [tutorial](docs/tutorial.md)
 
 For an in-depth analysis of each component and their configuration, please look at [the system documentation](docs/system.md).
 
 ## Authors
 
-* [Marcin Copik (ETH Zurich)](https://github.com/mcopik/) - main author.
-* [Konstantin Taranov (ETH Zurich)](https://github.com/TaranovK) - troubleshooting and optimizating RDMA.
-* [Marcin Chrapek (ETH Zurich)](https://github.com/marchrap) - libfabrics port and support for Cray GNI.
+- [Marcin Copik (ETH Zurich)](https://github.com/mcopik/) - main author.
+- [Konstantin Taranov (ETH Zurich)](https://github.com/TaranovK) - troubleshooting and optimizating RDMA.
+- [Marcin Chrapek (ETH Zurich)](https://github.com/marchrap) - libfabrics port and support for Cray GNI.
