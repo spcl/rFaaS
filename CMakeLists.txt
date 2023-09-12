@@ -24,7 +24,7 @@ string(APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO " -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_L
 string(APPEND CMAKE_CXX_FLAGS_DEBUG " -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG ")
 string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra ")
 
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/configuration)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/configuration)
 
 option(WITH_EXAMPLES "Enable building extended function examples (requires additional dependencies)." Off)
 if(${WITH_EXAMPLES})
@@ -42,7 +42,7 @@ if( NOT WITH_TESTING STREQUAL "" )
     message(FATAL_ERROR "The provided file does not exist: ${TESTING_CONFIG}!")
   endif()
 
-  file(COPY ${TESTING_CONFIG} DESTINATION ${CMAKE_BINARY_DIR}/configuration)
+  file(COPY ${TESTING_CONFIG} DESTINATION ${CMAKE_BINARY_DIR}/tests/configuration)
   message(STATUS "Enabling testing using configuration provided with ${TESTING_CONFIG}")
 else()
   set(RFAAS_WITH_TESTING OFF)

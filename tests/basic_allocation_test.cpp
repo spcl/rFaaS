@@ -20,7 +20,7 @@ protected:
   {
     {
       // Read connection details to the managers
-      std::ifstream in_cfg("../config/executors_database.json");
+      std::ifstream in_cfg(Settings::EXEC_DB_PATH);
       rfaas::servers::deserialize(in_cfg);
     }
 

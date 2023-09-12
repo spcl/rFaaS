@@ -3,16 +3,17 @@
 BUILD_DIRECTORY=$1
 DEVICE_DATABASE=$2
 
-DEVICE=$(cat ${BUILD_DIRECTORY}/configuration/testing.json | jq -r '.["executor_manager_server"]["device"]')
-PORT=$(cat ${BUILD_DIRECTORY}/configuration/testing.json | jq -r '.["executor_manager_server"]["port"]')
-RESULT=$(jq -j '.devices[] | select(.name=="'${DEVICE}'") | "\(.ip_address);"' ${BUILD_DIRECTORY}/configuration/devices.json)
+DEVICE=$(cat ${BUILD_DIRECTORY}/tests/configuration/testing.json | jq -r '.["executor_manager_server"]["device"]')
+PORT=$(cat ${BUILD_DIRECTORY}/tests/configuration/testing.json | jq -r '.["executor_manager_server"]["port"]')
+RESULT=$(jq -j '.devices[] | select(.name=="'${DEVICE}'") | "\(.ip_address);"' ${BUILD_DIRECTORY}/tests/configuration/devices.json)
 RESULT_STATUS=$?
 if [ ${RESULT_STATUS} -ne 0 ]; then
-	echo "Incorrect parsing of ${BUILD_DIRECTORY}/configuration/devices.json!"
+	echo "Incorrect parsing of ${BUILD_DIRECTORY}/tests/configuration/devices.json!"
 	echo "Result: ${RESULT}"
 	exit 1
 fi
 
+# Generate configuration
 mgr_cfg='
 {
   "config": {
@@ -30,10 +31,15 @@ mgr_cfg='
   }
 }
 '
-echo $DEVICE $PORT
 jq --arg device $DEVICE --argjson port $PORT '.config.rdma_device = $device | .config.rdma_device_port = $port' <<<${mgr_cfg} >${BUILD_DIRECTORY}/tests/executor_manager.json
 
 IFS=";" read IP <<<$RESULT
+jq --arg addr $IP --argjson port $PORT --argjson cores 1 '.executors += [{"address": $addr, "port": $port, "cores": $cores}]' \
+	<<<"{}" \
+	>${BUILD_DIRECTORY}/tests/configuration/executor_database.json
+
+# Generate database
+
 cmd="
   ${BUILD_DIRECTORY}/bin/executor_manager\
   --config ${BUILD_DIRECTORY}/tests/executor_manager.json\
@@ -41,7 +47,6 @@ cmd="
   --skip-resource-manager\
   -v
 "
-echo ${cmd}
 ${cmd} >${BUILD_DIRECTORY}/tests/test_serverless_server 2>&1 &
 pid=$!
 echo $pid $ret >${BUILD_DIRECTORY}/tests/test_server.pid

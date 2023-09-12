@@ -9,35 +9,35 @@ endif()
 
 # FIXME: configure this file!
 execute_process (
-  COMMAND bash -c "${JQ} -j \'.test_executor.device\' ${CMAKE_BINARY_DIR}/configuration/testing.json"
+  COMMAND bash -c "${JQ} -j \'.test_executor.device\' ${CMAKE_BINARY_DIR}/tests/configuration/testing.json"
   RESULT_VARIABLE TEST_DEVICE_STATUS
   OUTPUT_VARIABLE TEST_DEVICE
 )
 if(NOT ${TEST_DEVICE_STATUS} EQUAL 0)
-  message(FATAL_ERROR "Couldn't query test executor device from ${CMAKE_BINARY_DIR}/configuration/testing.json; reason ${TEST_DEVICE_STATUS}")
+  message(FATAL_ERROR "Couldn't query test executor device from ${CMAKE_BINARY_DIR}/tests/configuration/testing.json; reason ${TEST_DEVICE_STATUS}")
 endif()
 
 execute_process (
-  COMMAND bash -c "${JQ} -j \'.test_executor.port\' ${CMAKE_BINARY_DIR}/configuration/testing.json"
+  COMMAND bash -c "${JQ} -j \'.test_executor.port\' ${CMAKE_BINARY_DIR}/tests/configuration/testing.json"
   RESULT_VARIABLE TEST_PORT_STATUS
   OUTPUT_VARIABLE TEST_PORT
 )
 if(NOT ${TEST_PORT_STATUS} EQUAL 0)
-  message(FATAL_ERROR "Couldn't query test executor device from ${CMAKE_BINARY_DIR}/configuration/testing.json; reason ${TEST_PORT_STATUS}")
+  message(FATAL_ERROR "Couldn't query test executor device from ${CMAKE_BINARY_DIR}/tests/configuration/testing.json; reason ${TEST_PORT_STATUS}")
 endif()
 
 execute_process (
-  COMMAND bash -c "${JQ} -j \'.executor_manager_server.port\' ${CMAKE_BINARY_DIR}/configuration/testing.json"
+  COMMAND bash -c "${JQ} -j \'.executor_manager_server.port\' ${CMAKE_BINARY_DIR}/tests/configuration/testing.json"
   RESULT_VARIABLE EXEC_MGR_PORT_STATUS
   OUTPUT_VARIABLE EXEC_MGR_PORT
 )
 if(NOT ${EXEC_MGR_PORT_STATUS} EQUAL 0)
-  message(FATAL_ERROR "Couldn't query test executor manager port from ${CMAKE_BINARY_DIR}/configuration/testing.json; reason ${EXEC_MGR_PORT_STATUS}")
+  message(FATAL_ERROR "Couldn't query test executor manager port from ${CMAKE_BINARY_DIR}/tests/configuration/testing.json; reason ${EXEC_MGR_PORT_STATUS}")
 endif()
 
 message(STATUS "Executing device generator to prepare testing configuration!")
 execute_process (
-  COMMAND bash -c "${CMAKE_SOURCE_DIR}/tools/device_generator.sh -p ${TEST_PORT} > ${CMAKE_BINARY_DIR}/configuration/devices.json"
+  COMMAND bash -c "${CMAKE_SOURCE_DIR}/tools/device_generator.sh -p ${TEST_PORT} > ${CMAKE_BINARY_DIR}/tests/configuration/devices.json"
   RESULT_VARIABLE DEVICES_STATUS
 )
 if(NOT ${DEVICES_STATUS} EQUAL 0)
@@ -46,12 +46,10 @@ endif()
 
 configure_file(${CMAKE_SOURCE_DIR}/tests/config.h.in ${CMAKE_BINARY_DIR}/tests/config.h @ONLY)
 
-# FIXME: config build dir
-# FIXME: config user
 add_test(
   NAME start_exec_mgr
   COMMAND ${CMAKE_SOURCE_DIR}/scripts/run_executor_manager.sh
-  ${CMAKE_BINARY_DIR} ${CMAKE_BINARY_DIR}/configuration/devices.json
+  ${CMAKE_BINARY_DIR} ${CMAKE_BINARY_DIR}/tests/configuration/devices.json
 )
 add_test(
   NAME end_exec_mgr
