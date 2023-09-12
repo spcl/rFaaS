@@ -82,6 +82,7 @@ endif()
 ###
 # pistache      
 ### 
+include(FetchContent)
 find_package(PkgConfig)
 find_package(pistache)
 if(NOT pistache_FOUND)
@@ -89,7 +90,7 @@ if(NOT pistache_FOUND)
   FetchContent_Declare(pistache
     GIT_REPOSITORY https://github.com/pistacheio/pistache.git
   )
-  pkg_check_modules(Pistache REQUIRED IMPORTED_TARGET libpistache)
+  FetchContent_MakeAvailable(pistache)
 else()
   pkg_check_modules(Pistache REQUIRED IMPORTED_TARGET libpistache)
 endif()
