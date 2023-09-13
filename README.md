@@ -77,13 +77,13 @@ To enable more verbose logging, change the CMake configuration parameter to: `-D
 
 The CMake installation has the following optional configuration parameters.
 
-| Arguments             |                                                                                                                                                             |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| <i>WITH_EXAMPLES</i>  | **EXPERIMENTAL** Build additional examples ([see examples subsection](docs/examples.md) for details on additional dependencies).                            |
-| <i>WITH_TESTING</i>   | **EXPERIMENTAL** Enable testing - requires providing device database and testing configuration (see below). See [testing](#testing) subsection for details. |
-| <i>CXXOPTS_PATH</i>   | Path to an existing installation of the `cxxopts` library; disables the automatic fetch and build of the library.                                           |
-| <i>SPDLOG_PATH</i>    | Path to an existing installation of the `spdlog` library; disables the automatic fetch and build of the library.                                            |
-| <i>LIBRDMACM_PATH</i> | Path to a installation directory of the `librdmacm` library.                                                                                                |
+| Arguments             |                                                                                                                                                            |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| <i>WITH_EXAMPLES</i>  | **EXPERIMENTAL** Build additional examples ([see examples subsection](docs/examples.md) for details on additional dependencies).                           |
+| <i>WITH_TESTING</i>   | **EXPERIMENTAL** Enable testing - requires providing JSON testing configuration as the value of this flag. See [testing](#testing) subsection for details. |
+| <i>CXXOPTS_PATH</i>   | Path to an existing installation of the `cxxopts` library; disables the automatic fetch and build of the library.                                          |
+| <i>SPDLOG_PATH</i>    | Path to an existing installation of the `spdlog` library; disables the automatic fetch and build of the library.                                           |
+| <i>LIBRDMACM_PATH</i> | Path to a installation directory of the `librdmacm` library.                                                                                               |     |
 
 ## Usage
 
