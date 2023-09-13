@@ -81,8 +81,6 @@ The CMake installation has the following optional configuration parameters.
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | <i>WITH_EXAMPLES</i>  | **EXPERIMENTAL** Build additional examples ([see examples subsection](docs/examples.md) for details on additional dependencies).                            |
 | <i>WITH_TESTING</i>   | **EXPERIMENTAL** Enable testing - requires providing device database and testing configuration (see below). See [testing](#testing) subsection for details. |
-| <i>DEVICES_CONFIG</i> | File path for the JSON device configuration.                                                                                                                |
-| <i>TESTING_CONFIG</i> | File path for the JSON device configuration.                                                                                                                |
 | <i>CXXOPTS_PATH</i>   | Path to an existing installation of the `cxxopts` library; disables the automatic fetch and build of the library.                                           |
 | <i>SPDLOG_PATH</i>    | Path to an existing installation of the `spdlog` library; disables the automatic fetch and build of the library.                                            |
 | <i>LIBRDMACM_PATH</i> | Path to a installation directory of the `librdmacm` library.                                                                                                |
