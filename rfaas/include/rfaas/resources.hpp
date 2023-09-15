@@ -15,26 +15,31 @@ namespace rfaas {
 
   struct server_data
   {
+    static constexpr int NODE_NAME_LENGTH = 32;
+
     int32_t port;
     int16_t cores;
     char address[16];
+    char node[NODE_NAME_LENGTH];
 
     server_data();
-    server_data(const std::string & ip, int32_t port, int16_t cores);
+    server_data(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores);
 
     template <class Archive>
     void save(Archive & ar) const
     {
       std::string addr{address};
-      ar(CEREAL_NVP(port), CEREAL_NVP(cores), cereal::make_nvp("address", addr));
+      ar(CEREAL_NVP(node), CEREAL_NVP(port), CEREAL_NVP(cores), cereal::make_nvp("address", addr));
     }
 
     template <class Archive>
     void load(Archive & ar )
     {
       std::string addr;
-      ar(CEREAL_NVP(port), CEREAL_NVP(cores), cereal::make_nvp("address", addr));
+      std::string node;
+      ar(CEREAL_NVP(node), CEREAL_NVP(port), CEREAL_NVP(cores), cereal::make_nvp("address", addr));
       strncpy(address, addr.c_str(), 16);
+      strncpy(this->node, node.c_str(), NODE_NAME_LENGTH);
     }
   };
 

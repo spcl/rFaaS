@@ -1,0 +1,54 @@
+
+#include <chrono>
+
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+
+#include <rdmalib/allocation.hpp>
+
+#include "client.hpp"
+
+namespace rfaas::resource_manager {
+
+  Client::Client(int client_id, rdmalib::Connection* conn, ibv_pd* pd):
+    connection(conn),
+    allocation_requests(RECV_BUF_SIZE),
+    rcv_buffer(RECV_BUF_SIZE),
+    allocation_time(0),
+    client_id(client_id)
+  {
+    // Make the buffer accessible to clients
+    allocation_requests.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    // Initialize batch receive WCs
+    connection->initialize_batched_recv(allocation_requests, sizeof(rdmalib::AllocationRequest));
+    rcv_buffer.connect(connection);
+  }
+
+  void Client::disable()
+  {
+    rdma_disconnect(connection->id());
+    connection->close();
+    delete connection;
+    connection = nullptr;
+  }
+
+  void Client::reload_queue()
+  {
+    rcv_buffer.refill();
+  }
+
+  void Client::begin_allocation()
+  {
+    _cur_allocation_start = std::chrono::high_resolution_clock::now();
+  }
+
+  void Client::end_allocation()
+  {
+    auto cur_allocation_end = std::chrono::high_resolution_clock::now();
+    allocation_time += std::chrono::duration_cast<std::chrono::microseconds>(cur_allocation_end - _cur_allocation_start).count();
+  }
+
+}
+

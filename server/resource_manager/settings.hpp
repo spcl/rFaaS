@@ -22,11 +22,14 @@ namespace rfaas::resource_manager {
     std::string http_network_address;
     uint16_t http_network_port;
 
+    int rdma_threads;
+
     template <class Archive>
     void load(Archive & ar )
     {
       ar(
         CEREAL_NVP(rdma_device), CEREAL_NVP(rdma_device_port),
+        CEREAL_NVP(rdma_threads),
         CEREAL_NVP(http_network_address), CEREAL_NVP(http_network_port)
       );
     }

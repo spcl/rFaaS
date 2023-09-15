@@ -62,6 +62,8 @@ namespace rfaas::resource_manager {
     Settings _settings;
     static constexpr int POLLING_TIMEOUT_MS = 100;
 
+    uint32_t _secret;
+
     Manager(Settings &);
 
     void read_database(const std::string & name);

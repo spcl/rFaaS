@@ -14,11 +14,12 @@ namespace rfaas {
     cores(-1)
   {}
 
-  server_data::server_data(const std::string & ip, int32_t port, int16_t cores):
+  server_data::server_data(const std::string & node, const std::string & ip, int32_t port, int16_t cores):
     port(port),
     cores(cores)
   {
     strncpy(address, ip.c_str(), 16);
+    strncpy(this->node, node.c_str(), NODE_NAME_LENGTH);
   }
 
   servers::servers(int positions)

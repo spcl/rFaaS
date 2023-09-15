@@ -50,6 +50,11 @@ int main(int argc, char ** argv)
     return 1;
   }
 
+  rfaas::manager_connection conn("192.168.0.20", 10000, 8, 0);
+  conn.connect();
+
+  return 0;
+
   rfaas::executor executor(
     settings.device->ip_address,
     settings.rdma_device_port,

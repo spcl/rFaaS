@@ -15,8 +15,8 @@ namespace rfaas::resource_manager {
        cxxopts::value<std::string>())
       ("i,input-database", "JSON with initial data of clients.",
        cxxopts::value<std::string>()->default_value(""))
-      ("o,output-database", "Write and update JSON with data of clients.",
-       cxxopts::value<std::string>()->default_value(""))
+      ("o,output-database", "Write and update JSON with data of clients.", cxxopts::value<std::string>()->default_value(""))
+      ("rdma-threads", "Threads handling RDMA requests.", cxxopts::value<int>())
       ("device-database", "JSON configuration of devices.", cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
       ("h,help", "Print usage", cxxopts::value<bool>()->default_value("false"))

@@ -26,6 +26,7 @@ namespace rdmalib {
 
     inline void connect(rdmalib::Connection * conn)
     {
+      // FIXME:move initialization of batch recv here
       this->_conn = conn;
       _requests = 0;
       refill();
