@@ -23,13 +23,15 @@ namespace rfaas::resource_manager {
     uint16_t http_network_port;
 
     int rdma_threads;
+    uint32_t rdma_secret;
 
     template <class Archive>
     void load(Archive & ar )
     {
       ar(
         CEREAL_NVP(rdma_device), CEREAL_NVP(rdma_device_port),
-        CEREAL_NVP(rdma_threads),
+        cereal::make_nvp("rdma-threads", rdma_threads),
+        cereal::make_nvp("rdma-secret", rdma_secret),
         CEREAL_NVP(http_network_address), CEREAL_NVP(http_network_port)
       );
     }

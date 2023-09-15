@@ -49,8 +49,14 @@ namespace rfaas::resource_manager {
     std::optional<std::string> _executors_output_path;
 
     // Handling RDMA connections with clients and executor managers
+    enum class Operation
+    {
+      CONNECT = 0,
+      DISCONNECT = 1
+    };
+
     moodycamel::BlockingReaderWriterQueue<
-      rdmalib::Connection*
+      std::tuple<Operation, rdmalib::Connection*>
     > _rdma_queue;
     rdmalib::RDMAPassive _state;
     std::atomic<bool> _shutdown;

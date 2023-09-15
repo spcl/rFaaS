@@ -21,8 +21,8 @@ Manager::Manager(Settings &settings)
       _state(settings.device->ip_address, settings.rdma_device_port,
              settings.device->default_receive_buffer_size, true,
              settings.device->max_inline_data),
-      _secret(0x1234), _shutdown(false),
-      _http_server(_executor_data, settings) {}
+      _shutdown(false), _http_server(_executor_data, settings),
+      _secret(settings.rdma_secret) {}
 
 void Manager::start() {
   // Start HTTP server on a new thread
@@ -43,10 +43,8 @@ void Manager::listen_rdma() {
     if (!result)
       continue;
 
-    std::cerr << "event" << std::endl;
-
-    // We share the CQS to ensure that all clients have the same receiving queue.
-    // This way, we can poll events on a single 
+    // We share the CQS to ensure that all clients have the same receiving
+    // queue. This way, we can poll events on a single connection.
     auto [conn, conn_status] = _state.poll_events(true);
     if (conn == nullptr) {
       spdlog::error("Failed connection creation");
@@ -56,22 +54,23 @@ void Manager::listen_rdma() {
       // FIXME: handle disconnect
       spdlog::debug("[Manager-listen] Disconnection on connection {}",
                     fmt::ptr(conn));
-      continue;
+      _rdma_queue.enqueue(std::make_tuple(Operation::DISCONNECT, conn));
     } else if (conn_status == rdmalib::ConnectionStatus::REQUESTED) {
+      std::cerr << "event accept" << std::endl;
       _state.accept(conn);
     } else if (conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
       // Accept client connection and push
       SPDLOG_DEBUG("[Manager] Listen thread: connected new client");
-      _rdma_queue.enqueue(conn);
+      _rdma_queue.enqueue(std::make_tuple(Operation::CONNECT, conn));
     }
   }
   spdlog::info("Background thread stops waiting for rdmacm events");
 }
 
-void Manager::process_rdma()
-{
+void Manager::process_rdma() {
   static constexpr int RECV_BUF_SIZE = 64;
-  rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests{RECV_BUF_SIZE};
+  rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests{
+      RECV_BUF_SIZE};
   rdmalib::RecvBuffer rcv_buffer{RECV_BUF_SIZE};
 
   std::vector<rdmalib::Connection *> executors;
@@ -80,46 +79,58 @@ void Manager::process_rdma()
   client_t clients;
   std::vector<client_t::iterator> removals;
   int id = 0;
-  //rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
-  //rdmalib::RecvBuffer rcv_buffer;
+  // rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
+  // rdmalib::RecvBuffer rcv_buffer;
 
-  //std::get<1>(clients[0]).connection->qp()->qp_num
+  // std::get<1>(clients[0]).connection->qp()->qp_num
 
-  //allocation_requests.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-  //connection->initialize_batched_recv(allocation_requests, sizeof(rdmalib::AllocationRequest));
-  //rcv_buffer.connect(connection);
+  // allocation_requests.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE |
+  // IBV_ACCESS_REMOTE_WRITE);
+  // connection->initialize_batched_recv(allocation_requests,
+  // sizeof(rdmalib::AllocationRequest)); rcv_buffer.connect(connection);
 
   while (!_shutdown.load()) {
 
-    {
-      rdmalib::Connection** conn = _rdma_queue.peek();
-      if (conn) {
+    auto update = _rdma_queue.peek();
+    if (update) {
 
-        uint32_t private_data = (*conn)->private_data();
-        if (private_data) {
-          if ((private_data & 0xFFFF) == this->_secret) {
-            spdlog::debug("[Manager] connected new executor.");
-            executors.push_back(*conn);
-          } else {
-            spdlog::debug("[Manager] connected new client.");
-            //clients.push_back(
-            //std::make_tuple(id++, Client{*conn, _state.pd()}));
-            clients.emplace(
-              std::piecewise_construct,
-              std::forward_as_tuple((*conn)->qp()->qp_num),
-              std::forward_as_tuple(
-                id++,
-                *conn,
-                _state.pd()
-              )
-            );
-          }
+      auto [status, conn] = *update;
+
+      if (status == Operation::CONNECT) {
+
+        uint32_t private_data = (*conn).private_data();
+        std::cerr << "empty private data" << std::endl;
+        if (private_data && (private_data & 0xFFFF) == this->_secret) {
+          spdlog::debug("[Manager] connected new executor.");
+          // FIXME: allocate atomic memory  for updates
+          // FIXME: disconnect executor
+          executors.push_back(conn);
+        } else if (!private_data) {
+          spdlog::debug("[Manager] connected new client.");
+          // clients.push_back(
+          // std::make_tuple(id++, Client{*conn, _state.pd()}));
+          clients.emplace(std::piecewise_construct,
+                          std::forward_as_tuple((*conn).qp()->qp_num),
+                          std::forward_as_tuple(id++, conn, _state.pd()));
         }
-        _rdma_queue.pop();
+      } else {
+
+        uint32_t qp_num = conn->qp()->qp_num;
+        auto it = clients.find(qp_num);
+        if (it != clients.end()) {
+          removals.push_back(it);
+          spdlog::debug("[Manager] Disconnecting client {}",
+                        it->second.client_id);
+        } else {
+          spdlog::debug("[Manager] Disconnecting unknown client");
+        }
       }
+
+      _rdma_queue.pop();
     }
-    
-    //auto wc = rcv_buffer.poll(true);
+
+    // FIXME: sleep
+    // FIXME: shared CQS
 
     for (auto it = clients.begin(); it != clients.end(); ++it) {
 
@@ -166,13 +177,8 @@ void Manager::process_rdma()
         spdlog::info("Remove client id {}", it->second.client_id);
         clients.erase(it);
       }
+      removals.clear();
     }
-    //if (removals.size()) {
-    //  for (auto it : removals) {
-    //    spdlog::info("Remove client id {}", std::get<0>(*it));
-    //    clients.erase(it);
-    //  }
-    //}
   }
 
   spdlog::info("Background thread stops processing rdmacm events");
