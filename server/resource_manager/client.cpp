@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
-#include <rdmalib/allocation.hpp>
+#include <rfaas/allocation.hpp>
 
 #include "client.hpp"
 
@@ -22,7 +22,7 @@ namespace rfaas::resource_manager {
     // Make the buffer accessible to clients
     allocation_requests.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     // Initialize batch receive WCs
-    connection->initialize_batched_recv(allocation_requests, sizeof(rdmalib::AllocationRequest));
+    connection->initialize_batched_recv(allocation_requests, sizeof(rfaas::AllocationRequest));
     rcv_buffer.connect(connection);
   }
 

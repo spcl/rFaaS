@@ -1,12 +1,12 @@
 
-#include "rdmalib/rdmalib.hpp"
 #include <spdlog/spdlog.h>
 
-#include <rdmalib/allocation.hpp>
+#include <rdmalib/rdmalib.hpp>
 #include <rdmalib/connection.hpp>
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/util.hpp>
 
+#include <rfaas/allocation.hpp>
 #include <rfaas/connection.hpp>
 #include <rfaas/executor.hpp>
 #include <rfaas/resources.hpp>
@@ -264,7 +264,7 @@ namespace rfaas {
       if(!ret)
         return false;
 
-      _exec_manager->request() = (rdmalib::AllocationRequest) {
+      _exec_manager->request() = (rfaas::AllocationRequest) {
         static_cast<int16_t>(hot_timeout),
         // FIXME: timeout
         5,

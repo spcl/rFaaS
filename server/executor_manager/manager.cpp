@@ -10,10 +10,11 @@
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/connection.hpp>
-#include <rdmalib/allocation.hpp>
+#include <rdmalib/rdmalib.hpp>
+
+#include <rfaas/allocation.hpp>
 
 #include "manager.hpp"
-#include "rdmalib/rdmalib.hpp"
 
 namespace rfaas::executor_manager {
 

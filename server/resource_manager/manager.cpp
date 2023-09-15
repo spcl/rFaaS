@@ -3,11 +3,12 @@
 
 #include <spdlog/spdlog.h>
 
-#include <rdmalib/allocation.hpp>
 #include <rdmalib/connection.hpp>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
+
+#include <rfaas/allocation.hpp>
 
 #include "client.hpp"
 #include "manager.hpp"
@@ -56,7 +57,6 @@ void Manager::listen_rdma() {
                     fmt::ptr(conn));
       _rdma_queue.enqueue(std::make_tuple(Operation::DISCONNECT, conn));
     } else if (conn_status == rdmalib::ConnectionStatus::REQUESTED) {
-      std::cerr << "event accept" << std::endl;
       _state.accept(conn);
     } else if (conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
       // Accept client connection and push
@@ -69,7 +69,7 @@ void Manager::listen_rdma() {
 
 void Manager::process_rdma() {
   static constexpr int RECV_BUF_SIZE = 64;
-  rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests{
+  rdmalib::Buffer<rfaas::AllocationRequest> allocation_requests{
       RECV_BUF_SIZE};
   rdmalib::RecvBuffer rcv_buffer{RECV_BUF_SIZE};
 
@@ -99,7 +99,6 @@ void Manager::process_rdma() {
       if (status == Operation::CONNECT) {
 
         uint32_t private_data = (*conn).private_data();
-        std::cerr << "empty private data" << std::endl;
         if (private_data && (private_data & 0xFFFF) == this->_secret) {
           spdlog::debug("[Manager] connected new executor.");
           // FIXME: allocate atomic memory  for updates

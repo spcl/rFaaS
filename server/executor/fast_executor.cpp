@@ -8,7 +8,6 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/common.h>
 
-#include <rdmalib/allocation.hpp>
 #include <rdmalib/benchmarker.hpp>
 #include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/util.hpp>
@@ -16,6 +15,8 @@
 #include "rdmalib/connection.hpp"
 #include "rdmalib/functions.hpp"
 #include "rdmalib/rdmalib.hpp"
+
+#include <rfaas/allocation.hpp>
 
 #include "server.hpp"
 #include "fast_executor.hpp"

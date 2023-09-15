@@ -13,6 +13,7 @@
 
 #include <rfaas/executor.hpp>
 #include <rfaas/resources.hpp>
+#include <rfaas/rfaas.hpp>
 
 #include "settings.hpp"
 #include "warm_benchmark.hpp"
@@ -37,8 +38,11 @@ int main(int argc, char **argv) {
       rfaas::benchmark::Settings::deserialize(benchmark_cfg);
   benchmark_cfg.close();
 
-  rfaas::manager_connection conn("10.6.131.190", 10000, 8, 0);
-  conn.connect();
+  rfaas::rfaas instance("10.6.131.190", 10000, *settings.device);
+  if(!instance.connect()) {
+    spdlog::error("Connection to resource manager failed!");
+    return 1;
+  }
 
   return 0;
 

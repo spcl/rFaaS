@@ -34,7 +34,7 @@ namespace rfaas::benchmark {
   {
     std::string rdma_device;
     int rdma_device_port;
-    rfaas::device_data* device;
+    device_data* device;
 
     // resource manager connection
     std::string resource_manager_address;

@@ -42,6 +42,7 @@ namespace rfaas {
     std::vector<device_data> _data; 
 
     device_data * device (std::string name) noexcept;
+    device_data * front () noexcept;
     static devices & instance();
     static void deserialize(std::istream & in);
   private:

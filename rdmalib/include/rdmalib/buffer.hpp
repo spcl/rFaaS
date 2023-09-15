@@ -15,6 +15,11 @@ namespace rdmalib {
 
   struct ScatterGatherElement;
 
+  struct BufferInformation {
+    uint64_t r_addr;
+    uint32_t r_key;
+  };
+
   namespace impl {
 
     // move non-template methods from header

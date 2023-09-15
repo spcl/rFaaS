@@ -11,6 +11,7 @@
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/recv_buffer.hpp>
 
+#include <rfaas/allocation.hpp>
 
 namespace rdmalib {
   struct AllocationRequest;
@@ -22,7 +23,7 @@ namespace rfaas::resource_manager {
   {
     static constexpr int RECV_BUF_SIZE = 8;
     rdmalib::Connection* connection;
-    rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
+    rdmalib::Buffer<rfaas::AllocationRequest> allocation_requests;
     rdmalib::RecvBuffer rcv_buffer;
     uint32_t allocation_time;
     int client_id;

@@ -13,7 +13,7 @@
 #include "accounting.hpp"
 #include "executor_process.hpp"
 
-namespace rdmalib {
+namespace rfaas {
   struct AllocationRequest;
 }
 
@@ -23,7 +23,7 @@ namespace rfaas::executor_manager {
   {
     static constexpr int RECV_BUF_SIZE = 8;
     rdmalib::Connection* connection;
-    rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
+    rdmalib::Buffer<rfaas::AllocationRequest> allocation_requests;
     rdmalib::RecvBuffer rcv_buffer;
     std::unique_ptr<ActiveExecutor> executor;
     rdmalib::Buffer<Accounting> accounting;

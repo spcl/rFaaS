@@ -9,9 +9,9 @@
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/benchmarker.hpp>
-#include <rdmalib/allocation.hpp>
 #include <rdmalib/functions.hpp>
 
+#include <rfaas/allocation.hpp>
 #include <rfaas/executor.hpp>
 #include <rfaas/resources.hpp>
 

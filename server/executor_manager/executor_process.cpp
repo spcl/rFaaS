@@ -7,7 +7,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include <rdmalib/allocation.hpp>
+#include <rfaas/allocation.hpp>
 
 #include "executor_process.hpp"
 #include "settings.hpp"
@@ -56,7 +56,7 @@ namespace rfaas::executor_manager {
   }
 
   ProcessExecutor* ProcessExecutor::spawn(
-    const rdmalib::AllocationRequest & request,
+    const rfaas::AllocationRequest & request,
     const ExecutorSettings & exec,
     const executor::ManagerConnection & conn
   )

@@ -7,7 +7,7 @@
 
 #include <rdmalib/connection.hpp>
 
-namespace rdmalib {
+namespace rfaas {
   struct AllocationRequest;
 }
 
@@ -57,7 +57,7 @@ namespace rfaas::executor_manager {
     int id() const override;
     std::tuple<Status,int> check() const override;
     static ProcessExecutor* spawn(
-      const rdmalib::AllocationRequest & request,
+      const rfaas::AllocationRequest & request,
       const ExecutorSettings & exec,
       const executor::ManagerConnection & conn
     );
