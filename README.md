@@ -47,6 +47,7 @@ its `ugni` provider.
 - C++ compiler with C++17 support.
 - `libibverbs` with headers installed.
 - `librdmacm` with headers installed.
+- [pistache](https://github.com/pistacheio/pistache) - HTTP and REST framework.
 
 Furthermore, we fetch and build the following dependencies during CMake build - unless
 they are found already in the system.
@@ -55,8 +56,6 @@ they are found already in the system.
 - [cereal](https://uscilab.github.io/cereal/) 1.3
 - [cxxopts](https://github.com/jarro2783/cxxopts)
 - [googletest](https://github.com/google/googletest)
-- [readerwriterqueue](https://github.com/cameron314/readerwriterqueue)
-- [pistache](https://github.com/pistacheio/pistache) - HTTP and REST framework.
 
 **Containers**
 `rFaaS` supports two types of function executors - a bare-metal process and a Docker container. For Docker, we use the SR-IOV plugin from Mellanox to run Docker-based function executors with virtual NIC device functions. Please follow [Mellanox documentation and instructions](https://community.mellanox.com/s/article/Docker-RDMA-SRIOV-Networking-with-ConnectX4-ConnectX5-ConnectX6) to install and configure the plugin.
@@ -77,13 +76,15 @@ To enable more verbose logging, change the CMake configuration parameter to: `-D
 
 The CMake installation has the following optional configuration parameters.
 
-| Arguments             |                                                                                                                                                            |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| <i>WITH_EXAMPLES</i>  | **EXPERIMENTAL** Build additional examples ([see examples subsection](docs/examples.md) for details on additional dependencies).                           |
-| <i>WITH_TESTING</i>   | **EXPERIMENTAL** Enable testing - requires providing JSON testing configuration as the value of this flag. See [testing](#testing) subsection for details. |
-| <i>CXXOPTS_PATH</i>   | Path to an existing installation of the `cxxopts` library; disables the automatic fetch and build of the library.                                          |
-| <i>SPDLOG_PATH</i>    | Path to an existing installation of the `spdlog` library; disables the automatic fetch and build of the library.                                           |
-| <i>LIBRDMACM_PATH</i> | Path to a installation directory of the `librdmacm` library.                                                                                               |     |
+| Arguments             |                                                                                                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <i>WITH_EXAMPLES</i>  | **EXPERIMENTAL** Build additional examples ([see examples subsection](docs/examples.md) for details on additional dependencies).                            |
+| <i>WITH_TESTING</i>   | **EXPERIMENTAL** Enable testing - requires providing device database and testing configuration (see below). See [testing](#testing) subsection for details. |
+| <i>DEVICES_CONFIG</i> | File path for the JSON device configuration.                                                                                                                |
+| <i>TESTING_CONFIG</i> | File path for the JSON device configuration.                                                                                                                |
+| <i>CXXOPTS_PATH</i>   | Path to an existing installation of the `cxxopts` library; disables the automatic fetch and build of the library.                                           |
+| <i>SPDLOG_PATH</i>    | Path to an existing installation of the `spdlog` library; disables the automatic fetch and build of the library.                                            |
+| <i>LIBRDMACM_PATH</i> | Path to a installation directory of the `librdmacm` library.                                                                                                |
 
 ## Usage
 
