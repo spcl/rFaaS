@@ -38,26 +38,30 @@ namespace rfaas {
   {
   }
 
-  executor::executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
-    _state(address, port, rcv_buf_size + 1),
-    _rcv_buffer(rcv_buf_size),
+  executor::executor(const std::string& address, int port, int numcores, int memory, device_data & dev):
+    _state(dev.ip_address, dev.port, dev.default_receive_buffer_size + 1),
+    _rcv_buffer(dev.default_receive_buffer_size),
     _execs_buf(MAX_REMOTE_WORKERS),
-    _address(address),
-    _port(port),
-    _rcv_buf_size(rcv_buf_size),
+    _device(dev),
+    _numcores(numcores),
+    _memory(memory),
     _executions(0),
-    _invoc_id(0),
-    _max_inlined_msg(max_inlined_msg)
+    _invoc_id(0)
   {
     _execs_buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     events = 0;
     _active_polling = false;
     _end_requested = false;
-  }
 
-  executor::executor(device_data & dev):
-    executor(dev.ip_address, dev.port, dev.default_receive_buffer_size, dev.max_inline_data)
-  {}
+    _exec_manager.reset(
+      new manager_connection(
+        address,
+        port,
+        dev.default_receive_buffer_size,
+        dev.max_inline_data
+      )
+    );
+  }
 
   executor::~executor()
   {
@@ -236,23 +240,12 @@ namespace rfaas {
     //spdlog::info("Background thread stops waiting for events");
   }
 
-  bool executor::allocate(std::string functions_path, int numcores, int max_input_size,
+  bool executor::allocate(std::string functions_path, int max_input_size,
       int hot_timeout, bool skip_manager, rdmalib::Benchmarker<5> * benchmarker)
   {
     rdmalib::Buffer<char> functions = load_library(functions_path);
     if(!skip_manager) {
-      // FIXME: handle more than one manager
-      servers & instance = servers::instance();
-      auto selected_servers = instance.select(numcores);
 
-      _exec_manager.reset(
-        new manager_connection(
-          instance.server(selected_servers[0]).address,
-          instance.server(selected_servers[0]).port,
-          _rcv_buf_size,
-          _max_inlined_msg
-        )
-      );
       // Measure connection time
       if(benchmarker)
         benchmarker->start();
@@ -268,15 +261,16 @@ namespace rfaas {
         static_cast<int16_t>(hot_timeout),
         // FIXME: timeout
         5,
-        static_cast<int16_t>(numcores),
+        static_cast<int16_t>(_numcores),
+        static_cast<int32_t>(_memory),
         // FIXME: variable number of inputs
         1,
         max_input_size,
         functions.data_size(),
-        _port,
+        _device.port,
         ""
       };
-      strcpy(_exec_manager->request().listen_address, _address.c_str());
+      strcpy(_exec_manager->request().listen_address, _device.ip_address.c_str());
       _exec_manager->submit();
       // Measure submission time
       if(benchmarker) {
@@ -285,15 +279,15 @@ namespace rfaas {
       }
     }
 
-    SPDLOG_DEBUG("Allocating {} threads on a remote executor", numcores);
+    SPDLOG_DEBUG("Allocating {} threads on a remote executor", _numcores);
     // Now receive the connections from executors
     uint32_t obj_size = sizeof(rdmalib::BufferInformation);
 
     // Accept connect requests, fill receive buffers and accept them.
     // When the connection is established, then send data.
-    this->_connections.reserve(numcores);
+    this->_connections.reserve(_numcores);
     int requested = 0, established = 0;
-    while(established < numcores) {
+    while(established < _numcores) {
 
       //while(conn_status != rdmalib::ConnectionStatus::REQUESTED)
       auto [conn, conn_status] = _state.poll_events(true);
@@ -304,7 +298,7 @@ namespace rfaas {
         );
         this->_connections.emplace_back(
           conn,
-          _rcv_buf_size
+          _device.default_receive_buffer_size
         );
         this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, requested*obj_size), requested);
         // FIXME: this should be in a function
@@ -318,7 +312,7 @@ namespace rfaas {
           established + 1, fmt::ptr(conn)
         );
         conn->post_send(functions);
-        SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", established + 1, numcores);
+        SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", established + 1, _numcores);
         ++established;
       }
       // FIXME: fix handling of disconnection
@@ -335,7 +329,7 @@ namespace rfaas {
 
     // Now receive buffer information
     int received = 0;
-    while(received < numcores) {
+    while(received < _numcores) {
       auto wcs = this->_connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true); 
       for(int i = 0; i < std::get<1>(wcs); ++i) {
         int id = std::get<0>(wcs)[i].wr_id;
@@ -363,7 +357,7 @@ namespace rfaas {
         this
       }
     );
-    while(received < numcores) {
+    while(received < _numcores) {
       auto wcs = this->_connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
       received += std::get<1>(wcs);
     }

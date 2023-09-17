@@ -40,10 +40,6 @@ namespace rfaas::resource_manager {
 
   struct Manager
   {
-    //moodycamel::ReaderWriterQueue<std::pair<int,Client>> _q2;
-    //std::mutex clients;
-    //std::map<int, Client> _clients;
-    //int _ids;
 
     ExecutorDB _executor_data;
     std::optional<std::string> _executors_output_path;
@@ -60,6 +56,7 @@ namespace rfaas::resource_manager {
     > _rdma_queue;
     rdmalib::RDMAPassive _state;
     std::atomic<bool> _shutdown;
+    rfaas::device_data _device;
 
     // Handling HTTP events
     HTTPServer _http_server;

@@ -230,7 +230,7 @@ namespace rdmalib {
     return *this->_conn;
   }
 
-  bool RDMAActive::is_connected()
+  bool RDMAActive::is_connected() const
   {
     return this->_conn.get();
   }

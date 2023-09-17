@@ -1,5 +1,6 @@
 
 #include <chrono>
+#include <infiniband/verbs.h>
 #include <spdlog/spdlog.h>
 #include <thread>
 
@@ -150,15 +151,18 @@ namespace rdmalib {
     this->_private_data = private_data;
   }
 
-  int32_t Connection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline)
+  int32_t Connection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline, std::optional<uint32_t> immediate)
   {
     // FIXME: extend with multiple sges
     struct ibv_send_wr wr, *bad;
     wr.wr_id = id == -1 ? _req_count++ : id;
     wr.next = nullptr;
     wr.sg_list = elems.array();
+    if(immediate.has_value()) {
+      wr.imm_data = htonl(immediate.value());
+    }
     wr.num_sge = elems.size();
-    wr.opcode = IBV_WR_SEND;
+    wr.opcode = immediate.has_value() ? IBV_WR_SEND_WITH_IMM : IBV_WR_SEND;
     wr.send_flags = force_inline ? IBV_SEND_SIGNALED | IBV_SEND_INLINE : _send_flags;
     SPDLOG_DEBUG("Post send to local Local QPN {}",_qp->qp_num);
     int ret = ibv_post_send(_qp, &wr, &bad);

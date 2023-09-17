@@ -1,13 +1,14 @@
 
-#include <stdexcept>
 
 #include <spdlog/spdlog.h>
 
-#include <rdmalib/connection.hpp>
+#include <stdexcept>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
 
+#include <rdmalib/buffer.hpp>
+#include <rdmalib/connection.hpp>
 #include <rfaas/allocation.hpp>
 
 #include "client.hpp"
@@ -22,7 +23,9 @@ Manager::Manager(Settings &settings)
       _state(settings.device->ip_address, settings.rdma_device_port,
              settings.device->default_receive_buffer_size, true,
              settings.device->max_inline_data),
-      _shutdown(false), _http_server(_executor_data, settings),
+      _shutdown(false),
+      _device(*settings.device),
+      _http_server(_executor_data, settings),
       _secret(settings.rdma_secret) {}
 
 void Manager::start() {
@@ -78,16 +81,8 @@ void Manager::process_rdma() {
   typedef std::unordered_map<uint32_t, Client> client_t;
   client_t clients;
   std::vector<client_t::iterator> removals;
+  std::vector<Client*> poll_send;
   int id = 0;
-  // rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
-  // rdmalib::RecvBuffer rcv_buffer;
-
-  // std::get<1>(clients[0]).connection->qp()->qp_num
-
-  // allocation_requests.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE |
-  // IBV_ACCESS_REMOTE_WRITE);
-  // connection->initialize_batched_recv(allocation_requests,
-  // sizeof(rdmalib::AllocationRequest)); rcv_buffer.connect(connection);
 
   while (!_shutdown.load()) {
 
@@ -106,8 +101,6 @@ void Manager::process_rdma() {
           executors.push_back(conn);
         } else if (!private_data) {
           spdlog::debug("[Manager] connected new client.");
-          // clients.push_back(
-          // std::make_tuple(id++, Client{*conn, _state.pd()}));
           clients.emplace(std::piecewise_construct,
                           std::forward_as_tuple((*conn).qp()->qp_num),
                           std::forward_as_tuple(id++, conn, _state.pd()));
@@ -146,21 +139,39 @@ void Manager::process_rdma() {
             continue;
           uint64_t id = wc.wr_id;
           int16_t cores = client.allocation_requests.data()[id].cores;
-          char *client_address =
-              client.allocation_requests.data()[id].listen_address;
-          int client_port = client.allocation_requests.data()[id].listen_port;
+          int32_t memory = client.allocation_requests.data()[id].memory;
 
           if (cores > 0) {
-            spdlog::info("Client requests executor with {} threads, it should "
-                         "connect to {}:{},"
-                         "it should have buffer of size {}, func buffer {}, "
-                         "and hot timeout {}",
+            spdlog::info("Client requests executor with {} threads, it should have {} memory", 
                          client.allocation_requests.data()[id].cores,
-                         client.allocation_requests.data()[id].listen_address,
-                         client.allocation_requests.data()[id].listen_port,
-                         client.allocation_requests.data()[id].input_buf_size,
-                         client.allocation_requests.data()[id].func_buf_size,
-                         client.allocation_requests.data()[id].hot_timeout);
+                         client.allocation_requests.data()[id].memory
+            );
+
+            int executors = _executor_data.lease(cores, memory, *client.response().data());
+            if(executors > 0) {
+              spdlog::info("[Manager] Client receives allocation with {} executors", executors);
+            } else {
+              spdlog::info("[Manager] Client request couldn't be satisfied");
+            }
+
+            if(executors == 0) {
+              // FIXME: Send empty response?
+              client.connection->post_send(
+                client.response(),
+                0,
+                client.response().size() <= _device.max_inline_data,
+                0
+              );
+            } else {
+              client.connection->post_send(
+                client.response(),
+                0,
+                client.response().size() <= _device.max_inline_data,
+                executors
+              );
+            }
+            poll_send.emplace_back(&client);
+
           } else {
             spdlog::info("Client {} disconnects", client_id);
             client.disable();
@@ -169,6 +180,13 @@ void Manager::process_rdma() {
           }
         }
       }
+    }
+
+    if (poll_send.size()) {
+      for (auto client : poll_send) {
+        client->connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
+      }
+      poll_send.clear();
     }
 
     if (removals.size()) {

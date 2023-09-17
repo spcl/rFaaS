@@ -73,6 +73,8 @@ namespace rdmalib {
   template<typename T>
   struct Buffer : impl::Buffer{
 
+    typedef T value_type;
+
     Buffer():
       impl::Buffer()
     {}
@@ -107,6 +109,12 @@ namespace rdmalib {
       // void pointer arithmetic is not allowed
       return reinterpret_cast<T*>(static_cast<char*>(this->_ptr) + this->_header);
     }
+
+    T& operator[](int idx) const
+    {
+      // void pointer arithmetic is not allowed
+      return reinterpret_cast<T*>(static_cast<char*>(this->_ptr) + this->_header)[idx];
+    }
   };
 
   struct ScatterGatherElement {
@@ -124,10 +132,29 @@ namespace rdmalib {
     }
 
     template<typename T>
+    ScatterGatherElement(const Buffer<T> & buf, int elements)
+    {
+      add(buf, elements);
+    }
+
+    template<typename T>
+    ScatterGatherElement(const Buffer<T> & buf, int elements, size_t offset)
+    {
+      add(buf, elements, offset);
+    }
+
+    template<typename T>
     void add(const Buffer<T> & buf)
     {
       //emplace_back for structs will be supported in C++20
       _sges.push_back({buf.address(), buf.bytes(), buf.lkey()});
+    }
+
+    template<typename T>
+    void add(const Buffer<T> & buf, int elements)
+    {
+      //emplace_back for structs will be supported in C++20
+      _sges.push_back({buf.address(), sizeof(T) * elements, buf.lkey()});
     }
 
     template<typename T>

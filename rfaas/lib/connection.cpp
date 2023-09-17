@@ -5,6 +5,7 @@
 #include <rdmalib/functions.hpp>
 #include <rdmalib/util.hpp>
 
+#include <rfaas/allocation.hpp>
 #include <rfaas/connection.hpp>
 
 namespace rfaas {
@@ -41,7 +42,7 @@ namespace rfaas {
     SPDLOG_DEBUG("Disconnecting from manager at {}:{}", _address, _port);
     // Send deallocation request only if we're connected
     if(_active.is_connected()) {
-      request() = (rfaas::AllocationRequest) {-1, 0, 0, 0, 0, 0, 0, ""};
+      request() = (rfaas::AllocationRequest) {-1, 0, 0, 0, 0, 0, 0, 0, ""};
       rdmalib::ScatterGatherElement sge;
       size_t obj_size = sizeof(rfaas::AllocationRequest);
       sge.add(_allocation_buffer, obj_size, obj_size*_rcv_buffer._rcv_buf_size);
@@ -70,6 +71,86 @@ namespace rfaas {
     _active.connection().poll_wc(rdmalib::QueueType::SEND, true);
     // FIXME: check failure
     return true;
+  }
+
+  resource_mgr_connection::resource_mgr_connection(std::string address, int port,
+      int rcv_buf, int max_inline_data):
+    _address(address),
+    _port(port),
+    _active(_address, _port, rcv_buf),
+    _rcv_buffer(rcv_buf),
+    _send_buffer(1),
+    _receive_buffer(rcv_buf),
+    _max_inline_data(max_inline_data)
+  {
+    _active.allocate();
+  }
+
+  bool resource_mgr_connection::connect()
+  {
+    SPDLOG_DEBUG("Connecting to resource manager at {}:{}", _address, _port);
+    bool ret = _active.connect();
+    if(!ret) {
+      spdlog::error("Couldn't connect to manager at {}:{}", _address, _port);
+      return false;
+    }
+    _send_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE); 
+    _receive_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE); 
+
+    // Initialize batch receive WCs
+    //_rcv_buffer.initialize(_receive_buffer);
+    _active.connection().initialize_batched_recv(_receive_buffer, sizeof(rfaas::LeaseResponse));
+    // FIXME: This needs to be after, but why?
+    _rcv_buffer.connect(&_active.connection());
+    return ret;
+  }
+
+  void resource_mgr_connection::disconnect()
+  {
+    SPDLOG_DEBUG("Disconnecting from manager at {}:{}", _address, _port);
+
+    // Send deallocation request only if we're connected
+    if(_active.is_connected()) {
+      request() = (rfaas::LeaseRequest) {-1, 0};
+      rdmalib::ScatterGatherElement sge;
+      size_t obj_size = sizeof(rfaas::AllocationRequest);
+      sge.add(_send_buffer, obj_size, obj_size*_rcv_buffer._rcv_buf_size);
+      _active.connection().post_send(sge);
+      _active.connection().poll_wc(rdmalib::QueueType::SEND, true);
+      _active.disconnect();
+    }
+  }
+
+  rdmalib::Connection & resource_mgr_connection::connection()
+  {
+    return _active.connection();
+  }
+
+  rfaas::LeaseRequest & resource_mgr_connection::request()
+  {
+    return *(_send_buffer.data());
+  }
+
+  const rfaas::LeaseResponse& resource_mgr_connection::response(int idx) const
+  {
+    return _receive_buffer.data()[idx];
+  }
+
+  bool resource_mgr_connection::submit()
+  {
+    rdmalib::ScatterGatherElement sge;
+    size_t obj_size = sizeof(rfaas::LeaseRequest);
+    sge.add(_send_buffer, obj_size, 0);
+    _active.connection().post_send(sge);
+    _active.connection().poll_wc(rdmalib::QueueType::SEND, true);
+    // FIXME: check failure
+    // FIXME: receive here details of connection
+    return true;
+  }
+
+  bool resource_mgr_connection::connected() const
+  {
+    return _active.is_connected();
   }
 
 }

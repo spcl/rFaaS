@@ -18,7 +18,7 @@ namespace rfaas {
     std::string name;
     std::string ip_address;
     int port;
-    int16_t max_inline_data;
+    uint16_t max_inline_data;
     int16_t default_receive_buffer_size;
 
     template <class Archive>

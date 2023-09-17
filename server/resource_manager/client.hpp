@@ -13,8 +13,8 @@
 
 #include <rfaas/allocation.hpp>
 
-namespace rdmalib {
-  struct AllocationRequest;
+namespace rfaas {
+  struct LeaseRequest;
 }
 
 namespace rfaas::resource_manager {
@@ -23,13 +23,15 @@ namespace rfaas::resource_manager {
   {
     static constexpr int RECV_BUF_SIZE = 8;
     rdmalib::Connection* connection;
-    rdmalib::Buffer<rfaas::AllocationRequest> allocation_requests;
+    rdmalib::Buffer<rfaas::LeaseResponse> _response;
+    rdmalib::Buffer<rfaas::LeaseRequest> allocation_requests;
     rdmalib::RecvBuffer rcv_buffer;
     uint32_t allocation_time;
     int client_id;
     std::chrono::high_resolution_clock::time_point _cur_allocation_start;
 
     Client(int client_id, rdmalib::Connection* conn, ibv_pd* pd);
+    rdmalib::Buffer<rfaas::LeaseResponse>& response();
     void begin_allocation();
     void end_allocation();
     void reload_queue();

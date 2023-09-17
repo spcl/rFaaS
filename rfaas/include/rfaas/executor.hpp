@@ -50,17 +50,17 @@ namespace rfaas {
 
   struct executor {
     static constexpr int MAX_REMOTE_WORKERS = 64;
-    // FIXME: 
     rdmalib::RDMAPassive _state;
     rdmalib::RecvBuffer _rcv_buffer;
     rdmalib::Buffer<rdmalib::BufferInformation> _execs_buf;
-    std::string _address;
-    int _port;
-    int _rcv_buf_size;
+
+    device_data _device;
+
+    int _numcores;
+    int _memory;
     int _executions;
     int _invoc_id;
     // FIXME: global settings
-    size_t _max_inlined_msg;
     std::vector<executor_state> _connections;
     std::unique_ptr<manager_connection> _exec_manager;
     std::vector<std::string> _func_names;
@@ -73,12 +73,14 @@ namespace rfaas {
     std::unique_ptr<std::thread> _background_thread;
     int events;
 
-    executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg);
-    executor(device_data & dev);
+    // Currently, we use the same device for listening and connecting to the manager.
+    executor(const std::string& address, int port, int numcores, int memory, device_data & dev);
     ~executor();
 
+    bool connect(const std::string & ip, int port);
+
     // Skipping managers is useful for benchmarking
-    bool allocate(std::string functions_path, int numcores, int max_input_size, int hot_timeout,
+    bool allocate(std::string functions_path, int max_input_size, int hot_timeout,
         bool skip_manager = false, rdmalib::Benchmarker<5> * benchmarker = nullptr);
     void deallocate();
     rdmalib::Buffer<char> load_library(std::string path);
@@ -115,7 +117,7 @@ namespace rfaas {
           std::move(sge),
           _connections[0].remote_input,
           submission_id,
-          size <= _max_inlined_msg,
+          size <= _device.max_inline_data,
           true
         );
       } else {
@@ -123,7 +125,7 @@ namespace rfaas {
           in,
           _connections[0].remote_input,
           submission_id,
-          in.bytes() <= _max_inlined_msg,
+          in.bytes() <= _device.max_inline_data,
           true
         );
       }
@@ -158,7 +160,7 @@ namespace rfaas {
           in[i],
           _connections[i].remote_input,
           submission_id,
-          in[i].bytes() <= _max_inlined_msg,
+          in[i].bytes() <= _device.max_inline_data,
           true
         );
       }
@@ -218,7 +220,7 @@ namespace rfaas {
         in,
         _connections[0].remote_input,
         (invoc_id << 16) | func_idx,
-        in.bytes() <= _max_inlined_msg
+        in.bytes() <= _device.max_inline_data
       );
       _active_polling = true;
       _connections[0]._rcv_buffer.refill();
@@ -303,7 +305,7 @@ namespace rfaas {
           in[i],
           _connections[i].remote_input,
           (_invoc_id++ << 16) | func_idx,
-          in[i].bytes() <= _max_inlined_msg
+          in[i].bytes() <= _device.max_inline_data
         );
       }
 
