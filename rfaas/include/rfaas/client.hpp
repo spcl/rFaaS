@@ -24,10 +24,10 @@ namespace rfaas {
       return _resource_mgr.connect();
     }
 
-    std::optional<rfaas::executor> lease(int16_t cores, int32_t memory)
+    std::vector<rfaas::executor> lease(int16_t cores, int32_t memory, device_data & dev)
     { 
       if(!_resource_mgr.connected()) {
-        return std::nullopt;
+        return {};
       }
 
       _resource_mgr.request() = (rfaas::LeaseRequest) {
@@ -41,20 +41,23 @@ namespace rfaas {
       if(response_count > 1) {
         spdlog::warn("Received unexpected responses from resource manager, ignoring {} responses", response_count - 1);
       }
-    
-      std::cerr << responses[0].wr_id << " " << responses[0].imm_data << " " << ntohl(responses[0].imm_data) << std::endl;
+
+      std::vector<rfaas::executor> execs;
+      int response_id = responses[0].wr_id;
       int executors = ntohl(responses[0].imm_data);
-      std::cerr << "executors: " << executors << std::endl;
-      std::cerr << _resource_mgr.response(0).nodes[0].address << std::endl;
-      std::cerr << _resource_mgr.response(0).nodes[0].cores << std::endl;
-      std::cerr << _resource_mgr.response(0).nodes[0].port << std::endl;
+      for(int i = 0; i < executors; ++i) {
 
-      //rfaas::executor executor(settings.device->ip_address,
-      //                        settings.rdma_device_port,
-      //                        settings.device->default_receive_buffer_size,
-      //                        settings.device->max_inline_data);
+        execs.emplace_back(
+          std::string{_resource_mgr.response(response_id).nodes[0].address},
+          _resource_mgr.response(response_id).nodes[0].port,
+          static_cast<int>(_resource_mgr.response(response_id).nodes[0].cores),
+          memory,
+          dev
+        );
 
-      return std::nullopt;
+      }
+    
+      return execs;
     }
 
     std::optional<rfaas::executor> lease(servers & nodes_data, int16_t cores, int32_t memory)

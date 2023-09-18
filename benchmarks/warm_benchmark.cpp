@@ -44,16 +44,29 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  if (opts.executors_database != "") {
+  rfaas::executor* executor;
+  std::vector<rfaas::executor> executors;
+
+  if (!opts.executors_database.empty()) {
     std::ifstream in_cfg(opts.executors_database);
     rfaas::servers::deserialize(in_cfg);
     in_cfg.close();
-  }
 
-  //rfaas::executor executor = 
-  auto executor = instance.lease(1, 512);
-  if(!executor.has_value()) {
-    return 1;
+    // FIXME: create executor
+
+  } else {
+
+    executors = instance.lease(1, 512, *settings.device);
+    if(executors.empty()) {
+      spdlog::error("Couldn't acquire a lease!");
+      return 1;
+    }
+    if(executors.size() > 1) {
+      spdlog::error("This benchmark doesn't support multi-executor invocations!");
+      return 1;
+    }
+    executor = &executors.front();
+
   }
 
   //executor.connect(settings.device->ip_address,
@@ -61,7 +74,7 @@ int main(int argc, char **argv) {
   //                         settings.device->default_receive_buffer_size,
   //                         settings.device->max_inline_data);
 
-  return 0;
+  //return 0;
 
   // Read connection details to the executors
   //if (opts.executors_database != "") {
@@ -79,7 +92,7 @@ int main(int argc, char **argv) {
   //                         settings.rdma_device_port,
   //                         settings.device->default_receive_buffer_size,
   //                         settings.device->max_inline_data);
-  if (!executor.value().allocate(opts.flib, opts.input_size,
+  if (!executor->allocate(opts.flib, opts.input_size,
                          settings.benchmark.hot_timeout, false)) {
     spdlog::error("Connection to executor and allocation failed!");
     return 1;
@@ -89,8 +102,8 @@ int main(int argc, char **argv) {
   rdmalib::Buffer<char> in(opts.input_size,
                            rdmalib::functions::Submission::DATA_HEADER_SIZE),
       out(opts.input_size);
-  in.register_memory(executor.value()._state.pd(), IBV_ACCESS_LOCAL_WRITE);
-  out.register_memory(executor.value()._state.pd(),
+  in.register_memory(executor->_state.pd(), IBV_ACCESS_LOCAL_WRITE);
+  out.register_memory(executor->_state.pd(),
                       IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
   memset(in.data(), 0, opts.input_size);
   for (int i = 0; i < opts.input_size; ++i) {
@@ -101,7 +114,7 @@ int main(int argc, char **argv) {
   spdlog::info("Warmups begin");
   for (int i = 0; i < settings.benchmark.warmup_repetitions; ++i) {
     SPDLOG_DEBUG("Submit warm {}", i);
-    executor.value().execute(opts.fname, in, out);
+    executor->execute(opts.fname, in, out);
   }
   spdlog::info("Warmups completed");
 
@@ -109,14 +122,14 @@ int main(int argc, char **argv) {
   for (int i = 0; i < settings.benchmark.repetitions;) {
     benchmarker.start();
     SPDLOG_DEBUG("Submit execution {}", i);
-    auto ret = executor.value().execute(opts.fname, in, out);
+    auto ret = executor->execute(opts.fname, in, out);
     if (std::get<0>(ret)) {
       SPDLOG_DEBUG("Finished execution {} out of {}", i,
                    settings.benchmark.repetitions);
       benchmarker.end(0);
       ++i;
     } else {
-      continue;
+      return 1;
     }
   }
   auto [median, avg] = benchmarker.summary();
@@ -124,7 +137,7 @@ int main(int argc, char **argv) {
                settings.benchmark.repetitions, avg, median);
   if (opts.output_stats != "")
     benchmarker.export_csv(opts.output_stats, {"time"});
-  executor.value().deallocate();
+  executor->deallocate();
 
   printf("Data: ");
   for (int i = 0; i < std::min(100, opts.input_size); ++i)

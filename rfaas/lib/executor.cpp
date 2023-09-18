@@ -68,6 +68,18 @@ namespace rfaas {
     this->deallocate();
   }
 
+  executor::executor(executor&& obj):
+    _state(std::move(obj._state)),
+    _rcv_buffer(std::move(obj._rcv_buffer)),
+    _execs_buf(std::move(obj._execs_buf)),
+    _device(std::move(obj._device)),
+    _numcores(std::move(obj._numcores)),
+    _memory(std::move(obj._memory)),
+    _executions(std::move(obj._executions)),
+    _invoc_id(std::move(obj._invoc_id))
+  {
+  }
+
   rdmalib::Buffer<char> executor::load_library(std::string path)
   {
     _func_names.clear();
@@ -91,14 +103,14 @@ namespace rfaas {
       ),
       [](){ spdlog::error(dlerror()); }
     );
-	  struct link_map * map = nullptr;
-		dlinfo(library_handle, RTLD_DI_LINKMAP, &map);
+    struct link_map * map = nullptr;
+    dlinfo(library_handle, RTLD_DI_LINKMAP, &map);
 
-		Elf64_Sym * symtab = nullptr;
-		char * strtab = nullptr;
-		int symentries = 0;
-		for (auto section = map->l_ld; section->d_tag != DT_NULL; ++section)
-		{
+    Elf64_Sym * symtab = nullptr;
+    char * strtab = nullptr;
+    int symentries = 0;
+    for (auto section = map->l_ld; section->d_tag != DT_NULL; ++section)
+    {
       if (section->d_tag == DT_SYMTAB)
       {
         symtab = (Elf64_Sym *)section->d_un.d_ptr;
@@ -111,10 +123,10 @@ namespace rfaas {
       {
         symentries = section->d_un.d_val;
       }
-		}
-		int size = strtab - (char *)symtab;
-		for (int k = 0; k < size / symentries; ++k)
-		{
+    }
+    int size = strtab - (char *)symtab;
+    for (int k = 0; k < size / symentries; ++k)
+    {
       auto sym = &symtab[k];
       // If sym is function
       if (ELF64_ST_TYPE(symtab[k].st_info) == STT_FUNC)
@@ -122,7 +134,7 @@ namespace rfaas {
         //str is name of each symbol
         _func_names.emplace_back(&strtab[sym->st_name]);
       }
-		}
+    }
     std::sort(_func_names.begin(), _func_names.end());
     dlclose(library_handle);
 
@@ -244,6 +256,7 @@ namespace rfaas {
       int hot_timeout, bool skip_manager, rdmalib::Benchmarker<5> * benchmarker)
   {
     rdmalib::Buffer<char> functions = load_library(functions_path);
+
     if(!skip_manager) {
 
       // Measure connection time
@@ -267,9 +280,10 @@ namespace rfaas {
         1,
         max_input_size,
         functions.data_size(),
-        _device.port,
+        _state.listen_port(),
         ""
       };
+
       strcpy(_exec_manager->request().listen_address, _device.ip_address.c_str());
       _exec_manager->submit();
       // Measure submission time
@@ -277,6 +291,7 @@ namespace rfaas {
         benchmarker->end(1);
         benchmarker->start();
       }
+
     }
 
     SPDLOG_DEBUG("Allocating {} threads on a remote executor", _numcores);

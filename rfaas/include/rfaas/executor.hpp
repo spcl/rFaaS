@@ -77,6 +77,8 @@ namespace rfaas {
     executor(const std::string& address, int port, int numcores, int memory, device_data & dev);
     ~executor();
 
+    executor(executor&& obj);
+
     bool connect(const std::string & ip, int port);
 
     // Skipping managers is useful for benchmarking
