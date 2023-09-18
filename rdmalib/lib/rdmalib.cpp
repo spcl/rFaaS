@@ -70,10 +70,21 @@ namespace rdmalib {
       rdma_freeaddrinfo(addrinfo);
   }
 
+  void Address::set_port(uint32_t port)
+  {
+    this->_port = port;
+  }
+
+  uint32_t Address::port() const
+  {
+    return _port;
+  }
+
   RDMAActive::RDMAActive():
     _conn(nullptr),
     _ec(nullptr),
-    _pd(nullptr)
+    _pd(nullptr),
+    _is_connected(false)
   {}
 
 
@@ -81,7 +92,8 @@ namespace rdmalib {
     _conn(nullptr),
     _addr(ip, port, false),
     _ec(nullptr),
-    _pd(nullptr)
+    _pd(nullptr),
+    _is_connected(false)
   {
     // Size of Queue Pair
     // Maximum requests in send queue
@@ -114,6 +126,7 @@ namespace rdmalib {
     _ec = std::move(obj._ec);
     _pd = std::move(obj._pd);
     _cfg = std::move(obj._cfg);
+    _is_connected = std::move(obj._is_connected);
 
     return *this;
   }
@@ -204,6 +217,8 @@ namespace rdmalib {
       );
     }
 
+    _is_connected = true;
+
     //struct ibv_qp_attr attr;
     //struct ibv_qp_init_attr init_attr;
     //impl::expect_zero(ibv_query_qp(_conn->_qp, &attr, IBV_QP_DEST_QPN, &init_attr ));
@@ -218,6 +233,7 @@ namespace rdmalib {
     impl::expect_zero(rdma_disconnect(_conn->id()));
     _conn.reset();
     _pd = nullptr;
+    _is_connected = false;
   }
 
   ibv_pd* RDMAActive::pd() const
@@ -232,7 +248,7 @@ namespace rdmalib {
 
   bool RDMAActive::is_connected() const
   {
-    return this->_conn.get();
+    return _is_connected;
   }
 
   RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize, int max_inline_data):
@@ -274,8 +290,10 @@ namespace rdmalib {
     impl::expect_zero(rdma_create_id(this->_ec, &this->_listen_id, NULL, RDMA_PS_TCP));
     impl::expect_zero(rdma_bind_addr(this->_listen_id, this->_addr.addrinfo->ai_src_addr));
     impl::expect_zero(rdma_listen(this->_listen_id, 10));
-    this->_addr._port = ntohs(rdma_get_src_port(this->_listen_id));
+
+    _addr.set_port(ntohs(rdma_get_src_port(this->_listen_id)));
     this->_pd = _listen_id->pd;
+
     spdlog::info(
       "Listening on device {}, port {}",
       ibv_get_device_name(this->_listen_id->verbs->device), this->_addr._port
@@ -289,6 +307,11 @@ namespace rdmalib {
   ibv_pd* RDMAPassive::pd() const
   {
     return this->_pd;
+  }
+
+  uint32_t RDMAPassive::listen_port() const
+  {
+    return this->_addr.port();
   }
 
   void RDMAPassive::set_nonblocking_poll()

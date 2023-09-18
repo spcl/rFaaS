@@ -20,13 +20,16 @@ namespace rdmalib {
   struct Address {
     rdma_addrinfo *addrinfo;
     rdma_addrinfo hints;
-    uint16_t _port;
+    uint32_t _port;
 
     Address();
     Address(const std::string & ip, int port, bool passive);
     Address(const std::string & sip, const std::string & dip, int port);
 
     ~Address();
+
+    void set_port(uint32_t port);
+    uint32_t port() const;
   };
 
   struct RDMAActive {
@@ -35,6 +38,7 @@ namespace rdmalib {
     Address _addr;
     rdma_event_channel * _ec;
     ibv_pd* _pd;
+    bool _is_connected;
 
     RDMAActive();
     RDMAActive(const std::string & ip, int port, int recv_buf = 1, int max_inline_data = 0);
@@ -61,6 +65,8 @@ namespace rdmalib {
     ~RDMAPassive();
     void allocate();
     ibv_pd* pd() const;
+    uint32_t listen_port() const;
+
     // Blocking poll for new rdmacm events.
     // Returns connection pointer and connection change status.
     // When connection is REQUESTED and ESTABLISHED, the pointer points to a valid connection.
