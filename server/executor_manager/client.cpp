@@ -65,8 +65,8 @@ namespace rfaas::executor_manager {
     spdlog::info(
       "Client {} exited, time allocated {} us, polling {} us, execution {} us",
       id, allocation_time,
-      accounting.data()[0].hot_polling_time,
-      accounting.data()[0].execution_time
+      accounting.data()[0].hot_polling_time / 1000.0,
+      accounting.data()[0].execution_time / 1000.0
     );
     //acc.hot_polling_time = acc.execution_time = 0;
     // SEGFAULT?

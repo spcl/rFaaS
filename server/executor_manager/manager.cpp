@@ -247,8 +247,8 @@ namespace rfaas::executor_manager {
               spdlog::info(
                 "Executor at client {} exited, status {}, time allocated {} us, polling {} us, execution {} us",
                 i, std::get<1>(status), client.allocation_time,
-                client.accounting.data()[i].hot_polling_time,
-                client.accounting.data()[i].execution_time
+                client.accounting.data()[i].hot_polling_time / 1000.0,
+                client.accounting.data()[i].execution_time / 1000.0
               );
               client.executor.reset(nullptr);
               spdlog::info("Finished cleanup");
