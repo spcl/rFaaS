@@ -34,12 +34,21 @@ namespace rfaas::executor_manager {
 
   std::tuple<ProcessExecutor::Status,int> ProcessExecutor::check() const
   {
-    int status;
-    pid_t return_pid = waitpid(_pid, &status, WNOHANG);
+    int status = 0;
+    // WNOHANG - returns immediately without waiting
+    // WUNTRACED - return the status of stopped children
+    pid_t return_pid = waitpid(_pid, &status, WNOHANG | WUNTRACED);
+
     if(!return_pid) {
       return std::make_tuple(Status::RUNNING, 0);
     } else {
-      if(WIFEXITED(status)) {
+
+      if(return_pid == -1 && errno == ECHILD) {
+        return std::make_tuple(Status::FINISHED, -1);
+      } else if (return_pid == -1) {
+        // Unknown problem
+        return std::make_tuple(Status::FINISHED_FAIL, -1);
+      } else if(WIFEXITED(status)) {
         return std::make_tuple(Status::FINISHED, WEXITSTATUS(status));
       } else if (WIFSIGNALED(status)) {
         return std::make_tuple(Status::FINISHED_FAIL, WTERMSIG(status));
