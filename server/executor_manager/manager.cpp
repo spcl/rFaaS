@@ -15,6 +15,7 @@
 #include <rfaas/allocation.hpp>
 
 #include "manager.hpp"
+#include "rfaas/connection.hpp"
 
 namespace rfaas::executor_manager {
 
@@ -23,6 +24,7 @@ namespace rfaas::executor_manager {
   Manager::Manager(Settings & settings, bool skip_rm):
     _q1(100), _q2(100),
     _ids(0),
+    _res_mgr_connection(nullptr),
     _state(settings.device->ip_address, settings.rdma_device_port,
         settings.device->default_receive_buffer_size, true),
     _settings(settings),
@@ -32,12 +34,12 @@ namespace rfaas::executor_manager {
     _shutdown(false)
   {
     if(!_skip_rm) {
-      _res_mgr_connection = std::move(rdmalib::RDMAActive{
+      _res_mgr_connection = std::make_unique<rdmalib::RDMAActive>(
         settings.resource_manager_address,
         settings.resource_manager_port,
         settings.device->default_receive_buffer_size
-      });
-      _res_mgr_connection.allocate();
+      );
+      _res_mgr_connection->allocate();
     }
   }
 
@@ -56,11 +58,11 @@ namespace rfaas::executor_manager {
         _settings.resource_manager_port,
         _settings.resource_manager_secret
       );
-      if(!_res_mgr_connection.connect(_settings.resource_manager_secret)) {
+      if(!_res_mgr_connection->connect(_settings.resource_manager_secret)) {
         spdlog::error("Connection to resource manager was not succesful!");
         return;
       }
-      _rcv_buffer.connect(&_res_mgr_connection.connection());
+      _rcv_buffer.connect(&_res_mgr_connection->connection());
     }
 
     spdlog::info(

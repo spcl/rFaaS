@@ -50,7 +50,7 @@ namespace rfaas::executor_manager {
 
     //std::vector<Client> _clients;
     //std::atomic<int> _clients_active;
-    rdmalib::RDMAActive _res_mgr_connection;
+    std::unique_ptr<rdmalib::RDMAActive> _res_mgr_connection;
     //std::unique_ptr<rdmalib::Connection> _res_mgr_connection;
 
     rdmalib::RDMAPassive _state;
