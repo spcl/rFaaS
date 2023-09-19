@@ -60,7 +60,14 @@ void Manager::listen_rdma() {
                     fmt::ptr(conn));
       _rdma_queue.enqueue(std::make_tuple(Operation::DISCONNECT, conn));
     } else if (conn_status == rdmalib::ConnectionStatus::REQUESTED) {
-      _state.accept(conn);
+
+      uint32_t private_data = (*conn).private_data();
+      if (private_data && (private_data & 0xFFFF) != this->_secret) {
+        spdlog::error("[Manager] Reject executor, wrong secret {}", private_data);
+        _state.reject(conn);
+      } else {
+        _state.accept(conn);
+      }
     } else if (conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
       // Accept client connection and push
       SPDLOG_DEBUG("[Manager] Listen thread: connected new client");
@@ -94,12 +101,14 @@ void Manager::process_rdma() {
       if (status == Operation::CONNECT) {
 
         uint32_t private_data = (*conn).private_data();
-        if (private_data && (private_data & 0xFFFF) == this->_secret) {
+        if (private_data) {
+
           spdlog::debug("[Manager] connected new executor.");
           // FIXME: allocate atomic memory  for updates
           // FIXME: disconnect executor
           executors.push_back(conn);
-        } else if (!private_data) {
+
+        } else {
           spdlog::debug("[Manager] connected new client.");
           clients.emplace(std::piecewise_construct,
                           std::forward_as_tuple((*conn).qp()->qp_num),
