@@ -57,10 +57,10 @@ namespace rfaas { namespace resource_manager {
     while(cores_sum < numcores && !_free_nodes.empty()) {
 
       auto ptr = _free_nodes.front();
+      _free_nodes.pop_front();
 
       // Verify the node has not been removed
       if(ptr.expired()) {
-        _free_nodes.pop_front();
         continue;
       }
 
