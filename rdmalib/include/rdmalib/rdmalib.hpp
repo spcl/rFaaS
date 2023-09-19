@@ -76,6 +76,7 @@ namespace rdmalib {
     std::tuple<Connection*, ConnectionStatus> poll_events(bool share_cqs = false);
     bool nonblocking_poll_events(int timeout = 100);
     void accept(Connection* connection);
+    void reject(Connection* connection);
     void set_nonblocking_poll();
   };
 }

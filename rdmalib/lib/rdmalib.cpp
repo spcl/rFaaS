@@ -435,10 +435,16 @@ namespace rdmalib {
     return std::make_tuple(connection, status);
   }
 
+  void RDMAPassive::reject(Connection* connection) {
+    if(rdma_reject(connection->id(), nullptr, 0)) {
+      spdlog::error("Conection rejection unsuccesful, reason {} {}", errno, strerror(errno));
+    }
+    SPDLOG_DEBUG("[RDMAPassive] Connection rejected at QP {}", fmt::ptr(connection->qp()));
+  }
+
   void RDMAPassive::accept(Connection* connection) {
     if(rdma_accept(connection->id(), &_cfg.conn_param)) {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
-      connection = nullptr;
     }
     SPDLOG_DEBUG("[RDMAPassive] Connection accepted at QP {}", fmt::ptr(connection->qp()));
   }
