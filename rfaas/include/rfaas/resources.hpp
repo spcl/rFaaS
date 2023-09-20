@@ -21,8 +21,8 @@ namespace rfaas {
     int32_t port;
     int16_t cores;
     int32_t memory;
-    char address[ADDRESS_LENGTH];
-    char node[NODE_NAME_LENGTH];
+    std::string address;
+    std::string node;
 
     server_data();
     server_data(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory);
@@ -37,11 +37,7 @@ namespace rfaas {
     template <class Archive>
     void load(Archive & ar )
     {
-      std::string addr;
-      std::string node;
-      ar(CEREAL_NVP(node), CEREAL_NVP(port), CEREAL_NVP(cores), CEREAL_NVP(memory), cereal::make_nvp("address", addr));
-      strncpy(address, addr.c_str(), 16);
-      strncpy(this->node, node.c_str(), NODE_NAME_LENGTH);
+      ar(CEREAL_NVP(node), CEREAL_NVP(port), CEREAL_NVP(cores), CEREAL_NVP(memory), CEREAL_NVP(address));
     }
   };
 
