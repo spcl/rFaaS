@@ -2,7 +2,7 @@
 #ifndef __RFAAS_RESOURCE_MANAGER_DB_HPP__
 #define __RFAAS_RESOURCE_MANAGER_DB_HPP__
 
-#include <deque>
+#include <list>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -30,16 +30,35 @@ namespace rfaas { namespace resource_manager {
     {}
   };
 
+
   struct ExecutorDB
   {
   private:
+    struct Lease
+    {
+      int cores;
+      int memory;
+      bool total;
+      std::weak_ptr<node_data> node;
+
+      Lease(int cores, int memory, bool total, std::weak_ptr<node_data> && node):
+        cores(cores),
+        memory(memory),
+        total(total),
+        node(node)
+      {}
+    };
+
     typedef std::shared_lock<std::shared_mutex> reader_lock_t;
     typedef std::unique_lock<std::shared_mutex> writer_lock_t;
 
     // Store the data on executors
     std::unordered_map<std::string, std::shared_ptr<node_data>> _nodes;
 
-    std::deque<std::weak_ptr<node_data>> _free_nodes;
+    std::unordered_map<uint32_t, Lease> _leases;
+    uint32_t _lease_count;
+
+    std::list<std::weak_ptr<node_data>> _free_nodes;
 
     // Reader-writer lock
     std::shared_mutex _mutex;
@@ -56,7 +75,9 @@ namespace rfaas { namespace resource_manager {
     ResultCode add(const std::string& node_name, const std::string & ip_address, int port, int cores, int memory);
     ResultCode remove(const std::string& node_name);
 
-    int lease(int numcores, int memory, rfaas::LeaseResponse & results);
+    bool open_lease(int numcores, int memory, rfaas::LeaseResponse& lease);
+
+    void close_lease(uint32_t lease_id);
 
     void reclaim(const std::string& node_name, int numcores, int memory);
 

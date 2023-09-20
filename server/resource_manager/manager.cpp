@@ -132,6 +132,7 @@ void Manager::process_rdma() {
 
     // FIXME: sleep
     // FIXME: shared CQS
+    // FIXME: poll managers
 
     for (auto it = clients.begin(); it != clients.end(); ++it) {
 
@@ -156,14 +157,14 @@ void Manager::process_rdma() {
                          client.allocation_requests.data()[id].memory
             );
 
-            int executors = _executor_data.lease(cores, memory, *client.response().data());
-            if(executors > 0) {
-              spdlog::info("[Manager] Client receives allocation with {} executors", executors);
+            bool allocated = _executor_data.open_lease(cores, memory, *client.response().data());
+            if(allocated) {
+              spdlog::info("[Manager] Client receives lease with id {}", client.response().data()->lease_id);
             } else {
               spdlog::info("[Manager] Client request couldn't be satisfied");
             }
 
-            if(executors == 0) {
+            if(!allocated) {
               // FIXME: Send empty response?
               client.connection->post_send(
                 client.response(),
@@ -176,7 +177,7 @@ void Manager::process_rdma() {
                 client.response(),
                 0,
                 client.response().size() <= _device.max_inline_data,
-                executors
+                1
               );
             }
             poll_send.emplace_back(&client);

@@ -1,6 +1,7 @@
 
 #include <fstream>
 
+#include <optional>
 #include <spdlog/spdlog.h>
 #include <tuple>
 #include <utility>
@@ -41,23 +42,21 @@ namespace rfaas { namespace resource_manager {
     return erased > 0 ? ResultCode::OK : ResultCode::EXECUTOR_DOESNT_EXIST;
   }
 
-  int ExecutorDB::lease(int numcores, int memory, rfaas::LeaseResponse & results)
+  bool ExecutorDB::open_lease(int numcores, int memory, rfaas::LeaseResponse& lease)
   {
     // Obtain write access
     writer_lock_t lock(_mutex);
 
     if(!_free_nodes.size()) {
-      return 0;
+      return false;
     }
 
-    int cores_sum = 0;
-    std::vector<std::weak_ptr<node_data>> used_nodes;
-    int result_count = 0;
+    std::weak_ptr<node_data> used_node;
 
-    while(cores_sum < numcores && !_free_nodes.empty()) {
+    auto it = _free_nodes.begin();
+    while(it != _free_nodes.end()) {
 
-      auto ptr = _free_nodes.front();
-      _free_nodes.pop_front();
+      auto ptr = *it;
 
       // Verify the node has not been removed
       if(ptr.expired()) {
@@ -67,54 +66,70 @@ namespace rfaas { namespace resource_manager {
       auto shared_ptr = ptr.lock();
 
       // Not enough memory? skip
-      if(shared_ptr->free_memory < memory * shared_ptr->free_cores) {
+      if(shared_ptr->free_memory < memory) {
         continue;
       }
 
-      // Are we going to use all cores?
-      int cores_missing = numcores - cores_sum;
-      int cores_available = shared_ptr->free_cores;
-      if(cores_missing >= cores_available) {
+      if(shared_ptr->free_cores < numcores) {
+        continue;
+      }
 
-        // Block the node
-        results.nodes[result_count].cores = cores_available;
-        results.nodes[result_count].port = shared_ptr->port;
-        strncpy(results.nodes[result_count].address, shared_ptr->address, node_data::ADDRESS_LENGTH);
+      lease.lease_id = _lease_count++;
+      lease.port = shared_ptr->port;
+      strncpy(lease.address, shared_ptr->address, node_data::ADDRESS_LENGTH);
 
-        result_count++;
+      bool is_total;
+      if(shared_ptr->free_cores > numcores && shared_ptr->free_memory > memory) {
 
-        // We are done
-        if (cores_missing == cores_available) {
-          return result_count;
-        } else {
-          used_nodes.push_back(ptr);
-        }
+        shared_ptr->free_cores -= numcores;
+        shared_ptr->free_memory -= memory;
+        is_total = true;
 
       } else {
 
-        // We found enough cores, but part of the node remains available.
-        results.nodes[result_count].cores = cores_missing;
-        results.nodes[result_count].port = shared_ptr->port;
-        strncpy(results.nodes[result_count].address, shared_ptr->address, node_data::ADDRESS_LENGTH);
+        _free_nodes.erase(it);
+        is_total = false;
 
-        _free_nodes.push_front(ptr);
-        shared_ptr->free_cores = cores_missing;
-        shared_ptr->free_memory -= memory * cores_missing;
-
-        return result_count;
       }
 
-      if(result_count == LeaseResponse::MAX_NODES_PER_LEASE) {
-        break;
-      }
+      _leases.emplace(
+        std::piecewise_construct,
+        std::forward_as_tuple(lease.lease_id),
+        std::forward_as_tuple(numcores, memory, is_total, std::move(ptr))
+      );
+
+      return true;
 
     }
 
-    // We have not found enough
-    for(auto & node : used_nodes) {
-      _free_nodes.push_back(node);
+    return false;
+  }
+
+  void ExecutorDB::close_lease(uint32_t lease_id)
+  {
+    auto it = _leases.find(lease_id);
+    if(it == _leases.end()) {
+      spdlog::warn("Ignoring non-existing lease {}", lease_id);
+      return;
     }
-    return 0;
+
+    auto ptr = (*it).second.node;
+    auto shared_ptr = ptr.lock();
+    if(!shared_ptr) {
+      return;
+    }
+
+    if((*it).second.total) {
+
+      _free_nodes.push_back(ptr);
+
+    } else {
+
+      shared_ptr->free_cores += (*it).second.cores;
+      shared_ptr->free_memory += (*it).second.memory;
+
+    }
+
   }
 
   ExecutorDB::reader_lock_t ExecutorDB::read_lock()
