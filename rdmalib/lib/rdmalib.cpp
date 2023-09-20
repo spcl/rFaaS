@@ -64,6 +64,25 @@ namespace rdmalib {
     this->_port = port;
   }
 
+  Address::Address(Address && obj):
+    addrinfo(obj.addrinfo),
+    hints(obj.hints),
+    _port(obj._port)
+  {
+    obj.addrinfo = nullptr;
+  }
+
+  Address& Address::operator=(Address && obj)
+  {
+    hints = obj.hints;
+    _port = obj._port;
+    addrinfo = obj.addrinfo;
+
+    obj.addrinfo = nullptr;
+
+    return *this;
+  }
+
   Address::~Address()
   {
     if(addrinfo)
@@ -279,8 +298,42 @@ namespace rdmalib {
 
   RDMAPassive::~RDMAPassive()
   {
-    rdma_destroy_id(this->_listen_id);
-    rdma_destroy_event_channel(this->_ec);
+    if(this->_listen_id) {
+      rdma_destroy_id(this->_listen_id);
+    }
+
+    if(this->_ec) {
+      rdma_destroy_event_channel(this->_ec);
+    }
+  }
+
+  RDMAPassive::RDMAPassive(RDMAPassive && obj):
+    _cfg(std::move(obj._cfg)),
+    _addr(std::move(obj._addr)),
+    _ec(std::move(obj._ec)),
+    _listen_id(std::move(obj._listen_id)),
+    _pd(std::move(obj._pd)),
+    _active_connections(std::move(obj._active_connections))
+  {
+    obj._ec = nullptr;
+    obj._listen_id = nullptr;
+    obj._pd = nullptr;
+  }
+
+  RDMAPassive& RDMAPassive::operator=(RDMAPassive && obj)
+  {
+    _cfg = std::move(obj._cfg);
+    _addr = std::move(obj._addr);
+    _ec = std::move(obj._ec);
+    _listen_id = std::move(obj._listen_id);
+    _pd = std::move(obj._pd);
+    _active_connections = std::move(obj._active_connections);
+
+    obj._ec = nullptr;
+    obj._listen_id = nullptr;
+    obj._pd = nullptr;
+
+    return *this;
   }
 
   void RDMAPassive::allocate()

@@ -25,6 +25,8 @@ namespace rdmalib {
     Address();
     Address(const std::string & ip, int port, bool passive);
     Address(const std::string & sip, const std::string & dip, int port);
+    Address(Address && obj);
+    Address& operator=(Address && obj);
 
     ~Address();
 
@@ -62,7 +64,11 @@ namespace rdmalib {
     std::unordered_set<Connection*> _active_connections;
 
     RDMAPassive(const std::string & ip, int port, int recv_buf = 1, bool initialize = true, int max_inline_data = 0);
+    RDMAPassive(RDMAPassive && obj);
     ~RDMAPassive();
+
+    RDMAPassive& operator=(RDMAPassive && obj);
+
     void allocate();
     ibv_pd* pd() const;
     uint32_t listen_port() const;
