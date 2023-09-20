@@ -24,7 +24,7 @@ namespace rfaas {
       return _resource_mgr.connect();
     }
 
-    std::vector<rfaas::executor> lease(int16_t cores, int32_t memory, device_data & dev)
+    std::optional<rfaas::executor> lease(int16_t cores, int32_t memory, device_data & dev)
     { 
       if(!_resource_mgr.connected()) {
         return {};
@@ -42,22 +42,19 @@ namespace rfaas {
         spdlog::warn("Received unexpected responses from resource manager, ignoring {} responses", response_count - 1);
       }
 
-      std::vector<rfaas::executor> execs;
-      int response_id = responses[0].wr_id;
       int executors = ntohl(responses[0].imm_data);
-      for(int i = 0; i < executors; ++i) {
-
-        execs.emplace_back(
-          std::string{_resource_mgr.response(response_id).nodes[0].address},
-          _resource_mgr.response(response_id).nodes[0].port,
-          static_cast<int>(_resource_mgr.response(response_id).nodes[0].cores),
-          memory,
-          dev
-        );
-
+      if(executors == 0) {
+        return std::nullopt;
       }
-    
-      return execs;
+
+      int response_id = responses[0].wr_id;
+      return rfaas::executor{
+        std::string{_resource_mgr.response(response_id).address},
+        _resource_mgr.response(response_id).port,
+        cores,
+        memory,
+        dev
+      };
     }
 
     std::optional<rfaas::executor> lease(servers & nodes_data, int16_t cores, int32_t memory)

@@ -20,12 +20,15 @@ namespace rfaas {
   };
 
   struct LeaseResponse {
-    static constexpr int MAX_NODES_PER_LEASE = 8;
 
-    LeasedNode nodes[MAX_NODES_PER_LEASE];
+    uint32_t lease_id;
+    int32_t port;
+    char address[16];
+    //LeasedNode nodes[MAX_NODES_PER_LEASE];
   };
 
   struct AllocationRequest {
+    //uint32_t lease_id;
     int16_t hot_timeout;
     int16_t timeout;
     // > 0: Number of cores to be allocated
