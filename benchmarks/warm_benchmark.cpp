@@ -38,61 +38,56 @@ int main(int argc, char **argv) {
       rfaas::benchmark::Settings::deserialize(benchmark_cfg);
   benchmark_cfg.close();
 
-  rfaas::client instance("192.168.0.29", 10000, *settings.device);
-  if(!instance.connect()) {
+  rfaas::client instance("10.4.111.212", 10000, *settings.device);
+  if (!instance.connect()) {
     spdlog::error("Connection to resource manager failed!");
     return 1;
   }
 
-  rfaas::executor* executor;
-  std::vector<rfaas::executor> executors;
+  // if (!opts.executors_database.empty()) {
+  //   std::ifstream in_cfg(opts.executors_database);
+  //   rfaas::servers::deserialize(in_cfg);
+  //   in_cfg.close();
 
-  if (!opts.executors_database.empty()) {
-    std::ifstream in_cfg(opts.executors_database);
-    rfaas::servers::deserialize(in_cfg);
-    in_cfg.close();
+  //  // FIXME: create executor
 
-    // FIXME: create executor
+  //} else {
 
-  } else {
-
-    executors = instance.lease(1, 512, *settings.device);
-    if(executors.empty()) {
-      spdlog::error("Couldn't acquire a lease!");
-      return 1;
-    }
-    if(executors.size() > 1) {
-      spdlog::error("This benchmark doesn't support multi-executor invocations!");
-      return 1;
-    }
-    executor = &executors.front();
-
+  auto leased_executor = instance.lease(1, 512, *settings.device);
+  // auto executor = instance.lease(1, 512, *settings.device);
+  if (!leased_executor.has_value()) {
+    spdlog::error("Couldn't acquire a lease!");
+    return 1;
   }
+  rfaas::executor executor = std::move(leased_executor.value());
+  //}
+  // rfaas::executor *executor = &executors;
 
-  //executor.connect(settings.device->ip_address,
-  //                         settings.rdma_device_port,
-  //                         settings.device->default_receive_buffer_size,
-  //                         settings.device->max_inline_data);
+  // executor.connect(settings.device->ip_address,
+  //                          settings.rdma_device_port,
+  //                          settings.device->default_receive_buffer_size,
+  //                          settings.device->max_inline_data);
 
-  //return 0;
+  // return 0;
 
   // Read connection details to the executors
-  //if (opts.executors_database != "") {
+  // if (opts.executors_database != "") {
   //  std::ifstream in_cfg(opts.executors_database);
   //  rfaas::servers::deserialize(in_cfg);
   //  in_cfg.close();
   //} else {
-  //  spdlog::error("Connection to resource manager is temporarily disabled, use "
+  //  spdlog::error("Connection to resource manager is temporarily disabled, use
+  //  "
   //                "executor database "
   //                "option instead!");
   //  return 1;
   //}
 
-  //rfaas::executor executor(settings.device->ip_address,
-  //                         settings.rdma_device_port,
-  //                         settings.device->default_receive_buffer_size,
-  //                         settings.device->max_inline_data);
-  if (!executor->allocate(opts.flib, opts.input_size,
+  // rfaas::executor executor(settings.device->ip_address,
+  //                          settings.rdma_device_port,
+  //                          settings.device->default_receive_buffer_size,
+  //                          settings.device->max_inline_data);
+  if (!executor.allocate(opts.flib, opts.input_size,
                          settings.benchmark.hot_timeout, false)) {
     spdlog::error("Connection to executor and allocation failed!");
     return 1;
@@ -102,8 +97,8 @@ int main(int argc, char **argv) {
   rdmalib::Buffer<char> in(opts.input_size,
                            rdmalib::functions::Submission::DATA_HEADER_SIZE),
       out(opts.input_size);
-  in.register_memory(executor->_state.pd(), IBV_ACCESS_LOCAL_WRITE);
-  out.register_memory(executor->_state.pd(),
+  in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
+  out.register_memory(executor._state.pd(),
                       IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
   memset(in.data(), 0, opts.input_size);
   for (int i = 0; i < opts.input_size; ++i) {
@@ -114,15 +109,15 @@ int main(int argc, char **argv) {
   spdlog::info("Warmups begin");
   for (int i = 0; i < settings.benchmark.warmup_repetitions; ++i) {
     SPDLOG_DEBUG("Submit warm {}", i);
-    executor->execute(opts.fname, in, out);
+    executor.execute(opts.fname, in, out);
   }
   spdlog::info("Warmups completed");
 
   // Start actual measurements
-  for (int i = 0; i < settings.benchmark.repetitions;) {
+  for (int i = 0; i < settings.benchmark.repetitions - 1;) {
     benchmarker.start();
     SPDLOG_DEBUG("Submit execution {}", i);
-    auto ret = executor->execute(opts.fname, in, out);
+    auto ret = executor.execute(opts.fname, in, out);
     if (std::get<0>(ret)) {
       SPDLOG_DEBUG("Finished execution {} out of {}", i,
                    settings.benchmark.repetitions);
@@ -137,7 +132,7 @@ int main(int argc, char **argv) {
                settings.benchmark.repetitions, avg, median);
   if (opts.output_stats != "")
     benchmarker.export_csv(opts.output_stats, {"time"});
-  executor->deallocate();
+  executor.deallocate();
 
   printf("Data: ");
   for (int i = 0; i < std::min(100, opts.input_size); ++i)
