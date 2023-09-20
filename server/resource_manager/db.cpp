@@ -22,13 +22,13 @@ namespace rfaas { namespace resource_manager {
     // Obtain write access
     writer_lock_t lock(_mutex);
 
-    auto [it, success] = _nodes.try_emplace(node_name, std::make_shared<node_data>(node_name, ip_address, port, cores, memory));
+    auto [ptr, success] = _executors.add_executor(node_name, ip_address, port, cores, memory);
 
     if(!success) {
       return ResultCode::EXECUTOR_EXISTS;
     }
 
-    _free_nodes.push_back(it->second);
+    _free_nodes.push_back(ptr);
 
     spdlog::debug("Adding new executor {} with {}:{} address and {} cores", node_name, ip_address, port, cores);
     return ResultCode::OK;
@@ -38,8 +38,8 @@ namespace rfaas { namespace resource_manager {
   {
     // Obtain write access
     writer_lock_t lock(_mutex);
-    size_t erased = _nodes.erase(node_name);
-    return erased > 0 ? ResultCode::OK : ResultCode::EXECUTOR_DOESNT_EXIST;
+    bool erased = _executors.remove_executor(node_name);
+    return erased ? ResultCode::OK : ResultCode::EXECUTOR_DOESNT_EXIST;
   }
 
   bool ExecutorDB::open_lease(int numcores, int memory, rfaas::LeaseResponse& lease)
@@ -51,7 +51,7 @@ namespace rfaas { namespace resource_manager {
       return false;
     }
 
-    std::weak_ptr<node_data> used_node;
+    std::weak_ptr<Executor> used_node;
 
     auto it = _free_nodes.begin();
     while(it != _free_nodes.end()) {
@@ -65,31 +65,23 @@ namespace rfaas { namespace resource_manager {
 
       auto shared_ptr = ptr.lock();
 
-      // Not enough memory? skip
-      if(shared_ptr->free_memory < memory) {
+      // Can't use an executor that has not been used yet
+      if(!shared_ptr->is_initialized()) {
         continue;
       }
 
-      if(shared_ptr->free_cores < numcores) {
+      if(!shared_ptr->lease(numcores, memory)) {
         continue;
       }
 
       lease.lease_id = _lease_count++;
       lease.port = shared_ptr->port;
-      strncpy(lease.address, shared_ptr->address, node_data::ADDRESS_LENGTH);
+      //strncpy(lease.address, shared_ptr->address, node_data::ADDRESS_LENGTH);
+      strncpy(lease.address, shared_ptr->address.c_str(), Executor::ADDRESS_LENGTH);
 
-      bool is_total;
-      if(shared_ptr->free_cores > numcores && shared_ptr->free_memory > memory) {
-
-        shared_ptr->free_cores -= numcores;
-        shared_ptr->free_memory -= memory;
-        is_total = true;
-
-      } else {
-
+      bool is_total = shared_ptr->is_fully_leased();
+      if(is_total) {
         _free_nodes.erase(it);
-        is_total = false;
-
       }
 
       _leases.emplace(
@@ -119,15 +111,10 @@ namespace rfaas { namespace resource_manager {
       return;
     }
 
+    shared_ptr->cancel_lease((*it).second);
+
     if((*it).second.total) {
-
       _free_nodes.push_back(ptr);
-
-    } else {
-
-      shared_ptr->free_cores += (*it).second.cores;
-      shared_ptr->free_memory += (*it).second.memory;
-
     }
 
   }
@@ -150,12 +137,10 @@ namespace rfaas { namespace resource_manager {
 
     for(const auto & instance : servers._data) {
 
-      auto [it, success] = _nodes.try_emplace(instance.node,
-        std::make_shared<node_data>(instance.node, instance.address, instance.port, instance.cores, instance.memory)
-      );
+      auto [weak_ptr, success] = _executors.add_executor(instance.node, instance.address, instance.port, instance.cores, instance.memory);
 
       if(success) {
-        _free_nodes.push_back(it->second);
+        _free_nodes.push_back(weak_ptr);
       } else {
         spdlog::debug("Ignoring duplicate node: {}", instance.node);
       }
@@ -168,7 +153,7 @@ namespace rfaas { namespace resource_manager {
     reader_lock_t lock{_mutex};
     rfaas::servers servers;
 
-    for(const auto & [key, instance] : _nodes) {
+    for(const auto & [key, instance] : _executors) {
       servers._data.emplace_back(instance->node, instance->address, instance->port, instance->cores, instance->memory);
     }
 

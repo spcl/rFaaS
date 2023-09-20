@@ -12,7 +12,9 @@
 #include <rfaas/allocation.hpp>
 
 #include "client.hpp"
+#include "common/messages.hpp"
 #include "manager.hpp"
+#include "executor.hpp"
 
 namespace rfaas::resource_manager {
 
@@ -25,6 +27,8 @@ Manager::Manager(Settings &settings)
              settings.device->max_inline_data),
       _shutdown(false),
       _device(*settings.device),
+      _executors(_state.pd()),
+      _executor_data(_executors),
       _http_server(_executor_data, settings),
       _secret(settings.rdma_secret) {}
 
@@ -78,12 +82,16 @@ void Manager::listen_rdma() {
 }
 
 void Manager::process_rdma() {
-  static constexpr int RECV_BUF_SIZE = 64;
-  rdmalib::Buffer<rfaas::AllocationRequest> allocation_requests{
-      RECV_BUF_SIZE};
-  rdmalib::RecvBuffer rcv_buffer{RECV_BUF_SIZE};
 
-  std::vector<rdmalib::Connection *> executors;
+  //static constexpr int RECV_BUF_SIZE = 64;
+  //rdmalib::Buffer<rfaas::AllocationRequest> allocation_requests{
+  //    RECV_BUF_SIZE};
+  //rdmalib::RecvBuffer rcv_buffer{RECV_BUF_SIZE};
+
+//  typedef std::unordered_map<std::string, Executor> executor_t;
+//  executor_t executors;
+//
+  //std::vector<rdmalib::Connection *> executors;
 
   typedef std::unordered_map<uint32_t, Client> client_t;
   client_t clients;
@@ -105,8 +113,8 @@ void Manager::process_rdma() {
 
           spdlog::debug("[Manager] connected new executor.");
           // FIXME: allocate atomic memory  for updates
-          // FIXME: disconnect executor
-          executors.push_back(conn);
+          // FIXME: executor registration
+          _executors.connect_executor(conn);
 
         } else {
           spdlog::debug("[Manager] connected new client.");
@@ -116,6 +124,7 @@ void Manager::process_rdma() {
         }
       } else {
 
+        // FIXME: disconnect executor
         uint32_t qp_num = conn->qp()->qp_num;
         auto it = clients.find(qp_num);
         if (it != clients.end()) {
@@ -133,6 +142,29 @@ void Manager::process_rdma() {
     // FIXME: sleep
     // FIXME: shared CQS
     // FIXME: poll managers
+ 
+    // FIXME: abstraction!
+    auto it = _executors._unregistered_executors.begin();
+
+    if(it != _executors._unregistered_executors.end()) {
+      auto wcs = (*it).second->poll_wc(rdmalib::QueueType::RECV, false, 1);
+      if(std::get<1>(wcs)) {
+
+        spdlog::info("Polled!");
+
+        for (int j = 0; j < std::get<1>(wcs); ++j) {
+
+          auto wc = std::get<0>(wcs)[j];
+          uint64_t id = wc.wr_id;
+          // FIXME: parse message
+          spdlog::error("{} {}", fmt::ptr(_executors._receive_buffer.data()), id * sizeof(Executors::MSG_SIZE));
+          spdlog::error("{} {}", fmt::ptr(&_executors._receive_buffer[id * sizeof(Executors::MSG_SIZE)]), id * sizeof(Executors::MSG_SIZE));
+          auto ptr = reinterpret_cast<common::NodeRegistration*>(&_executors._receive_buffer[id * sizeof(Executors::MSG_SIZE)]);
+          spdlog::error("{}", fmt::ptr(ptr));
+          std::cerr << strlen(ptr->node_name) << std::endl;
+        }
+      }
+    }
 
     for (auto it = clients.begin(); it != clients.end(); ++it) {
 

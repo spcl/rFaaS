@@ -161,6 +161,7 @@ add_executable(executor_manager
 add_executable(resource_manager
   server/resource_manager/cli.cpp
   server/resource_manager/client.cpp
+  server/resource_manager/executor.cpp
   server/resource_manager/opts.cpp
   server/resource_manager/db.cpp
   server/resource_manager/http.cpp

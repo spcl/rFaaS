@@ -16,49 +16,27 @@
 
 #include <rdmalib/buffer.hpp>
 
+#include "executor.hpp"
+
 namespace rfaas { namespace resource_manager {
-
-  struct node_data : server_data
-  {
-    int free_cores;
-    int free_memory;
-
-    node_data(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory):
-      server_data(node_name, ip, port, cores, memory),
-      free_cores(cores),
-      free_memory(memory)
-    {}
-  };
 
 
   struct ExecutorDB
   {
   private:
-    struct Lease
-    {
-      int cores;
-      int memory;
-      bool total;
-      std::weak_ptr<node_data> node;
-
-      Lease(int cores, int memory, bool total, std::weak_ptr<node_data> && node):
-        cores(cores),
-        memory(memory),
-        total(total),
-        node(node)
-      {}
-    };
 
     typedef std::shared_lock<std::shared_mutex> reader_lock_t;
     typedef std::unique_lock<std::shared_mutex> writer_lock_t;
 
     // Store the data on executors
-    std::unordered_map<std::string, std::shared_ptr<node_data>> _nodes;
+    //std::unordered_map<std::string, std::shared_ptr<Executor>> _nodes;
+  
+    Executors& _executors;
 
     std::unordered_map<uint32_t, Lease> _leases;
     uint32_t _lease_count;
 
-    std::list<std::weak_ptr<node_data>> _free_nodes;
+    std::list<std::weak_ptr<Executor>> _free_nodes;
 
     // Reader-writer lock
     std::shared_mutex _mutex;
@@ -71,6 +49,10 @@ namespace rfaas { namespace resource_manager {
       EXECUTOR_DOESNT_EXIST = 2,
       MALFORMED_DATA = 3
     };
+
+    ExecutorDB(Executors& executors):
+      _executors(executors)
+    {}
 
     ResultCode add(const std::string& node_name, const std::string & ip_address, int port, int cores, int memory);
     ResultCode remove(const std::string& node_name);

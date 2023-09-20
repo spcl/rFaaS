@@ -40,8 +40,6 @@ namespace rfaas::resource_manager {
 
   struct Manager
   {
-
-    ExecutorDB _executor_data;
     std::optional<std::string> _executors_output_path;
 
     // Handling RDMA connections with clients and executor managers
@@ -57,6 +55,9 @@ namespace rfaas::resource_manager {
     rdmalib::RDMAPassive _state;
     std::atomic<bool> _shutdown;
     rfaas::device_data _device;
+
+    Executors _executors;
+    ExecutorDB _executor_data;
 
     // Handling HTTP events
     HTTPServer _http_server;

@@ -34,12 +34,11 @@ namespace rfaas::executor_manager {
     _shutdown(false)
   {
     if(!_skip_rm) {
-      _res_mgr_connection = std::make_unique<rdmalib::RDMAActive>(
+      _res_mgr_connection = std::make_unique<ResourceManagerConnection>(
         settings.resource_manager_address,
         settings.resource_manager_port,
         settings.device->default_receive_buffer_size
       );
-      _res_mgr_connection->allocate();
     }
   }
 
@@ -50,7 +49,6 @@ namespace rfaas::executor_manager {
 
   void Manager::start()
   {
-    rdmalib::RecvBuffer _rcv_buffer{32};
     if(!_skip_rm) {
       spdlog::info(
         "Connecting to resource manager at {}:{} with secret {}.",
@@ -58,11 +56,7 @@ namespace rfaas::executor_manager {
         _settings.resource_manager_port,
         _settings.resource_manager_secret
       );
-      if(!_res_mgr_connection->connect(_settings.resource_manager_secret)) {
-        spdlog::error("Connection to resource manager was not succesful!");
-        return;
-      }
-      _rcv_buffer.connect(&_res_mgr_connection->connection());
+      _res_mgr_connection->connect(_settings.node_name, _settings.resource_manager_secret);
     }
 
     spdlog::info(
