@@ -132,6 +132,12 @@ namespace rdmalib
     }
   };
 
+  struct LibfabricRemoteBuffer : RemoteBuffer<libfabric>
+  {};
+
+  struct VerbsRemoteBuffer : RemoteBuffer<ibverbs>
+  {};
+
   template <typename T, typename Library>
   struct Buffer : impl::Buffer<Buffer<T, Library>, Library>
   {

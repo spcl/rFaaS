@@ -465,7 +465,7 @@ namespace rdmalib {
     return wr.wr_id;
   }
 
-  int32_t LibfabricConnection::_post_write(SGE && elems, const RemoteBuffer_ & rbuf, const uint32_t immediate)
+  int32_t LibfabricConnection::_post_write(SGE && elems, const RemoteBuffer_t & rbuf, const uint32_t immediate)
   {
     fi_addr_t temp = 0;
     int32_t id = _req_count++;
@@ -528,7 +528,7 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  int32_t LibfabricConnection::post_write(SGE && elems, const RemoteBuffer_ & rbuf, bool force_inline)
+  int32_t LibfabricConnection::post_write(SGE && elems, const RemoteBuffer_t & rbuf, bool force_inline)
   {
     if (elems.size() > 1) {
       spdlog::error("Post write unsuccessful on connection {}, reason Function not implemented for multiple sges.", fmt::ptr(this));
@@ -537,7 +537,7 @@ namespace rdmalib {
     return _post_write(std::forward<SGE>(elems), rbuf);
   }
 
-  int32_t VerbsConnection::post_write(SGE && elems, const RemoteBuffer_ & rbuf, bool force_inline)
+  int32_t VerbsConnection::post_write(SGE && elems, const RemoteBuffer_t & rbuf, bool force_inline)
   {
     ibv_send_wr wr;
     memset(&wr, 0, sizeof(wr));
@@ -547,7 +547,7 @@ namespace rdmalib {
     return _post_write(std::forward<SGE>(elems), wr, force_inline, false);
   }
 
-  int32_t LibfabricConnection::post_cas(SGE && elems, const RemoteBuffer_ & rbuf, uint64_t compare, uint64_t swap)
+  int32_t LibfabricConnection::post_cas(SGE && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap)
   {
     // TODO check if 
     fi_addr_t temp = 0;
@@ -563,7 +563,7 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  int32_t VerbsConnection::post_cas(SGE && elems, const RemoteBuffer_ & rbuf, uint64_t compare, uint64_t swap)
+  int32_t VerbsConnection::post_cas(SGE && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap)
   {
     ibv_send_wr wr, *bad;
     memset(&wr, 0, sizeof(wr));
@@ -587,7 +587,7 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  int32_t LibfabricConnection::post_atomic_fadd(const Buffer<uint64_t> & _accounting_buf, const RemoteBuffer_ & rbuf, uint64_t add)
+  int32_t LibfabricConnection::post_atomic_fadd(const Buffer<uint64_t> & _accounting_buf, const RemoteBuffer_t & rbuf, uint64_t add)
   {
     int32_t id = _req_count++;
     memcpy(_accounting_buf.data(), &add, sizeof(add));
@@ -602,7 +602,7 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  int32_t VerbsConnection::post_atomic_fadd(SGE && elems, const RemoteBuffer_ & rbuf, uint64_t add)
+  int32_t VerbsConnection::post_atomic_fadd(SGE && elems, const RemoteBuffer_t & rbuf, uint64_t add)
   {
     ibv_send_wr wr, *bad;
     memset(&wr, 0, sizeof(wr));
