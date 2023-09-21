@@ -116,7 +116,7 @@ namespace rdmalib {
 
   }
 
-  inline std::tuple<ibv_wc*,int> RecvWorkCompletions::poll(bool blocking)
+  std::tuple<ibv_wc*,int> RecvWorkCompletions::poll(bool blocking)
   {
     auto wc = this->_poll(blocking);
     if(std::get<1>(wc)) {

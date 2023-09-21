@@ -13,7 +13,6 @@
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/server.hpp>
 #include <rdmalib/buffer.hpp>
-#include <rdmalib/recv_buffer.hpp>
 
 #include "client.hpp"
 #include "common/messages.hpp"

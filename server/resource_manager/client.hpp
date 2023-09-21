@@ -9,7 +9,6 @@
 #include <rdmalib/connection.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/buffer.hpp>
-#include <rdmalib/recv_buffer.hpp>
 
 #include <rfaas/allocation.hpp>
 
@@ -25,7 +24,6 @@ namespace rfaas::resource_manager {
     rdmalib::Connection* connection;
     rdmalib::Buffer<rfaas::LeaseResponse> _response;
     rdmalib::Buffer<rfaas::LeaseRequest> allocation_requests;
-    rdmalib::RecvBuffer rcv_buffer;
     uint32_t allocation_time;
     int client_id;
     std::chrono::high_resolution_clock::time_point _cur_allocation_start;
