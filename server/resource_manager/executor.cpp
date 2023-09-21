@@ -6,7 +6,6 @@
 namespace rfaas::resource_manager {
 
   Executor::Executor():
-    _node_name{},
     _connection(nullptr),
     _free_cores(0),
     _free_memory(0),
@@ -137,21 +136,31 @@ namespace rfaas::resource_manager {
     // (1) The executor has already connected but doesn't have a name yet.
     // Thus, we make a copy under the correct name.
     //
-    // (2) The executor has a name and it is connected - we need to now
-    // create a connection. Thus, we replace the `name` version
-    // with the actual connection
+    // (2) The executor has a name and it is connected - we need now
+    // to connect both of them.
+    // We cannot overwrite the `name` value, as the executor DB is now
+    // holding a weak ptr to it.
+    // Instead, we overwrite the `conn` value.
     //
     auto exec_it = _executors_by_name.find(name);
     if(exec_it == _executors_by_name.end()) {
-
       _executors_by_name[name] = ((*conn_it).second);
-      
     } else {
-      (*exec_it).second = (*conn_it).second;
+      (*exec_it).second->merge((*conn_it).second);
     }
     SPDLOG_DEBUG("Registered executor with name {}, qp num {}", name, qp_num);
 
     return true;
+  }
+
+  void Executor::merge(std::shared_ptr<Executor>& exec)
+  {
+    spdlog::info("Merge two executors {}", fmt::ptr(exec->_connection));
+    this->_connection = exec->_connection;
+
+    this->_receive_buffer = std::move(exec->_receive_buffer);
+    this->_send_buffer = std::move(exec->_send_buffer);
+    
   }
 
   bool Executors::remove_executor(const std::string& name)

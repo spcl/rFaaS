@@ -37,7 +37,6 @@ namespace rfaas { namespace resource_manager {
 
   struct Executor : server_data
   {
-    std::string _node_name;
     rdmalib::Connection* _connection;
     int _free_cores;
     int _free_memory;
@@ -57,6 +56,8 @@ namespace rfaas { namespace resource_manager {
     bool lease(int cores, int memory);
     bool is_fully_leased() const;
     void cancel_lease(const Lease & lease);
+
+    void merge(std::shared_ptr<Executor>& exec);
 
     void polled_wc()
     {

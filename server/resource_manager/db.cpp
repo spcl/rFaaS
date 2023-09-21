@@ -57,26 +57,25 @@ namespace rfaas { namespace resource_manager {
     auto it = _free_nodes.begin();
     while(it != _free_nodes.end()) {
 
-      auto ptr = *it;
+      auto shared_ptr = ptr.lock();
 
       // Verify the node has not been removed
-      if(ptr.expired()) {
-        ++it;
+      if(!shared_ptr) {
+        _free_nodes.erase(it++);
+        SPDLOG_DEBUG("Node cannot be used, no longer valid!");
         continue;
       }
-
-      auto shared_ptr = ptr.lock();
 
       // Can't use an executor that has not been used yet
       if(!shared_ptr->is_initialized()) {
         ++it;
-        SPDLOG_DEBUG("Node {} cannot be used, not initialized!", shared_ptr->_node_name);
+        SPDLOG_DEBUG("Node {} cannot be used, not initialized!", shared_ptr->node);
         continue;
       }
 
       if(!shared_ptr->lease(numcores, memory)) {
         ++it;
-        SPDLOG_DEBUG("Node {} cannot be used, not enough resources!", shared_ptr->_node_name);
+        SPDLOG_DEBUG("Node {} cannot be used, not enough resources!", shared_ptr->node);
         continue;
       }
 
