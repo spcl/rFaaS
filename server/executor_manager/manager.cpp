@@ -56,7 +56,9 @@ namespace rfaas::executor_manager {
         _settings.resource_manager_port,
         _settings.resource_manager_secret
       );
-      _res_mgr_connection->connect(_settings.node_name, _settings.resource_manager_secret);
+
+      uint32_t secret = (1 << 24) | (_settings.resource_manager_secret & 0xFFFFFF);
+      _res_mgr_connection->connect(_settings.node_name, secret);
     }
 
     spdlog::info(
@@ -81,9 +83,7 @@ namespace rfaas::executor_manager {
         continue;
       spdlog::debug("[Manager-listen] Polled new rdmacm event");
 
-      auto [conn, conn_status] = _state.poll_events(
-        false
-      );
+      auto [conn, conn_status] = _state.poll_events();
       spdlog::debug(
         "[Manager-listen] New rdmacm connection event - connection {}, status {}",
         fmt::ptr(conn), conn_status
@@ -163,7 +163,7 @@ namespace rfaas::executor_manager {
 
         Client & client = it->second;
         int i = it->first;
-        auto wcs = client.rcv_buffer.poll(false);
+        auto wcs = client.connection->receive_wcs().poll(false);
         if(std::get<1>(wcs)) {
           SPDLOG_DEBUG(
             "Received at {}, work completions {}",
@@ -230,7 +230,7 @@ namespace rfaas::executor_manager {
           //  client.connection->poll_wc(rdmalib::QueueType::SEND, false);
         }
         if(client.active()) {
-          client.rcv_buffer.refill();
+          client.connection->receive_wcs().refill();
           if(client.executor) {
             auto status = client.executor->check();
             if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {

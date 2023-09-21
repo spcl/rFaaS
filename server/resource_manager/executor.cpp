@@ -72,7 +72,6 @@ namespace rfaas::resource_manager {
   Executors::Executors(ibv_pd* pd):
     _receive_buffer(RECV_BUF_SIZE * MSG_SIZE),
     _send_buffer(1),
-    _rdma_buffer(RECV_BUF_SIZE),
     _initialized(false)
   {
     // Make the buffer accessible to clients
@@ -80,16 +79,9 @@ namespace rfaas::resource_manager {
     _send_buffer.register_memory(pd, IBV_ACCESS_LOCAL_WRITE);
   }
 
-  void Executors::_initialize_connections(rdmalib::Connection* conn)
+  void Executors::_initialize_connection(rdmalib::Connection* conn)
   {
-    if(!_initialized) {
-
-      // Initialize batch receive WCs
-      conn->initialize_batched_recv(_receive_buffer, MSG_SIZE);
-      _rdma_buffer.connect(conn);
-      _initialized = true;
-
-    }
+    conn->receive_wcs().initialize_batched_recv(_receive_buffer, MSG_SIZE);
   }
 
   std::tuple<std::weak_ptr<Executor>, bool> Executors::add_executor(const std::string& name, const std::string & ip, int32_t port, int16_t cores, int32_t memory)
@@ -118,7 +110,7 @@ namespace rfaas::resource_manager {
   {
     uint32_t qp_num = conn->qp()->qp_num;
     _unregistered_executors[qp_num] = conn;
-    _initialize_connections(conn);
+    conn->receive_wcs().initialize(_receive_buffer, MSG_SIZE);
   }
 
   bool Executors::register_executor(uint32_t qp_num, const std::string& name)
@@ -140,6 +132,7 @@ namespace rfaas::resource_manager {
     auto exec_it = _executors_by_name.find(name);
     if(exec_it == _executors_by_name.end()) {
 
+      SPDLOG_DEBUG("Registered executor with name {}, qp num {}", name, qp_num);
       auto exec = std::make_shared<Executor>();
       exec->initialize_connection((*it).second);
       _executors_by_name[name] = exec;

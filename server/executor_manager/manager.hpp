@@ -38,13 +38,11 @@ namespace rfaas::executor_manager {
   struct ResourceManagerConnection
   {
     rdmalib::RDMAActive _connection;
-    rdmalib::RecvBuffer _rdma_buffer;
     rdmalib::Buffer<common::LeaseAllocation>  _receive_buffer;
     rdmalib::Buffer<uint8_t>  _send_buffer;
 
     ResourceManagerConnection(const std::string& name, int port, int receive_buf_size):
       _connection(name, port, receive_buf_size),
-      _rdma_buffer(receive_buf_size),
       _receive_buffer(receive_buf_size),
       _send_buffer(std::max(sizeof(common::LeaseDeallocation), sizeof(common::NodeRegistration)))
     {
@@ -60,14 +58,16 @@ namespace rfaas::executor_manager {
         return false;
       }
 
-      _connection.connection().initialize_batched_recv(_receive_buffer, sizeof(common::LeaseAllocation));
-      _rdma_buffer.connect(&_connection.connection());
+      _connection.connection().receive_wcs().initialize(_receive_buffer);
 
       common::NodeRegistration reg;
       strncpy(reg.node_name, node_name.c_str(), common::NodeRegistration::NODE_NAME_LENGTH);
       memcpy(_send_buffer.data(), &reg, sizeof(common::NodeRegistration));
+
+      for(int i = 0;i < 66; ++i) {
       _connection.connection().post_send(_send_buffer, 0);
       _connection.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
+      }
 
       return true;
     }
@@ -75,8 +75,6 @@ namespace rfaas::executor_manager {
 
   struct Manager
   {
-    // FIXME: we need a proper data structure that is thread-safe and scales
-    //static constexpr int MAX_CLIENTS_ACTIVE = 128;
     static constexpr int MAX_EXECUTORS_ACTIVE = 8;
     static constexpr int MAX_CLIENTS_ACTIVE = 1024;
     static constexpr int POLLING_TIMEOUT_MS = 100;
@@ -87,13 +85,9 @@ namespace rfaas::executor_manager {
     std::map<int, Client> _clients;
     int _ids;
 
-    //std::vector<Client> _clients;
-    //std::atomic<int> _clients_active;
     std::unique_ptr<ResourceManagerConnection> _res_mgr_connection;
-    //std::unique_ptr<rdmalib::Connection> _res_mgr_connection;
 
     rdmalib::RDMAPassive _state;
-    //rdmalib::server::ServerStatus _status;
     Settings _settings;
     //rdmalib::Buffer<Accounting> _accounting_data;
     uint32_t _secret;

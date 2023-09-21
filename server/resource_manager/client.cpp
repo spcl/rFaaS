@@ -16,7 +16,6 @@ namespace rfaas::resource_manager {
     connection(conn),
     _response(1),
     allocation_requests(RECV_BUF_SIZE),
-    rcv_buffer(RECV_BUF_SIZE),
     allocation_time(0),
     client_id(client_id)
   {
@@ -25,8 +24,7 @@ namespace rfaas::resource_manager {
     _response.register_memory(pd, IBV_ACCESS_LOCAL_WRITE);
 
     // Initialize batch receive WCs
-    connection->initialize_batched_recv(allocation_requests, sizeof(rfaas::LeaseRequest));
-    rcv_buffer.connect(connection);
+    connection->receive_wcs().initialize(allocation_requests);
   }
 
   rdmalib::Buffer<rfaas::LeaseResponse>& Client::response()
@@ -44,7 +42,7 @@ namespace rfaas::resource_manager {
 
   void Client::reload_queue()
   {
-    rcv_buffer.refill();
+    connection->receive_wcs().refill();
   }
 
   void Client::begin_allocation()

@@ -51,7 +51,11 @@ namespace rfaas::resource_manager {
 
     moodycamel::BlockingReaderWriterQueue<
       std::tuple<Operation, rdmalib::Connection*>
-    > _rdma_queue;
+    > _client_queue;
+    moodycamel::BlockingReaderWriterQueue<
+      std::tuple<Operation, rdmalib::Connection*>
+    > _executor_queue;
+
     rdmalib::RDMAPassive _state;
     std::atomic<bool> _shutdown;
     rfaas::device_data _device;
@@ -77,7 +81,8 @@ namespace rfaas::resource_manager {
     void shutdown();
 
     void listen_rdma();
-    void process_rdma();
+    void process_clients();
+    void process_executors();
   };
 
 }

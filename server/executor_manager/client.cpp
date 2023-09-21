@@ -15,7 +15,6 @@ namespace rfaas::executor_manager {
   Client::Client(rdmalib::Connection* conn, ibv_pd* pd): //, Accounting & _acc):
     connection(conn),
     allocation_requests(RECV_BUF_SIZE),
-    rcv_buffer(RECV_BUF_SIZE),
     accounting(1),
     //accounting(_acc),
     allocation_time(0),
@@ -26,22 +25,14 @@ namespace rfaas::executor_manager {
     accounting.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
     // Make the buffer accessible to clients
     allocation_requests.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    // Initialize batch receive WCs
-    connection->initialize_batched_recv(allocation_requests, sizeof(rfaas::AllocationRequest));
-    rcv_buffer.connect(connection);
-  }
 
-  //void Client::reinitialize(rdmalib::Connection* conn)
-  //{
-  //  connection = conn;
-  //  // Initialize batch receive WCs
-  //  connection->initialize_batched_recv(allocation_requests, sizeof(rdmalib::AllocationRequest));
-  //  rcv_buffer.connect(conn);
-  //}
+    // Initialize batch receive WCs
+    connection->receive_wcs().initialize(allocation_requests);
+  }
 
   void Client::reload_queue()
   {
-    rcv_buffer.refill();
+    connection->receive_wcs().refill();
   }
 
   void Client::disable(int id)

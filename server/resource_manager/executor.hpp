@@ -53,6 +53,11 @@ namespace rfaas { namespace resource_manager {
     bool lease(int cores, int memory);
     bool is_fully_leased() const;
     void cancel_lease(const Lease & lease);
+
+    void polled_wc()
+    {
+      _connection->receive_wcs().update_requests(-1);
+    }
   };
 
   struct Executors
@@ -66,7 +71,6 @@ namespace rfaas { namespace resource_manager {
     static constexpr int MSG_SIZE = std::max(sizeof(common::NodeRegistration), sizeof(common::LeaseDeallocation));
     rdmalib::Buffer<uint8_t> _receive_buffer;
     rdmalib::Buffer<common::LeaseAllocation> _send_buffer;
-    rdmalib::RecvBuffer _rdma_buffer;
     bool _initialized;
 
     Executors(ibv_pd* pd);
@@ -79,7 +83,7 @@ namespace rfaas { namespace resource_manager {
     std::weak_ptr<Executor> get_executor(const std::string& name);
     std::shared_ptr<Executor> get_executor(uint32_t qp_num);
 
-    void _initialize_connections(rdmalib::Connection* conn);
+    void _initialize_connection(rdmalib::Connection* conn);
 
     iter_t begin();
     iter_t end();
