@@ -33,14 +33,12 @@ namespace rfaas {
   }
 
   executor_state::executor_state(rdmalib::Connection* conn, int rcv_buf_size):
-    conn(conn),
-    _rcv_buffer(rcv_buf_size)
+    conn(conn)
   {
   }
 
   executor::executor(const std::string& address, int port, int numcores, int memory, device_data & dev):
     _state(dev.ip_address, dev.port, dev.default_receive_buffer_size + 1),
-    _rcv_buffer(dev.default_receive_buffer_size),
     _execs_buf(MAX_REMOTE_WORKERS),
     _device(dev),
     _numcores(numcores),
@@ -52,6 +50,9 @@ namespace rfaas {
     events = 0;
     _active_polling = false;
     _end_requested = false;
+
+    // Enables sharing receive queue across all connections.
+    _state.register_shared_queue(0);
 
     _exec_manager.reset(
       new manager_connection(
@@ -70,7 +71,6 @@ namespace rfaas {
 
   executor::executor(executor&& obj):
     _state(std::move(obj._state)),
-    _rcv_buffer(std::move(obj._rcv_buffer)),
     _execs_buf(std::move(obj._execs_buf)),
     _device(std::move(obj._device)),
     _numcores(std::move(obj._numcores)),
@@ -201,7 +201,7 @@ namespace rfaas {
         auto cq = _connections[0].conn->wait_events();
         _connections[0].conn->notify_events(true);
         _connections[0].conn->ack_events(cq, 1);
-        auto wc = _connections[0]._rcv_buffer.poll(false);
+        auto wc = _connections[0].conn->receive_wcs().poll(false);
         for(int i = 0; i < std::get<1>(wc); ++i) {
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
           int return_val = val & 0x0000FFFF;
@@ -213,11 +213,11 @@ namespace rfaas {
           // FIXME: handle error
           if(!--std::get<0>(it->second)) {
             std::get<1>(it->second).set_value(return_val);
-            // FIXME
-            //
-            _connections[0]._rcv_buffer._requests += _connections.size() - 1;
-            for(size_t i = 1; i < _connections.size(); ++i)
-              _connections[i]._rcv_buffer._requests--;
+
+            _connections[0].conn->receive_wcs().update_requests(_connections.size() - 1);
+            for(int i = 1; i < _connections.size(); ++i) {
+              _connections[0].conn->receive_wcs().update_requests(-1);
+            }
           }
         }
         // Poll completions from past sends
@@ -308,6 +308,8 @@ namespace rfaas {
     // Now receive the connections from executors
     uint32_t obj_size = sizeof(rdmalib::BufferInformation);
 
+    // FIXME: use shared queue!
+
     // Accept connect requests, fill receive buffers and accept them.
     // When the connection is established, then send data.
     this->_connections.reserve(_numcores);
@@ -315,7 +317,7 @@ namespace rfaas {
     while(established < _numcores) {
 
       //while(conn_status != rdmalib::ConnectionStatus::REQUESTED)
-      auto [conn, conn_status] = _state.poll_events(true);
+      auto [conn, conn_status] = _state.poll_events();
       if(conn_status == rdmalib::ConnectionStatus::REQUESTED) {
         SPDLOG_DEBUG(
           "[Executor] Requested connection from executor {}, connection {}",
@@ -326,9 +328,9 @@ namespace rfaas {
           _device.default_receive_buffer_size
         );
         this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, requested*obj_size), requested);
-        // FIXME: this should be in a function
         // FIXME: here it won't work if rcv_bufer_size < numcores
-        this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn.get());
+        this->_connections.back().conn->receive_wcs().refill();
+
         _state.accept(this->_connections.back().conn.get());
         ++requested;
       } else if(conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {

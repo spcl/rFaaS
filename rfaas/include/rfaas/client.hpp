@@ -2,13 +2,14 @@
 #ifndef __RFAAS_RFAAS_HPP__
 #define __RFAAS_RFAAS_HPP__
 
-#include "rdmalib/connection.hpp"
+#include <rdmalib/connection.hpp>
+#include <spdlog/spdlog.h>
+
 #include <rfaas/allocation.hpp>
 #include <rfaas/connection.hpp>
 #include <rfaas/devices.hpp>
 #include <rfaas/executor.hpp>
 #include <rfaas/resources.hpp>
-#include <spdlog/spdlog.h>
 
 namespace rfaas {
 

@@ -15,7 +15,7 @@ namespace rfaas {
     _address(address),
     _port(port),
     _active(_address, _port, rcv_buf),
-    _rcv_buffer(rcv_buf),
+    _rcv_buf_size(rcv_buf),
     _allocation_buffer(rcv_buf + 1),
     _max_inline_data(max_inline_data)
   {
@@ -30,10 +30,10 @@ namespace rfaas {
       spdlog::error("Couldn't connect to manager at {}:{}", _address, _port);
       return false;
     }
-    _rcv_buffer.connect(&_active.connection());
     _allocation_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE); 
+
     // Initialize batch receive WCs
-    _active.connection().initialize_batched_recv(_allocation_buffer, sizeof(rfaas::AllocationRequest));
+    _active.connection().receive_wcs().initialize(_allocation_buffer);
     return ret;
   }
 
@@ -45,7 +45,7 @@ namespace rfaas {
       request() = (rfaas::AllocationRequest) {-1, 0, 0, 0, 0, 0, 0, 0, ""};
       rdmalib::ScatterGatherElement sge;
       size_t obj_size = sizeof(rfaas::AllocationRequest);
-      sge.add(_allocation_buffer, obj_size, obj_size*_rcv_buffer._rcv_buf_size);
+      sge.add(_allocation_buffer, obj_size, obj_size*_rcv_buf_size);
       _active.connection().post_send(sge);
       _active.connection().poll_wc(rdmalib::QueueType::SEND, true);
       _active.disconnect();
@@ -59,14 +59,14 @@ namespace rfaas {
 
   rfaas::AllocationRequest & manager_connection::request()
   {
-    return *(_allocation_buffer.data() + _rcv_buffer._rcv_buf_size);
+    return *(_allocation_buffer.data() + _rcv_buf_size);
   }
 
   bool manager_connection::submit()
   {
     rdmalib::ScatterGatherElement sge;
     size_t obj_size = sizeof(rfaas::AllocationRequest);
-    sge.add(_allocation_buffer, obj_size, obj_size*_rcv_buffer._rcv_buf_size);
+    sge.add(_allocation_buffer, obj_size, obj_size*_rcv_buf_size);
     _active.connection().post_send(sge);
     _active.connection().poll_wc(rdmalib::QueueType::SEND, true);
     // FIXME: check failure
@@ -78,7 +78,7 @@ namespace rfaas {
     _address(address),
     _port(port),
     _active(_address, _port, rcv_buf),
-    _rcv_buffer(rcv_buf),
+    _rcv_buf_size(rcv_buf),
     _send_buffer(1),
     _receive_buffer(rcv_buf),
     _max_inline_data(max_inline_data)
@@ -98,10 +98,7 @@ namespace rfaas {
     _receive_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE); 
 
     // Initialize batch receive WCs
-    //_rcv_buffer.initialize(_receive_buffer);
-    _active.connection().initialize_batched_recv(_receive_buffer, sizeof(rfaas::LeaseResponse));
-    // FIXME: This needs to be after, but why?
-    _rcv_buffer.connect(&_active.connection());
+    _active.connection().receive_wcs().initialize(_receive_buffer);
     return ret;
   }
 
@@ -114,7 +111,7 @@ namespace rfaas {
       request() = (rfaas::LeaseRequest) {-1, 0};
       rdmalib::ScatterGatherElement sge;
       size_t obj_size = sizeof(rfaas::AllocationRequest);
-      sge.add(_send_buffer, obj_size, obj_size*_rcv_buffer._rcv_buf_size);
+      sge.add(_send_buffer, obj_size, obj_size*_rcv_buf_size);
       _active.connection().post_send(sge);
       _active.connection().poll_wc(rdmalib::QueueType::SEND, true);
       _active.disconnect();

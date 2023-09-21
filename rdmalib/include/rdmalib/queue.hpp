@@ -143,7 +143,7 @@ namespace rdmalib {
 
     void update_requests(int change);
 
-    inline bool refill();
+    bool refill();
 
   private:
 

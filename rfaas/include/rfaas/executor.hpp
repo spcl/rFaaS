@@ -9,7 +9,6 @@
 
 #include <rdmalib/benchmarker.hpp>
 #include <rdmalib/connection.hpp>
-#include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/rdmalib.hpp>
 
@@ -44,14 +43,13 @@ namespace rfaas {
   struct executor_state {
     std::unique_ptr<rdmalib::Connection> conn;
     rdmalib::RemoteBuffer remote_input;
-    rdmalib::RecvBuffer _rcv_buffer;
+    //rdmalib::RecvBuffer _rcv_buffer;
     executor_state(rdmalib::Connection*, int rcv_buf_size);
   };
 
   struct executor {
     static constexpr int MAX_REMOTE_WORKERS = 64;
     rdmalib::RDMAPassive _state;
-    rdmalib::RecvBuffer _rcv_buffer;
     rdmalib::Buffer<rdmalib::BufferInformation> _execs_buf;
 
     device_data _device;
@@ -131,7 +129,8 @@ namespace rfaas {
           true
         );
       }
-      _connections[0]._rcv_buffer.refill();
+      //_connections[0]._rcv_buffer.refill();
+      _connections[0].conn->receive_wcs().refill();
       return std::get<1>(_futures[invoc_id]).get_future();
     }
 
@@ -168,7 +167,8 @@ namespace rfaas {
       }
 
       for(int i = 0; i < numcores; ++i) {
-        _connections[i]._rcv_buffer.refill();
+        //_connections[i]._rcv_buffer.refill();
+        _connections[i].conn->receive_wcs().refill();
       }
       return std::get<1>(_futures[invoc_id]).get_future();
     }
@@ -177,7 +177,8 @@ namespace rfaas {
     {
       _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
 
-      auto wc = _connections[0]._rcv_buffer.poll(true);
+      //auto wc = _connections[0]._rcv_buffer.poll(true);
+      auto wc = _connections[0].conn->receive_wcs().poll(true);
       uint32_t val = ntohl(std::get<0>(wc)[0].imm_data);
       int return_val = val & 0x0000FFFF;
       int finished_invoc_id = val >> 16;
@@ -225,13 +226,15 @@ namespace rfaas {
         in.bytes() <= _device.max_inline_data
       );
       _active_polling = true;
-      _connections[0]._rcv_buffer.refill();
+      //_connections[0]._rcv_buffer.refill();
+      _connections[0].conn->receive_wcs().refill();
 
       bool found_result = false;
       int return_value = 0;
       int out_size = 0;
       while(!found_result) {
-        auto wc = _connections[0]._rcv_buffer.poll(true);
+        //auto wc = _connections[0]._rcv_buffer.poll(true);
+        auto wc = _connections[0].conn->receive_wcs().poll(true);
         for(int i = 0; i < std::get<1>(wc); ++i) {
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
           int return_val = val & 0x0000FFFF;
@@ -253,7 +256,8 @@ namespace rfaas {
         }
         if(found_result) {
           _active_polling = false;
-          auto wc = _connections[0]._rcv_buffer.poll(false);
+          //auto wc = _connections[0]._rcv_buffer.poll(false);
+          auto wc = _connections[0].conn->receive_wcs().poll(false);
           // Catch very unlikely interleaving
           // Event arrives after we poll while the background thread is skipping
           // because we still hold the atomic
@@ -312,7 +316,8 @@ namespace rfaas {
       }
 
       for(int i = 0; i < numcores; ++i) {
-        _connections[i]._rcv_buffer.refill();
+        //_connections[i]._rcv_buffer.refill();
+        _connections[i].conn->receive_wcs().refill();
       }
       int expected = numcores;
       while(expected) {
@@ -324,7 +329,8 @@ namespace rfaas {
       bool correct = true;
       _active_polling = true;
       while(expected) {
-        auto wc = _connections[0]._rcv_buffer.poll(true);
+        //auto wc = _connections[0]._rcv_buffer.poll(true);
+        auto wc = _connections[0].conn->receive_wcs().poll(true);
         expected -= std::get<1>(wc);
         for(int i = 0; i < std::get<1>(wc); ++i) {
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
@@ -343,9 +349,12 @@ namespace rfaas {
       }
       _active_polling = false;
 
-      _connections[0]._rcv_buffer._requests += numcores - 1;
+      // We polled from connection number 0, time to update.
+      //_connections[0]._rcv_buffer._requests += numcores - 1;
+      _connections[0].conn->receive_wcs().update_requests(numcores - 1);
       for(int i = 1; i < numcores; ++i)
-        _connections[i]._rcv_buffer._requests--;
+        //_connections[i]._rcv_buffer._requests--;
+        _connections[0].conn->receive_wcs().update_requests(-1);
       return correct;
     }
   };
