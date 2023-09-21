@@ -48,6 +48,7 @@ namespace rfaas { namespace resource_manager {
     writer_lock_t lock(_mutex);
 
     if(!_free_nodes.size()) {
+      SPDLOG_DEBUG("No available executors!");
       return false;
     }
 
@@ -60,6 +61,7 @@ namespace rfaas { namespace resource_manager {
 
       // Verify the node has not been removed
       if(ptr.expired()) {
+        ++it;
         continue;
       }
 
@@ -67,16 +69,19 @@ namespace rfaas { namespace resource_manager {
 
       // Can't use an executor that has not been used yet
       if(!shared_ptr->is_initialized()) {
+        ++it;
+        SPDLOG_DEBUG("Node {} cannot be used, not initialized!", shared_ptr->_node_name);
         continue;
       }
 
       if(!shared_ptr->lease(numcores, memory)) {
+        ++it;
+        SPDLOG_DEBUG("Node {} cannot be used, not enough resources!", shared_ptr->_node_name);
         continue;
       }
 
       lease.lease_id = _lease_count++;
       lease.port = shared_ptr->port;
-      //strncpy(lease.address, shared_ptr->address, node_data::ADDRESS_LENGTH);
       strncpy(lease.address, shared_ptr->address.c_str(), Executor::ADDRESS_LENGTH);
 
       bool is_total = shared_ptr->is_fully_leased();
