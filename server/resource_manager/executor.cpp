@@ -9,14 +9,19 @@ namespace rfaas::resource_manager {
     _node_name{},
     _connection(nullptr),
     _free_cores(0),
-    _free_memory(0)
+    _free_memory(0),
+    _receive_buffer(RECV_BUF_SIZE * MSG_SIZE),
+    _send_buffer(1)
   {}
 
   Executor::Executor(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory):
     _connection(nullptr),
     _free_cores(0),
-    _free_memory(0)
+    _free_memory(0),
+    _receive_buffer(RECV_BUF_SIZE * MSG_SIZE),
+    _send_buffer(1)
   {
+
     this->initialize_data(node_name, ip, port, cores, memory);
   }
 
@@ -31,10 +36,12 @@ namespace rfaas::resource_manager {
     this->_free_memory = memory;
   }
 
-  void Executor::initialize_connection(rdmalib::Connection* conn)
-  {
-    _connection = conn;
-  }
+  //void Executor::initialize_connection(rdmalib::Connection* conn)
+  //{
+  //  _connection = conn;
+
+  //  // Make the buffer accessible to clients
+  //}
 
   bool Executor::is_initialized() const
   {
@@ -70,18 +77,18 @@ namespace rfaas::resource_manager {
   }
 
   Executors::Executors(ibv_pd* pd):
-    _receive_buffer(RECV_BUF_SIZE * MSG_SIZE),
-    _send_buffer(1),
-    _initialized(false)
+    _pd(pd)
   {
-    // Make the buffer accessible to clients
-    _receive_buffer.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    _send_buffer.register_memory(pd, IBV_ACCESS_LOCAL_WRITE);
   }
 
-  void Executors::_initialize_connection(rdmalib::Connection* conn)
+  void Executor::initialize_connection(ibv_pd* pd, rdmalib::Connection* conn)
   {
-    conn->receive_wcs().initialize_batched_recv(_receive_buffer, MSG_SIZE);
+    this->_connection = conn;
+
+    _receive_buffer.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    _send_buffer.register_memory(pd, IBV_ACCESS_LOCAL_WRITE);
+
+    this->_connection->receive_wcs().initialize(_receive_buffer, MSG_SIZE);
   }
 
   std::tuple<std::weak_ptr<Executor>, bool> Executors::add_executor(const std::string& name, const std::string & ip, int32_t port, int16_t cores, int32_t memory)
@@ -108,38 +115,41 @@ namespace rfaas::resource_manager {
 
   void Executors::connect_executor(rdmalib::Connection* conn)
   {
+    auto exec = std::make_shared<Executor>();
+    exec->initialize_connection(_pd, conn);
+
     uint32_t qp_num = conn->qp()->qp_num;
-    _unregistered_executors[qp_num] = conn;
-    conn->receive_wcs().initialize(_receive_buffer, MSG_SIZE);
+    _executors_by_conn[qp_num] = std::move(exec);
+
   }
 
   bool Executors::register_executor(uint32_t qp_num, const std::string& name)
   {
-    auto it = _unregistered_executors.find(qp_num);
-    if(it == _unregistered_executors.end()) {
-      return false;
-    }
 
     // Already registered
     auto conn_it = _executors_by_conn.find(qp_num);
-    if(conn_it != _executors_by_conn.end()) {
+    if(conn_it == _executors_by_conn.end()) {
       return false;
     }
 
     // Two situations
-    // (1) Fully new executor, not added by the HTTP interface.
-    // (2) Executor has been added before.
+    // 
+    // (1) The executor has already connected but doesn't have a name yet.
+    // Thus, we make a copy under the correct name.
+    //
+    // (2) The executor has a name and it is connected - we need to now
+    // create a connection. Thus, we replace the `name` version
+    // with the actual connection
+    //
     auto exec_it = _executors_by_name.find(name);
     if(exec_it == _executors_by_name.end()) {
 
-      SPDLOG_DEBUG("Registered executor with name {}, qp num {}", name, qp_num);
-      auto exec = std::make_shared<Executor>();
-      exec->initialize_connection((*it).second);
-      _executors_by_name[name] = exec;
+      _executors_by_name[name] = ((*conn_it).second);
       
     } else {
-      (*exec_it).second->initialize_connection((*it).second);
+      (*exec_it).second = (*conn_it).second;
     }
+    SPDLOG_DEBUG("Registered executor with name {}, qp num {}", name, qp_num);
 
     return true;
   }
@@ -149,8 +159,13 @@ namespace rfaas::resource_manager {
     throw std::runtime_error("Not implemented!");
   }
 
-  std::weak_ptr<Executor> Executors::get_executor(const std::string& name)
+  std::shared_ptr<Executor> Executors::get_executor(const std::string& name)
   {
+    auto conn_it = _executors_by_name.find(name);
+    if(conn_it != _executors_by_name.end()) {
+      return (*conn_it).second;
+    }
+    return nullptr;
 
   }
 

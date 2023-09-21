@@ -180,8 +180,12 @@ void Manager::process_executors()
           auto wc = std::get<0>(wcs)[j];
           uint64_t id = wc.wr_id;
           uint32_t qp_num = wc.qp_num;
-          auto ptr = reinterpret_cast<common::NodeRegistration*>(&_executors._receive_buffer[id * sizeof(Executors::MSG_SIZE)]);
 
+          //auto ptr = reinterpret_cast<common::NodeRegistration*>(&_executors.get_executor(qp_num)._receive_buffer[id * sizeof(Executors::MSG_SIZE)]);
+          std::cerr << qp_num << " " << id << std::endl;
+          auto ptr = reinterpret_cast<common::NodeRegistration*>(&_executors.get_executor(qp_num)->_receive_buffer[id * Executor::MSG_SIZE]);
+
+          std::cerr << ptr->node_name << std::endl;
           _executors.register_executor(qp_num, ptr->node_name);
 
           if(wc.qp_num != recv_queue->qp()->qp_num) {
@@ -195,28 +199,6 @@ void Manager::process_executors()
 
       }
     }
-
-      //auto wcs = recv_queue->poll(false, 1);
-      //if(std::get<1>(wcs)) {
-
-      //  spdlog::info("Polled!");
-
-      //  for (int j = 0; j < std::get<1>(wcs); ++j) {
-
-      //    auto wc = std::get<0>(wcs)[j];
-      //    uint64_t id = wc.wr_id;
-      //    // FIXME: parse message
-      //    spdlog::error("{} {}", fmt::ptr(_executors._receive_buffer.data()), id * sizeof(Executors::MSG_SIZE));
-      //    spdlog::error("{} {}", fmt::ptr(&_executors._receive_buffer[id * sizeof(Executors::MSG_SIZE)]), id * sizeof(Executors::MSG_SIZE));
-      //    auto ptr = reinterpret_cast<common::NodeRegistration*>(&_executors._receive_buffer[id * sizeof(Executors::MSG_SIZE)]);
-      //    spdlog::error("{}", fmt::ptr(ptr));
-      //    std::cerr << ptr->node_name << std::endl;
-      //    std::cerr << strlen(ptr->node_name) << std::endl;
-      //  }
-
-
-      //  _executors._rdma_buffer.refill();
-      //}
 
     // FIXME: reenable
     //if (poll_send.size()) {
