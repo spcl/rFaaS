@@ -83,11 +83,14 @@ void Manager::listen_rdma() {
         spdlog::error("[Manager] Reject executor, wrong secret {}", private_data);
         _state.reject(conn);
 
-      } else {
+      } else if (conn->key() == 1) {
 
         _executors.connect_executor(conn);
         _state.accept(conn);
 
+      } else {
+
+        _state.accept(conn);
       }
 
     } else if (conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
@@ -218,11 +221,165 @@ void Manager::process_executors()
 
 void Manager::process_clients() {
 
+  rdmalib::RecvWorkCompletions* recv_queue = nullptr;
   typedef std::unordered_map<uint32_t, Client> client_t;
   client_t clients;
   std::vector<client_t::iterator> removals;
   std::vector<Client*> poll_send;
+  int client_count = 0;
   int id = 0;
+
+
+  // FIXME: reenable
+  //std::vector<Executor*> poll_send;
+
+  while (!_shutdown.load()) {
+
+    bool updated = false;
+
+    std::tuple<Operation, rdmalib::Connection*> result;
+    std::tuple<Operation, rdmalib::Connection*>* result_ptr;
+    if(client_count > 0) {
+
+      result_ptr = _client_queue.peek();
+      if(result_ptr) {
+        updated = true;
+      }
+
+    } else {
+      updated = _client_queue.wait_dequeue_timed(result, POLLING_TIMEOUT_MS * 1000);
+      if(updated) {
+        result_ptr = &result;
+      }
+    }
+
+    if (updated) {
+
+      if (std::get<0>(*result_ptr) == Operation::CONNECT) {
+
+        rdmalib::Connection* conn = std::get<1>(*result_ptr);
+        clients.emplace(
+          std::piecewise_construct,
+          std::forward_as_tuple((*conn).qp()->qp_num),
+          std::forward_as_tuple(id++, conn, _state.pd())
+        );
+
+        if(!recv_queue) {
+          recv_queue = &conn->receive_wcs();
+        }
+
+      } else {
+
+        rdmalib::Connection* conn = std::get<1>(*result_ptr);
+        auto it = clients.find(conn->qp()->qp_num);
+        if (it != clients.end()) {
+          removals.push_back(it);
+          spdlog::debug("[Manager] Disconnecting client {}",
+                        it->second.client_id);
+        } else {
+          spdlog::debug("[Manager] Disconnecting unknown client");
+        }
+      }
+
+      if(client_count > 0) {
+        _client_queue.pop();
+      }
+
+      client_count++;
+    }
+
+    // FIXME: sleep
+
+    if(client_count > 0) {
+
+      auto wcs = recv_queue->poll(false);
+      if(std::get<1>(wcs)) {
+
+        for (int j = 0; j < std::get<1>(wcs); ++j) {
+
+          auto wc = std::get<0>(wcs)[j];
+          uint64_t id = wc.wr_id;
+          uint32_t qp_num = wc.qp_num;
+
+          auto it = clients.find(qp_num);
+          Client& client = (*it).second;
+
+          int16_t cores = client.allocation_requests.data()[id].cores;
+          int32_t memory = client.allocation_requests.data()[id].memory;
+
+          if (cores > 0) {
+            spdlog::info("Client requests executor with {} threads, it should have {} memory", 
+                        client.allocation_requests.data()[id].cores,
+                        client.allocation_requests.data()[id].memory
+            );
+
+            bool allocated = _executor_data.open_lease(cores, memory, *client.response().data());
+            if(allocated) {
+              spdlog::info("[Manager] Client receives lease with id {}", client.response().data()->lease_id);
+            } else {
+              spdlog::info("[Manager] Client request couldn't be satisfied");
+            }
+
+            if(!allocated) {
+              // FIXME: Send empty response?
+              client.connection->post_send(
+                client.response(),
+                0,
+                client.response().size() <= _device.max_inline_data,
+                0
+              );
+            } else {
+              client.connection->post_send(
+                client.response(),
+                0,
+                client.response().size() <= _device.max_inline_data,
+                1
+              );
+            }
+            poll_send.emplace_back(&client);
+
+          } else {
+            spdlog::info("Client {} disconnects", client.client_id);
+            client.disable();
+            removals.push_back(it);
+            break;
+          }
+
+          if(wc.qp_num != recv_queue->qp()->qp_num) {
+            client.connection->receive_wcs().update_requests(-1);
+            client.connection->receive_wcs().refill();
+            recv_queue->update_requests(1);
+          } else {
+            recv_queue->refill();
+          }
+        }
+
+      }
+    }
+  }
+
+  if (poll_send.size()) {
+    for (auto client : poll_send) {
+      client->connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
+    }
+    poll_send.clear();
+  }
+
+  if (removals.size()) {
+    for (auto it : removals) {
+      spdlog::info("Remove client id {}", it->second.client_id);
+      clients.erase(it);
+    }
+
+    client_count -= removals.size();
+    if(client_count == 0) {
+      recv_queue = nullptr;
+    }
+
+    removals.clear();
+  }
+
+  spdlog::info("Background thread stops processing client events");
 
   //while (!_shutdown.load()) {
 
@@ -364,8 +521,6 @@ void Manager::process_clients() {
   //    removals.clear();
   //  }
   //}
-
-  spdlog::info("Background thread stops processing rdmacm events");
 }
 
 void Manager::shutdown() {

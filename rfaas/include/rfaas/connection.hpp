@@ -34,6 +34,8 @@ namespace rfaas {
 
   struct resource_mgr_connection {
 
+    static constexpr int CLIENT_ID = 2;
+
     std::string _address;
     int _port;
     rdmalib::RDMAActive _active;

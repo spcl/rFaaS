@@ -89,7 +89,9 @@ namespace rfaas {
   bool resource_mgr_connection::connect()
   {
     SPDLOG_DEBUG("Connecting to resource manager at {}:{}", _address, _port);
-    bool ret = _active.connect();
+
+    uint32_t secret = (CLIENT_ID << 24);
+    bool ret = _active.connect(secret);
     if(!ret) {
       spdlog::error("Couldn't connect to manager at {}:{}", _address, _port);
       return false;

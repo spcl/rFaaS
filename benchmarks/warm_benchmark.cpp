@@ -9,7 +9,6 @@
 #include <rdmalib/benchmarker.hpp>
 #include <rdmalib/functions.hpp>
 #include <rdmalib/rdmalib.hpp>
-#include <rdmalib/recv_buffer.hpp>
 
 #include <rfaas/executor.hpp>
 #include <rfaas/resources.hpp>
@@ -38,7 +37,7 @@ int main(int argc, char **argv) {
       rfaas::benchmark::Settings::deserialize(benchmark_cfg);
   benchmark_cfg.close();
 
-  rfaas::client instance("10.4.111.212", 10000, *settings.device);
+  rfaas::client instance("192.168.0.19", 10000, *settings.device);
   if (!instance.connect()) {
     spdlog::error("Connection to resource manager failed!");
     return 1;
