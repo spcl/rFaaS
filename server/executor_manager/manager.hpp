@@ -63,10 +63,8 @@ namespace rfaas::executor_manager {
       strncpy(reg.node_name, node_name.c_str(), common::NodeRegistration::NODE_NAME_LENGTH);
       memcpy(_send_buffer.data(), &reg, sizeof(common::NodeRegistration));
 
-      for(int i = 0;i < 66; ++i) {
       _connection.connection().post_send(_send_buffer, 0);
       _connection.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
-      }
 
       return true;
     }
