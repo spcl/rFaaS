@@ -2,6 +2,7 @@
 #ifndef __RDMALIB_CONNECTION_HPP__
 #define __RDMALIB_CONNECTION_HPP__
 
+#include "rdmalib/queue.hpp"
 #include <cstdint>
 #include <initializer_list>
 #include <vector>
@@ -13,11 +14,6 @@
 #include <rdmalib/buffer.hpp>
 
 namespace rdmalib {
-
-  enum class QueueType{
-    SEND,
-    RECV
-  };
 
   struct ConnectionConfiguration {
     // Configuration of QP
@@ -38,6 +34,11 @@ namespace rdmalib {
     DISCONNECTED
   };
 
+  enum class QueueType{
+    SEND,
+    RECV
+  };
+
   // State of a communication:
   // a) communication ID
   // b) Queue Pair
@@ -50,24 +51,23 @@ namespace rdmalib {
     int32_t _private_data;
     bool _passive;
     ConnectionStatus _status;
-    static const int _wc_size = 32; 
-    // FIXME: associate this with RecvBuffer
-    std::array<ibv_wc, _wc_size> _swc; // fast fix for overlapping polling
-    std::array<ibv_wc, _wc_size> _rwc;
-    std::array<ScatterGatherElement, _wc_size> _rwc_sges;
+
+    SendWorkCompletions _send_wcs;
+    RecvWorkCompletions _rcv_wcs;
     int _send_flags;
 
-    static const int _rbatch = 32; // 32 for faster division in the code
-    struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
-
   public:
-    Connection(bool passive = false);
+    Connection(int rcv_buf_size, bool passive = false);
     ~Connection();
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;
     Connection(Connection&&);
 
-    void initialize_batched_recv(const rdmalib::impl::Buffer & sge, size_t offset);
+    RecvWorkCompletions& receive_wcs();
+    SendWorkCompletions& send_wcs();
+
+    int rcv_buf_size() const;
+
     void inlining(bool enable);
     void initialize(rdma_cm_id* id);
     void close();
@@ -75,6 +75,8 @@ namespace rdmalib {
     ibv_qp* qp() const;
     ibv_comp_channel* completion_channel() const;
     uint32_t private_data() const;
+    uint32_t secret() const;
+    uint8_t key() const;
     ConnectionStatus status() const;
     void set_status(ConnectionStatus status);
     void set_private_data(uint32_t private_data);
@@ -83,8 +85,6 @@ namespace rdmalib {
     std::tuple<ibv_wc*, int> poll_wc(QueueType, bool blocking = true, int count = -1);
     int32_t post_send(const ScatterGatherElement & elem, int32_t id = -1, bool force_inline = false, std::optional<uint32_t> immediate = std::nullopt);
     int32_t post_recv(ScatterGatherElement && elem, int32_t id = -1, int32_t count = 1);
-
-    int32_t post_batched_empty_recv(int32_t count = 1);
 
     int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, bool force_inline = false);
     // Solicited makes sense only for RDMA write with immediate

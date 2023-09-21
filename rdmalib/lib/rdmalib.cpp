@@ -1,8 +1,10 @@
 
 #include "rdmalib/connection.hpp"
+#include "rdmalib/queue.hpp"
 #include <cassert>
 // inet_ntoa
 #include <arpa/inet.h>
+#include <infiniband/verbs.h>
 #include <netdb.h>
 
 // poll on file descriptors
@@ -112,6 +114,7 @@ namespace rdmalib {
     _addr(ip, port, false),
     _ec(nullptr),
     _pd(nullptr),
+    _recv_buf(recv_buf),
     _is_connected(false)
   {
     // Size of Queue Pair
@@ -145,6 +148,7 @@ namespace rdmalib {
     _ec = std::move(obj._ec);
     _pd = std::move(obj._pd);
     _cfg = std::move(obj._cfg);
+    _recv_buf = std::move(obj._recv_buf);
     _is_connected = std::move(obj._is_connected);
 
     return *this;
@@ -159,18 +163,12 @@ namespace rdmalib {
   void RDMAActive::allocate()
   {
     if(!_conn) {
-      _conn = std::unique_ptr<Connection>(new Connection());
+      _conn = std::unique_ptr<Connection>(new Connection(this->_recv_buf));
       rdma_cm_id* id;
       impl::expect_zero(rdma_create_ep(&id, _addr.addrinfo, nullptr, nullptr));
       impl::expect_zero(rdma_create_qp(id, _pd, &_cfg.attr));
       _conn->initialize(id);
       _pd = _conn->id()->pd;
-
-      //struct ibv_qp_attr attr;
-      //struct ibv_qp_init_attr init_attr;
-      //impl::expect_zero(ibv_query_qp(_conn->_qp, &attr, IBV_QP_DEST_QPN, &init_attr ));
-      //SPDLOG_DEBUG("Created active connection id {} qp {} send {} recv {}", fmt::ptr(_conn->_id), fmt::ptr(_conn->_id->qp), fmt::ptr(_conn->_id->qp->send_cq), fmt::ptr(_conn->_id->qp->recv_cq));
-      //SPDLOG_DEBUG("Local QPN {}, remote QPN {} ",_conn->_qp->qp_num, attr.dest_qp_num);
     }
 
     // An attempt to bind the active client to a specifi device.
@@ -274,7 +272,8 @@ namespace rdmalib {
     _addr(ip, port, true),
     _ec(nullptr),
     _listen_id(nullptr),
-    _pd(nullptr)
+    _pd(nullptr),
+    _recv_buf(recv_buf)
   {
     // Size of Queue Pair
     // FIXME: configurable -> parallel workers
@@ -313,6 +312,7 @@ namespace rdmalib {
     _ec(std::move(obj._ec)),
     _listen_id(std::move(obj._listen_id)),
     _pd(std::move(obj._pd)),
+    _recv_buf(obj._recv_buf),
     _active_connections(std::move(obj._active_connections))
   {
     obj._ec = nullptr;
@@ -392,10 +392,11 @@ namespace rdmalib {
     return rc > 0;
   }
 
-  std::tuple<Connection*, ConnectionStatus> RDMAPassive::poll_events(bool share_cqs)
+  std::tuple<Connection*, ConnectionStatus> RDMAPassive::poll_events(/*bool share_cqs*/)
   {
     rdma_cm_event* event = nullptr;
 		Connection* connection = nullptr;
+	  RecvWorkCompletions* recv_wc = nullptr;
     ConnectionStatus status = ConnectionStatus::UNKNOWN;
 
     // Poll rdma cm events.
@@ -409,8 +410,10 @@ namespace rdmalib {
     );
 
     switch (event->event) { 
-      case RDMA_CM_EVENT_CONNECT_REQUEST:
-        connection = new Connection{true};
+      case RDMA_CM_EVENT_CONNECT_REQUEST: {
+
+        connection = new Connection{_recv_buf, true};
+
         if(event->param.conn.private_data_len != 0) {
           uint32_t data = *reinterpret_cast<const uint32_t*>(event->param.conn.private_data);
           connection->set_private_data(data);
@@ -426,9 +429,23 @@ namespace rdmalib {
           fmt::ptr(connection->id()), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd)
         );
 
-        // Make sure to allocate new completion queue when they're not reused.
-        if(!share_cqs)
+        uint8_t key = connection->key();
+        auto it = _shared_recv_completions.find(key);
+        if(it == _shared_recv_completions.end()) {
+
+          SPDLOG_DEBUG("Allocate new queue, no sharing for key {}", key);
+
+          // Make sure to allocate new completion queue when they're not reused.
           _cfg.attr.send_cq = _cfg.attr.recv_cq = nullptr;
+
+        } else {
+
+          _cfg.attr.send_cq = nullptr;
+          SPDLOG_DEBUG("Allocate existing shared queue for key {}", key);
+          _cfg.attr.recv_cq = std::get<1>((*it).second);
+
+        }
+
         SPDLOG_DEBUG(
           "[RDMAPassive] Using CQ for creating a QP: send {} recv {}",
           fmt::ptr(_cfg.attr.send_cq),fmt::ptr(_cfg.attr.recv_cq)
@@ -443,10 +460,18 @@ namespace rdmalib {
           fmt::ptr(connection->qp()->send_cq), fmt::ptr(connection->qp()->recv_cq)
         );
 
+        if(it != _shared_recv_completions.end()) {
+
+          if(!std::get<1>((*it).second)) {
+            std::get<1>((*it).second) = connection->qp()->recv_cq;
+          }
+
+        }
+
         status = ConnectionStatus::REQUESTED;
         _active_connections.insert(connection);
         break;
-      case RDMA_CM_EVENT_ESTABLISHED:
+      } case RDMA_CM_EVENT_ESTABLISHED:
         SPDLOG_DEBUG(
           "[RDMAPassive] Connection is established for id {}, and connection {}",
           fmt::ptr(event->id), fmt::ptr(event->id->context)
@@ -486,6 +511,11 @@ namespace rdmalib {
     rdma_ack_cm_event(event);
 
     return std::make_tuple(connection, status);
+  }
+
+  void RDMAPassive::register_shared_queue(uint16_t key)
+  {
+    _shared_recv_completions[key] = std::make_tuple(nullptr, nullptr);
   }
 
   void RDMAPassive::reject(Connection* connection) {
