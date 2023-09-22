@@ -62,7 +62,8 @@ namespace rdmalib {
     using id_t      = typename library_traits<Library>::id_t;
     using channel_t = typename library_traits<Library>::channel_t;
     using ScatterGatherElement_t = typename ::rdmalib::rdmalib_traits<Library>::ScatterGatherElement;
-    using RemoteBuffer_t = RemoteBuffer<Library>;
+    //using RemoteBuffer_t = RemoteBuffer<Library>;
+    using RemoteBuffer_t = typename ::rdmalib::rdmalib_traits<Library>::RemoteBuffer;
 
     qp_t _qp; 
     int32_t _req_count;
@@ -162,7 +163,7 @@ namespace rdmalib {
     channel_t transmit_completion_channel() const;
 
     int32_t post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap);
-    int32_t post_send(const ScatterGatherElement_t & elems, int32_t id, bool force_inline);
+    int32_t post_send(const ScatterGatherElement_t & elem, int32_t id = -1, bool force_inline = false);
     int32_t post_batched_empty_recv(int count);
     int32_t post_recv(ScatterGatherElement_t && elem, int32_t id, int count=1);
 
@@ -222,7 +223,7 @@ namespace rdmalib {
     void initialize(rdma_cm_id* id);
     ibv_comp_channel* completion_channel() const;
 
-    int32_t post_send(const ScatterGatherElement_t & elems, int32_t id, bool force_inline);
+    int32_t post_send(const ScatterGatherElement_t & elem, int32_t id = -1, bool force_inline = false);
     int32_t post_batched_empty_recv(int count);
     int32_t post_recv(ScatterGatherElement_t && elem, int32_t id, int count=1);
     int32_t post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap);

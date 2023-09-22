@@ -92,7 +92,6 @@ namespace rdmalib
   template <typename Library>
   struct RemoteBuffer
   {
-
     using rkey_t = typename library_traits<Library>::rkey_t;
 
     uintptr_t addr;
@@ -121,10 +120,19 @@ namespace rdmalib
   };
 
   struct LibfabricRemoteBuffer : RemoteBuffer<libfabric>
-  {};
+  {
+    LibfabricRemoteBuffer() : RemoteBuffer() {}
+    LibfabricRemoteBuffer(uintptr_t addr, rkey_t rkey, uint32_t size = 0) :
+      RemoteBuffer(addr, rkey, size) {}
+
+  };
 
   struct VerbsRemoteBuffer : RemoteBuffer<ibverbs>
-  {};
+  {
+    VerbsRemoteBuffer() : RemoteBuffer() {}
+    VerbsRemoteBuffer(uintptr_t addr, rkey_t rkey, uint32_t size = 0) :
+      RemoteBuffer(addr, rkey, size) {}
+  };
 
   template <typename T, typename Library>
   struct Buffer : impl::Buffer<Buffer<T, Library>, Library>
