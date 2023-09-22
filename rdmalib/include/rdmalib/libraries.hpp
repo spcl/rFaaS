@@ -56,4 +56,71 @@ struct library_traits<ibverbs>
   using channel_t = ibv_comp_channel *;
 };
 
+namespace rdmalib {
+  template <typename Derived, typename Library>
+  struct ScatterGatherElement;
+
+  struct LibfabricScatterGatherElement;
+  struct VerbsScatterGatherElement;
+
+  /*
+  template <typename Lib>
+  struct sge_trait;
+
+  template <>
+  struct sge_trait<libfabric>
+  {
+    using ScatterGatherElement = LibfabricScatterGatherElement;
+  };
+
+  template <>
+  struct sge_trait<ibverbs>
+  {
+    using ScatterGatherElement = VerbsScatterGatherElement;
+  };
+  */
+
+  template <typename Library>
+  struct rdmalib_traits;
+
+  struct LibfabricConnection;
+  struct VerbsConnection;
+
+  struct LibfabricRemoteBuffer;
+  struct VerbsRemoteBuffer;
+
+  struct LibfabricAddress;
+  struct VerbsAddress;
+
+  struct LibfabricRDMAActive;
+  struct VerbsRDMAActive;
+  struct LibfabricRDMAPassive;
+  struct VerbsRDMAPassive;
+
+  struct LibfabricRecvBuffer;
+  struct VerbsRecvBuffer;
+
+  template <>
+  struct rdmalib_traits<libfabric> {
+    using Connection = LibfabricConnection;
+    using Address = LibfabricAddress;
+    using RDMAActive = LibfabricRDMAActive;
+    using RDMAPassive = LibfabricRDMAPassive;
+    using RecvBuffer = LibfabricRecvBuffer;
+    using ScatterGatherElement = LibfabricScatterGatherElement;
+    using RemoteBuffer = LibfabricRemoteBuffer;
+  };
+
+  template <>
+  struct rdmalib_traits<ibverbs> {
+    using Connection = VerbsConnection;
+    using Address = VerbsAddress;
+    using RDMAActive = VerbsRDMAActive;
+    using RDMAPassive = VerbsRDMAPassive;
+    using RecvBuffer = VerbsRecvBuffer;
+    using ScatterGatherElement = VerbsScatterGatherElement;
+    using RemoteBuffer = VerbsRemoteBuffer;
+  };
+}
+
 #endif

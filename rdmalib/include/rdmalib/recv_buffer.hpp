@@ -60,6 +60,8 @@ namespace rdmalib
 
   struct LibfabricRecvBuffer : RecvBuffer<LibfabricRecvBuffer, libfabric>
   {
+    LibfabricRecvBuffer(int rcv_buf_size) : RecvBuffer(rcv_buf_size) {};
+
     inline std::tuple<wc_t *, int> poll(bool blocking = false)
     {
       auto wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);
@@ -72,6 +74,8 @@ namespace rdmalib
 
   struct VerbsRecvBuffer : RecvBuffer<VerbsRecvBuffer, ibverbs>
   {
+    VerbsRecvBuffer(int rcv_buf_size) : RecvBuffer(rcv_buf_size) {};
+
     inline std::tuple<wc_t *, int> poll(bool blocking = false)
     {
       auto wc = this->_conn->poll_wc(rdmalib::QueueType::RECV, blocking);

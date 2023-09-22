@@ -271,7 +271,7 @@ namespace rdmalib {
     this->_private_data = private_data;
   }
 
-  int32_t LibfabricConnection::post_send(const SGE & elems, int32_t id, bool force_inline)
+  int32_t LibfabricConnection::post_send(const ScatterGatherElement_t & elems, int32_t id, bool force_inline)
   {
     // FIXME: extend with multiple sges
     id = id == -1 ? _req_count++ : id;
@@ -290,7 +290,7 @@ namespace rdmalib {
     return _req_count - 1;
   }
   
-  int32_t VerbsConnection::post_send(const SGE & elems, int32_t id, bool force_inline)
+  int32_t VerbsConnection::post_send(const ScatterGatherElement_t & elems, int32_t id, bool force_inline)
   {
     // FIXME: extend with multiple sges
     struct ibv_send_wr wr, *bad;
@@ -409,7 +409,7 @@ namespace rdmalib {
     return count;
   }
 
-  int32_t LibfabricConnection::post_recv(SGE && elem, int32_t id, int count)
+  int32_t LibfabricConnection::post_recv(ScatterGatherElement_t && elem, int32_t id, int count)
   {
     fi_addr_t temp = 0;
     id = id == -1 ? _req_count++ : id;
@@ -435,7 +435,7 @@ namespace rdmalib {
     return id;
   }
 
-  int32_t VerbsConnection::post_recv(SGE && elem, int32_t id, int count)
+  int32_t VerbsConnection::post_recv(ScatterGatherElement_t && elem, int32_t id, int count)
   {
     // FIXME: extend with multiple sges
     struct ibv_recv_wr wr, *bad;
@@ -465,7 +465,7 @@ namespace rdmalib {
     return wr.wr_id;
   }
 
-  int32_t LibfabricConnection::_post_write(SGE && elems, const RemoteBuffer_t & rbuf, const uint32_t immediate)
+  int32_t LibfabricConnection::_post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, const uint32_t immediate)
   {
     fi_addr_t temp = 0;
     int32_t id = _req_count++;
@@ -491,7 +491,7 @@ namespace rdmalib {
 
   }
 
-  int32_t VerbsConnection::_post_write(SGE && elems, ibv_send_wr wr, bool force_inline, bool force_solicited)
+  int32_t VerbsConnection::_post_write(ScatterGatherElement_t && elems, ibv_send_wr wr, bool force_inline, bool force_solicited)
   {
     ibv_send_wr* bad;
     wr.wr_id = _req_count++;
@@ -528,26 +528,26 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  int32_t LibfabricConnection::post_write(SGE && elems, const RemoteBuffer_t & rbuf, bool force_inline)
+  int32_t LibfabricConnection::post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, bool force_inline)
   {
     if (elems.size() > 1) {
       spdlog::error("Post write unsuccessful on connection {}, reason Function not implemented for multiple sges.", fmt::ptr(this));
       return -1;
     }
-    return _post_write(std::forward<SGE>(elems), rbuf);
+    return _post_write(std::forward<ScatterGatherElement_t>(elems), rbuf);
   }
 
-  int32_t VerbsConnection::post_write(SGE && elems, const RemoteBuffer_t & rbuf, bool force_inline)
+  int32_t VerbsConnection::post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, bool force_inline)
   {
     ibv_send_wr wr;
     memset(&wr, 0, sizeof(wr));
     wr.opcode = IBV_WR_RDMA_WRITE;
     wr.wr.rdma.remote_addr = rbuf.addr;
     wr.wr.rdma.rkey = rbuf.rkey;
-    return _post_write(std::forward<SGE>(elems), wr, force_inline, false);
+    return _post_write(std::forward<ScatterGatherElement_t>(elems), wr, force_inline, false);
   }
 
-  int32_t LibfabricConnection::post_cas(SGE && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap)
+  int32_t LibfabricConnection::post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap)
   {
     // TODO check if 
     fi_addr_t temp = 0;
@@ -563,7 +563,7 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  int32_t VerbsConnection::post_cas(SGE && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap)
+  int32_t VerbsConnection::post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap)
   {
     ibv_send_wr wr, *bad;
     memset(&wr, 0, sizeof(wr));
@@ -602,7 +602,7 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
-  int32_t VerbsConnection::post_atomic_fadd(SGE && elems, const RemoteBuffer_t & rbuf, uint64_t add)
+  int32_t VerbsConnection::post_atomic_fadd(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t add)
   {
     ibv_send_wr wr, *bad;
     memset(&wr, 0, sizeof(wr));

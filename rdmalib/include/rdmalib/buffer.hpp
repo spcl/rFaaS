@@ -15,12 +15,8 @@
 namespace rdmalib
 {
 
-  template <typename Derived, typename Library>
-  struct ScatterGatherElement;
-
   namespace impl
   {
-
     // move non-template methods from header
     template <typename Derived, typename Library>
     struct Buffer
@@ -30,11 +26,7 @@ namespace rdmalib
       using pd_t = typename library_traits<Library>::pd_t;
       using lkey_t = typename library_traits<Library>::lkey_t;
       using rkey_t = typename library_traits<Library>::rkey_t;
-
-      // TODO: DEAL WITH THIS
-      //using SGE = library_traits<Library>::LibSGE;
-      template <typename S>
-      using SGE = ScatterGatherElement<S, Library>;
+      using ScatterGatherElement_t = typename ::rdmalib::rdmalib_traits<Library>::ScatterGatherElement;
 
       uint32_t _size;
       uint32_t _header;
@@ -51,7 +43,7 @@ namespace rdmalib
       Buffer &operator=(Buffer &&obj);
       ~Buffer()
       {
-        static_cast<Derived *>(this)->destroy();
+        static_cast<Derived*>(this)->destroy();
       }
 
     public:
@@ -76,8 +68,7 @@ namespace rdmalib
       {
         return static_cast<const Derived *>(this)->rkey();
       }
-      template <typename S>
-      SGE<S> sge(uint32_t size, uint32_t offset) const
+      ScatterGatherElement_t sge(uint32_t size, uint32_t offset) const
       {
         return {address() + offset, size, lkey()};
       }

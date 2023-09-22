@@ -41,7 +41,8 @@ namespace rfaas {
   {
   }
 
-  executor::executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
+  template <typename Derived, typename Library>
+  executor<Derived, Library>::executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
     _state(address, port, rcv_buf_size + 1),
     _rcv_buffer(rcv_buf_size),
     _execs_buf(MAX_REMOTE_WORKERS),
@@ -49,22 +50,26 @@ namespace rfaas {
     _port(port),
     _rcv_buf_size(rcv_buf_size),
     _executions(0),
-    #ifdef USE_LIBFABRIC
-    _invoc_id(1),
-    #else
-    _invoc_id(0),
-    #endif
     _max_inlined_msg(max_inlined_msg),
     _perf(1000)
   {
-    #ifdef USE_LIBFABRIC
-    _execs_buf.register_memory(_state.pd(), FI_WRITE | FI_REMOTE_WRITE);
-    #else
-    _execs_buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    #endif
     events = 0;
     _active_polling = false;
     _end_requested = false;
+  }
+
+  libfabric_executor::libfabric_executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
+    executor(address, port, rcv_buf_size, max_inlined_msg)
+  {
+    _invoc_id = 1;
+    _execs_buf.register_memory(_state.pd(), FI_WRITE | FI_REMOTE_WRITE);
+  }
+
+  verbs_executor::verbs_executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
+    executor(address, port, rcv_buf_size, max_inlined_msg)
+  {
+    _invoc_id = 0;
+    _execs_buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
   }
 
   template <typename Derived, typename Library>
@@ -449,7 +454,7 @@ namespace rfaas {
           "Received buffer details for thread, id {}, addr {}, rkey {}",
           id, _execs_buf.data()[id].r_addr, _execs_buf.data()[id].r_key
         );
-        _connections[id].remote_input = rdmalib::RemoteBuffer(
+        _connections[id].remote_input = RemoteBuffer_t(
           _execs_buf.data()[id].r_addr,
           _execs_buf.data()[id].r_key
         );
@@ -494,7 +499,7 @@ namespace rfaas {
       auto selected_servers = instance.select(numcores);
 
       _exec_manager.reset(
-        new manager_connection(
+        new manager_connection<ibverbs>(
           instance.server(selected_servers[0]).address,
           instance.server(selected_servers[0]).port,
           _rcv_buf_size,
@@ -591,7 +596,7 @@ namespace rfaas {
           "Received buffer details for thread, id {}, addr {}, rkey {}",
           id, _execs_buf.data()[id].r_addr, _execs_buf.data()[id].r_key
         );
-        _connections[id].remote_input = rdmalib::RemoteBuffer(
+        _connections[id].remote_input = RemoteBuffer_t(
           _execs_buf.data()[id].r_addr,
           _execs_buf.data()[id].r_key
         );

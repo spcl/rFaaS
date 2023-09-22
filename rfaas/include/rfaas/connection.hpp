@@ -16,10 +16,10 @@ namespace rfaas {
   template <typename Library>
   struct manager_connection {
 
-    using RDMAActive_t = typename rdmalib_traits<Library>::RDMAActive;
-    using RecvBuffer_t = typename rdmalib_traits<Library>::RecvBuffer;
-    using Connection_t = typename rdmalib_traits<Library>::Connection;
-    using SGE_t = typename rdmalib_traits<Library>::ScatterGatherElement;
+    using RDMAActive_t = typename rdmalib::rdmalib_traits<Library>::RDMAActive;
+    using RecvBuffer_t = typename rdmalib::rdmalib_traits<Library>::RecvBuffer;
+    using Connection_t = typename rdmalib::rdmalib_traits<Library>::Connection;
+    using ScatterGatherElement_t = typename rdmalib::rdmalib_traits<Library>::ScatterGatherElement;
 
     std::string _address;
     int _port;

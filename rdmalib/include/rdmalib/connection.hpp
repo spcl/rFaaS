@@ -61,8 +61,7 @@ namespace rdmalib {
     using wc_t      = typename library_traits<Library>::wc_t;
     using id_t      = typename library_traits<Library>::id_t;
     using channel_t = typename library_traits<Library>::channel_t;
-    template <typename S> // TODO: remove this generic. should be a trait
-    using SGE = ScatterGatherElement<S, Library>;
+    using ScatterGatherElement_t = typename ::rdmalib::rdmalib_traits<Library>::ScatterGatherElement;
     using RemoteBuffer_t = RemoteBuffer<Library>;
 
     qp_t _qp; 
@@ -114,30 +113,24 @@ namespace rdmalib {
 
     std::tuple<wc_t, int> poll_wc(QueueType, bool blocking = true, int count = -1, bool update = false);
 
-    template <typename S>
-    int32_t post_send(const SGE<S> & elem, int32_t id = -1, bool force_inline = false);
-    template <typename S>
-    int32_t post_recv(SGE<S> && elem, int32_t id = -1, int32_t count = 1);
+    int32_t post_send(const ScatterGatherElement_t & elem, int32_t id = -1, bool force_inline = false);
+    int32_t post_recv(ScatterGatherElement_t && elem, int32_t id = -1, int32_t count = 1);
 
     int32_t post_batched_empty_recv(int32_t count = 1);
-    template <typename S>
-    int32_t post_write(SGE<S> && elems, const RemoteBuffer_t & buf, bool force_inline = false);
+    int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & buf, bool force_inline = false);
     // Solicited makes sense only for RDMA write with immediate
-    template <typename S>
-    int32_t post_write(SGE<S> && elems, const RemoteBuffer_t & buf,
+    int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & buf,
       uint32_t immediate,
       bool force_inline = false,
       bool solicited = false
     );
-    template <typename S>
-    int32_t post_cas(SGE<S> && elems, const RemoteBuffer_t & buf, uint64_t compare, uint64_t swap);
+    int32_t post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & buf, uint64_t compare, uint64_t swap);
   };
 
   struct LibfabricConnection : Connection<LibfabricConnection, libfabric>
   {
     template <typename T>
     using Buffer = Buffer<T, libfabric>;
-    using SGE = LibfabricScatterGatherElement;
 
     fid_cq *_rcv_channel;
     fid_cq *_trx_channel;
@@ -145,7 +138,7 @@ namespace rdmalib {
     uint64_t _counter;
     fid_domain* _domain = nullptr;
 
-    std::array<SGE, _wc_size> _rwc_sges;
+    std::array<ScatterGatherElement_t, _wc_size> _rwc_sges;
 
     fi_cq_err_entry _ewc;
 
@@ -168,12 +161,13 @@ namespace rdmalib {
     channel_t receive_completion_channel() const;
     channel_t transmit_completion_channel() const;
 
-    int32_t post_cas(SGE && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap);
-    int32_t post_send(const SGE & elems, int32_t id, bool force_inline);
+    int32_t post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap);
+    int32_t post_send(const ScatterGatherElement_t & elems, int32_t id, bool force_inline);
     int32_t post_batched_empty_recv(int count);
-    int32_t post_recv(SGE && elem, int32_t id, int count);
+    int32_t post_recv(ScatterGatherElement_t && elem, int32_t id, int count);
 
-    template<typename T> int32_t post_write(const Buffer<T> & buf, const size_t size, const uint64_t offset, const RemoteBuffer_t & rbuf, const uint32_t immediate) {
+    template <typename T>
+    int32_t post_write(const Buffer<T> & buf, const size_t size, const uint64_t offset, const RemoteBuffer_t & rbuf, const uint32_t immediate) {
       int ret = fi_writedata(_qp, (void *)(buf.address() + offset), size, buf.lkey(), immediate + (size << 32), NULL, rbuf.addr, rbuf.rkey, (void *)(_req_count++));
       if(ret) {
         spdlog::error("Post write unsuccessful, reason {} {}, buf size {}, id {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
@@ -198,21 +192,19 @@ namespace rdmalib {
     // Register to be notified about all events, including unsolicited ones
     int wait_events(int timeout = -1);
 
-    int32_t _post_write(SGE && elems, const RemoteBuffer_t & rbuf, const uint32_t immediate = 0);
-    int32_t post_write(SGE && elems, const RemoteBuffer_t & rbuf, bool force_inline);
+    int32_t _post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, const uint32_t immediate = 0);
+    int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, bool force_inline);
 
     std::tuple<fi_cq_data_entry *, int> poll_wc(QueueType type, bool blocking=true, int count=-1, bool update=false);
   };
 
   struct VerbsConnection : Connection<VerbsConnection, ibverbs>
   {
-    using SGE = VerbsScatterGatherElement;
-
     id_t _id;
     channel_t _channel;
 
     struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
-    std::array<SGE, _wc_size> _rwc_sges;
+    std::array<ScatterGatherElement_t, _wc_size> _rwc_sges;
 
     VerbsConnection(bool passive=false);
     VerbsConnection(VerbsConnection&& obj);
@@ -230,18 +222,18 @@ namespace rdmalib {
     void initialize(rdma_cm_id* id);
     ibv_comp_channel* completion_channel() const;
 
-    int32_t post_send(const SGE & elems, int32_t id, bool force_inline);
+    int32_t post_send(const ScatterGatherElement_t & elems, int32_t id, bool force_inline);
     int32_t post_batched_empty_recv(int count);
-    int32_t post_recv(SGE && elem, int32_t id, int count);
-    int32_t post_cas(SGE && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap);
-    int32_t post_atomic_fadd(SGE && elems, const RemoteBuffer_t & rbuf, uint64_t add);
+    int32_t post_recv(ScatterGatherElement_t && elem, int32_t id, int count);
+    int32_t post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap);
+    int32_t post_atomic_fadd(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t add);
 
     void notify_events(bool only_solicited = false);
     ibv_cq* wait_events();
     void ack_events(ibv_cq* cq, int len);
 
-    int32_t _post_write(SGE && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
-    int32_t post_write(SGE && elems, const RemoteBuffer_t & rbuf, bool force_inline);
+    int32_t _post_write(ScatterGatherElement_t && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
+    int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, bool force_inline);
 
     std::tuple<ibv_wc*, int> poll_wc(QueueType type, bool blocking=true, int count=-1);
 

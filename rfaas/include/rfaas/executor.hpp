@@ -44,9 +44,9 @@ namespace rfaas {
   template <typename Library>
   struct executor_state {
 
-    using RemoteBuffer_t = typename rdmalib_traits<Library>::RemoteBuffer;
-    using RecvBuffer_t = typename rdmalib_traits<Library>::RecvBuffer;
-    using Connection_t = typename rdmalib_traits<Library>::Connection;
+    using RemoteBuffer_t = typename rdmalib::rdmalib_traits<Library>::RemoteBuffer;
+    using RecvBuffer_t = typename rdmalib::rdmalib_traits<Library>::RecvBuffer;
+    using Connection_t = typename rdmalib::rdmalib_traits<Library>::Connection;
 
     std::unique_ptr<Connection_t> conn;
     RemoteBuffer_t remote_input;
@@ -57,9 +57,10 @@ namespace rfaas {
   template <typename Derived, typename Library>
   struct executor {
 
-    using RDMAPassive_t = typename rdmalib_traits<Library>::RDMAPassive;
-    using RecvBuffer_t = typename rdmalib_traits<Library>::RecvBuffer;
-    using ScatterGatherElement_t = typename rdmalib_traits<Library>::ScatterGatherElement;
+    using RDMAPassive_t = typename rdmalib::rdmalib_traits<Library>::RDMAPassive;
+    using RecvBuffer_t = typename rdmalib::rdmalib_traits<Library>::RecvBuffer;
+    using ScatterGatherElement_t = typename rdmalib::rdmalib_traits<Library>::ScatterGatherElement;
+    using RemoteBuffer_t = typename rdmalib::rdmalib_traits<Library>::RemoteBuffer;
     using rkey_t = typename library_traits<Library>::rkey_t;
 
     static constexpr int MAX_REMOTE_WORKERS = 64;
@@ -95,7 +96,7 @@ namespace rfaas {
     bool allocate(std::string functions_path, int numcores, int max_input_size, int hot_timeout,
         bool skip_manager = false, rdmalib::Benchmarker<5> * benchmarker = nullptr)
     {
-      static_cast<Derived*>(this)->allocate(functions_path, numcores, max_input_size, hot_timeout, skip_manager, benchmarker);
+      return static_cast<Derived*>(this)->allocate(functions_path, numcores, max_input_size, hot_timeout, skip_manager, benchmarker);
     }
     void deallocate()
     {
@@ -131,8 +132,10 @@ namespace rfaas {
   struct libfabric_executor : executor<libfabric_executor, libfabric> {
     using Library = libfabric;
 
-    rdmalib::Buffer<char, libfabric> load_library(std::string path);
+    rdmalib::Buffer<char, Library> load_library(std::string path);
     void poll_queue();
+
+    libfabric_executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg);
 
     bool allocate(std::string functions_path, int numcores, int max_input_size,
       int hot_timeout, bool skip_manager, rdmalib::Benchmarker<5> * benchmarker);
@@ -204,7 +207,11 @@ namespace rfaas {
         char* data = static_cast<char*>(in[i].ptr());
         // TODO: we assume here uintptr_t is 8 bytes
         *reinterpret_cast<uint64_t*>(data) = out[i].address();
+        #ifdef USE_LIBFABRIC
         *reinterpret_cast<uint64_t*>(data + 8) = out[i].rkey();
+        #else
+        *reinterpret_cast<uint32_t*>(data + 8) = out[i].rkey();
+        #endif
 
         SPDLOG_DEBUG("Invoke function {} with invocation id {}", func_idx, _invoc_id);
         _connections[i].conn->post_write<T>(
@@ -407,10 +414,11 @@ namespace rfaas {
   struct verbs_executor : executor<verbs_executor, ibverbs> {
     using Library = ibverbs;
 
-    rdmalib::Buffer<char, ibverbs> load_library(std::string path);
+    rdmalib::Buffer<char, Library> load_library(std::string path);
     void poll_queue();
     bool allocate(std::string functions_path, int numcores, int max_input_size,
       int hot_timeout, bool skip_manager, rdmalib::Benchmarker<5> * benchmarker);
+    verbs_executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg);
     void deallocate();
 
     template<typename T, typename U>

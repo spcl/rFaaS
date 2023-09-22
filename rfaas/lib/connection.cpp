@@ -51,7 +51,7 @@ namespace rfaas {
     // Send deallocation request only if we're connected
     if(_active.is_connected()) {
       request() = (rdmalib::AllocationRequest) {-1, 0, 0, 0, 0, 0, 0, ""};
-      SGE_t sge;
+      ScatterGatherElement_t sge;
       size_t obj_size = sizeof(rdmalib::AllocationRequest);
       sge.add(_allocation_buffer, obj_size, obj_size*_rcv_buffer._rcv_buf_size);
       _active.connection().post_send(sge);
@@ -75,7 +75,7 @@ namespace rfaas {
   template <typename Library>
   bool manager_connection<Library>::submit()
   {
-    SGE_t sge;
+    ScatterGatherElement_t sge;
     size_t obj_size = sizeof(rdmalib::AllocationRequest);
     sge.add(_allocation_buffer, obj_size, obj_size*_rcv_buffer._rcv_buf_size);
     _active.connection().post_send(sge);

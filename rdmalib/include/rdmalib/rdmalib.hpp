@@ -25,44 +25,6 @@ extern "C" {
 #include <rdmalib/connection.hpp>
 #include <rdmalib/libraries.hpp>
 
-template <typename Library>
-struct rdmalib_traits;
-
-namespace rdmalib {
-  struct LibfabricAddress;
-  struct VerbsAddress;
-
-  struct LibfabricRDMAActive;
-  struct VerbsRDMAActive;
-  struct LibfabricRDMAPassive;
-  struct VerbsRDMAPassive;
-
-  struct LibfabricRecvBuffer;
-  struct VerbsRecvBuffer;
-}
-
-template <>
-struct rdmalib_traits<libfabric> {
-  using Connection = rdmalib::LibfabricConnection;
-  using Address = rdmalib::LibfabricAddress;
-  using RDMAActive = rdmalib::LibfabricRDMAActive;
-  using RDMAPassive = rdmalib::LibfabricRDMAPassive;
-  using RecvBuffer = rdmalib::LibfabricRecvBuffer;
-  using ScatterGatherElement = rdmalib::LibfabricScatterGatherElement;
-  using RemoteBuffer = rdmalib::LibfabricRemoteBuffer;
-};
-
-template <>
-struct rdmalib_traits<ibverbs> {
-  using Connection = rdmalib::VerbsConnection;
-  using Address = rdmalib::VerbsAddress;
-  using RDMAActive = rdmalib::VerbsRDMAActive;
-  using RDMAPassive = rdmalib::VerbsRDMAPassive;
-  using RecvBuffer = rdmalib::VerbsRecvBuffer;
-  using ScatterGatherElement = rdmalib::VerbsScatterGatherElement;
-  using RemoteBuffer = rdmalib::VerbsRemoteBuffer;
-};
-
 namespace rdmalib {
 
   struct Configuration {
