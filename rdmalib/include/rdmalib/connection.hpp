@@ -164,7 +164,7 @@ namespace rdmalib {
     int32_t post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap);
     int32_t post_send(const ScatterGatherElement_t & elems, int32_t id, bool force_inline);
     int32_t post_batched_empty_recv(int count);
-    int32_t post_recv(ScatterGatherElement_t && elem, int32_t id, int count);
+    int32_t post_recv(ScatterGatherElement_t && elem, int32_t id, int count=1);
 
     template <typename T>
     int32_t post_write(const Buffer<T> & buf, const size_t size, const uint64_t offset, const RemoteBuffer_t & rbuf, const uint32_t immediate) {
@@ -224,7 +224,7 @@ namespace rdmalib {
 
     int32_t post_send(const ScatterGatherElement_t & elems, int32_t id, bool force_inline);
     int32_t post_batched_empty_recv(int count);
-    int32_t post_recv(ScatterGatherElement_t && elem, int32_t id, int count);
+    int32_t post_recv(ScatterGatherElement_t && elem, int32_t id, int count=1);
     int32_t post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap);
     int32_t post_atomic_fadd(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t add);
 
@@ -234,6 +234,7 @@ namespace rdmalib {
 
     int32_t _post_write(ScatterGatherElement_t && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
     int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, bool force_inline);
+    //int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, bool force_inline); // TODO experiment
 
     std::tuple<ibv_wc*, int> poll_wc(QueueType type, bool blocking=true, int count=-1);
 

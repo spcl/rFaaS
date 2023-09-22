@@ -537,6 +537,7 @@ namespace rdmalib {
     return _post_write(std::forward<ScatterGatherElement_t>(elems), rbuf);
   }
 
+  //int32_t VerbsConnection::post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, bool force_inline)
   int32_t VerbsConnection::post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, bool force_inline)
   {
     ibv_send_wr wr;

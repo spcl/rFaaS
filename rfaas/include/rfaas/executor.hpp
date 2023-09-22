@@ -448,12 +448,19 @@ namespace rfaas {
       if(size != -1) {
         ScatterGatherElement_t sge;
         sge.add(in, size, 0);
+        /*
         _connections[0].conn->post_write(
           std::move(sge),
           _connections[0].remote_input,
           submission_id,
           size <= _max_inlined_msg,
           true
+        );
+        */
+        _connections[0].conn->post_write(
+          std::move(sge),
+          _connections[0].remote_input,
+          size <= _max_inlined_msg
         );
       } else {
         _connections[0].conn->post_write(
