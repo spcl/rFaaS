@@ -21,13 +21,13 @@
 
 using namespace std::chrono_literals;
 
-namespace rdmalib {
-  struct RecvBuffer;
-}
-
 namespace server {
 
+  template <typename Library>
   struct Accounting {
+    using Connection_t = typename rdmalib::rdmalib_traits<Library>::Connection;
+    using RecvBuffer_t = typename rdmalib::rdmalib_traits<Library>::RecvBuffer;
+
     typedef std::chrono::high_resolution_clock clock_t;
     typedef std::chrono::time_point<std::chrono::high_resolution_clock> timepoint_t;
     static constexpr long int BILLING_GRANULARITY = std::chrono::duration_cast<std::chrono::nanoseconds>(1s).count();
@@ -45,8 +45,8 @@ namespace server {
     }
 
     inline void send_updated_execution(
-      rdmalib::Connection* mgr_connection, rdmalib::Buffer<uint64_t> & _accounting_buf,
-      const executor::ManagerConnection & _mgr_conn,
+      Connection_t* mgr_connection, rdmalib::Buffer<uint64_t, Library> & _accounting_buf,
+      const executor::ManagerConnection<Library> & _mgr_conn,
       bool force = false,
       bool wait = true
     )
@@ -75,8 +75,8 @@ namespace server {
     }
 
     inline void send_updated_polling(
-      rdmalib::Connection* mgr_connection, rdmalib::Buffer<uint64_t> & _accounting_buf,
-      const executor::ManagerConnection & _mgr_conn,
+      Connection_t* mgr_connection, rdmalib::Buffer<uint64_t, Library> & _accounting_buf,
+      const executor::ManagerConnection<Library> & _mgr_conn,
       bool force = false,
       bool wait = true
     )
@@ -107,8 +107,11 @@ namespace server {
   };
 
   // FIXME: is not movable or copyable at the moment
+  template <typename Library>
   struct Thread {
-
+    using Connection_t = typename rdmalib::rdmalib_traits<Library>::Connection;
+    using RecvBuffer_t = typename rdmalib::rdmalib_traits<Library>::RecvBuffer;
+    using Submission_t = typename rdmalib::rdmalib_traits<Library>::Submission;
 
     constexpr static int invocation_mask = 0x00007FFF;
     constexpr static int solicited_mask = 0x00008000;
@@ -119,13 +122,13 @@ namespace server {
     int id, repetitions;
     int max_repetitions;
     uint64_t sum;
-    rdmalib::Buffer<char> send, rcv;
-    rdmalib::RecvBuffer wc_buffer;
-    rdmalib::Connection* conn;
-    rdmalib::Connection* _mgr_connection;
-    const executor::ManagerConnection & _mgr_conn;
-    Accounting _accounting;
-    rdmalib::Buffer<uint64_t> _accounting_buf;
+    rdmalib::Buffer<char, Library> send, rcv;
+    RecvBuffer_t wc_buffer;
+    Connection_t * conn;
+    Connection_t * _mgr_connection;
+    const executor::ManagerConnection<Library> & _mgr_conn;
+    Accounting<Library> _accounting;
+    rdmalib::Buffer<uint64_t, Library> _accounting_buf;
     rdmalib::PerfBenchmarker<9> _perf;
     // FIXME: Adjust to billing granularity
     constexpr static int HOT_POLLING_VERIFICATION_PERIOD = 10000;
@@ -133,7 +136,7 @@ namespace server {
 
     Thread(std::string addr_, int port_, int id_, int functions_size,
         int buf_size, int recv_buffer_size, int max_inline_data_,
-        const executor::ManagerConnection & mgr_conn):
+        const executor::ManagerConnection<Library> & mgr_conn):
       _functions(functions_size),
       addr(addr_),
       port(port_),
@@ -143,7 +146,7 @@ namespace server {
       max_repetitions(0),
       sum(0),
       send(buf_size),
-      rcv(buf_size, rdmalib::functions::Submission::DATA_HEADER_SIZE),
+      rcv(buf_size, Submission_t::DATA_HEADER_SIZE),
       // +1 to handle batching of functions work completions + initial code submission
       wc_buffer(recv_buffer_size + 1),
       conn(nullptr),
@@ -154,15 +157,16 @@ namespace server {
     {
     }
 
-    Accounting::timepoint_t work(int invoc_id, int func_id, bool solicited, uint32_t in_size);
+    typename Accounting<Library>::timepoint_t work(int invoc_id, int func_id, bool solicited, uint32_t in_size);
     void hot(uint32_t hot_timeout);
     void warm();
     void thread_work(int timeout);
   };
 
+  template <typename Library>
   struct FastExecutors {
 
-    std::vector<Thread> _threads_data;
+    std::vector<Thread<Library>> _threads_data;
     std::vector<std::thread> _threads;
     bool _closing;
     int _numcores;
@@ -179,7 +183,7 @@ namespace server {
       int recv_buf_size,
       int max_inline_data,
       int pin_threads,
-      const executor::ManagerConnection & mgr_conn
+      const executor::ManagerConnection<Library> & mgr_conn
     );
     ~FastExecutors();
 

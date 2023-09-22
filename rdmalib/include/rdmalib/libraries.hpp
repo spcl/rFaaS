@@ -85,20 +85,21 @@ namespace rdmalib {
 
   struct LibfabricConnection;
   struct VerbsConnection;
-
   struct LibfabricRemoteBuffer;
   struct VerbsRemoteBuffer;
-
   struct LibfabricAddress;
   struct VerbsAddress;
-
   struct LibfabricRDMAActive;
   struct VerbsRDMAActive;
   struct LibfabricRDMAPassive;
   struct VerbsRDMAPassive;
-
   struct LibfabricRecvBuffer;
   struct VerbsRecvBuffer;
+
+  namespace functions {
+    struct LibfabricSubmission;
+    struct VerbsSubmission;
+  }
 
   template <>
   struct rdmalib_traits<libfabric> {
@@ -109,6 +110,7 @@ namespace rdmalib {
     using RecvBuffer = LibfabricRecvBuffer;
     using ScatterGatherElement = LibfabricScatterGatherElement;
     using RemoteBuffer = LibfabricRemoteBuffer;
+    using Submission = functions::LibfabricSubmission;
   };
 
   template <>
@@ -120,6 +122,7 @@ namespace rdmalib {
     using RecvBuffer = VerbsRecvBuffer;
     using ScatterGatherElement = VerbsScatterGatherElement;
     using RemoteBuffer = VerbsRemoteBuffer;
+    using Submission = functions::VerbsSubmission;
   };
 }
 
