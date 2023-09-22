@@ -115,7 +115,7 @@ namespace rdmalib {
     {
       return static_cast<const Derived*>(this)->pd();
     }
-    Connection_t & connection() { return _conn; }
+    Connection_t & connection() { return *_conn; }
     bool is_connected() { return _conn.get(); }
   };
 

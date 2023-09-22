@@ -100,9 +100,9 @@ namespace server {
     conn->post_write(
       send.sge(out_size, 0),
       {header->r_address, header->r_key},
-      (invoc_id << 16) | 0,
-      out_size <= max_inline_data,
-      solicited
+      //(invoc_id << 16) | 0,
+      out_size <= max_inline_data
+      //solicited
     );
     //_perf.point(4);
     auto end = std::chrono::high_resolution_clock::now();
@@ -357,7 +357,9 @@ namespace server {
     // Receive function data from the client - this WC must be posted first
     // We do it before connection to ensure that client does not start sending before us
     func_buffer.register_memory(active.pd(), FI_READ | FI_WRITE | FI_REMOTE_WRITE);
-    this->conn->post_recv(func_buffer);
+    ScatterGatherElement_t func_sge;
+    func_sge.add(func_buffer, func_buffer.size());
+    this->conn->post_recv(std::move(func_sge),-1,1);
 
     // Request notification before connecting - avoid missing a WC!
     // Do it only when starting from a warm directly
@@ -379,11 +381,13 @@ namespace server {
 
     // Send to the client information about thread buffer
     rdmalib::Buffer<rdmalib::BufferInformation<Library>, Library> buf(1);
+    ScatterGatherElement_t buf_sge;
     buf.register_memory(active.pd(), FI_WRITE | FI_READ);
     buf.data()[0].r_addr = rcv.address();
     buf.data()[0].r_key = rcv.rkey();
     SPDLOG_DEBUG("Thread {} Sends buffer details to client! Addr {} rkey {}", id, buf.data()[0].r_addr, buf.data()[0].r_key);
-    this->conn->post_send(buf, 0, buf.size() <= max_inline_data);
+    buf_sge.add(buf, buf.size());
+    this->conn->post_send(std::move(buf_sge), 0, buf.size() <= max_inline_data);
     this->conn->poll_wc(rdmalib::QueueType::SEND, true, 1);
     SPDLOG_DEBUG("Thread {} Sent buffer details to client!", id);
 
@@ -431,7 +435,9 @@ namespace server {
     // Receive function data from the client - this WC must be posted first
     // We do it before connection to ensure that client does not start sending before us
     func_buffer.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    this->conn->post_recv(func_buffer);
+    ScatterGatherElement_t func_buf_sge;
+    func_buf_sge.add(func_buffer, func_buffer.size());
+    this->conn->post_recv(std::move(func_buf_sge),-1);
 
     // Request notification before connecting - avoid missing a WC!
     // Do it only when starting from a warm directly
@@ -460,7 +466,9 @@ namespace server {
     buf.data()[0].r_addr = rcv.address();
     buf.data()[0].r_key = rcv.rkey();
     SPDLOG_DEBUG("Thread {} Sends buffer details to client! Addr {} rkey {}", id, buf.data()[0].r_addr, buf.data()[0].r_key);
-    this->conn->post_send(buf, 0, buf.size() <= max_inline_data);
+    ScatterGatherElement_t buf_sge;
+    buf_sge.add(buf, buf.size());
+    this->conn->post_send(std::move(buf_sge), 0, buf.size() <= max_inline_data);
     this->conn->poll_wc(rdmalib::QueueType::SEND, true, 1);
     SPDLOG_DEBUG("Thread {} Sent buffer details to client!", id);
 

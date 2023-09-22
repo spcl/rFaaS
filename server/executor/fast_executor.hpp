@@ -28,6 +28,7 @@ namespace server {
   struct Accounting {
     using Connection_t = typename rdmalib::rdmalib_traits<Library>::Connection;
     using RecvBuffer_t = typename rdmalib::rdmalib_traits<Library>::RecvBuffer;
+    using ScatterGatherElement_t = typename rdmalib::rdmalib_traits<Library>::ScatterGatherElement;
 
     typedef std::chrono::high_resolution_clock clock_t;
     typedef std::chrono::time_point<std::chrono::high_resolution_clock> timepoint_t;
@@ -53,8 +54,10 @@ namespace server {
     )
     {
       if(force || execution_time > BILLING_GRANULARITY) {
+        // ScatterGatherElement_t accounting_sge;
+        // accounting_sge.add(_accounting_buf, _accounting_buf.size());
         mgr_connection->post_atomic_fadd(
-          _accounting_buf,
+          _accounting_buf, // Give raw buff here
           { _mgr_conn.r_addr + 8, _mgr_conn.r_key},
           execution_time
         ); 
@@ -114,6 +117,7 @@ namespace server {
     using RecvBuffer_t = typename rdmalib::rdmalib_traits<Library>::RecvBuffer;
     using Submission_t = typename rdmalib::rdmalib_traits<Library>::Submission;
     using RDMAActive_t = typename rdmalib::rdmalib_traits<Library>::RDMAActive;
+    using ScatterGatherElement_t = typename rdmalib::rdmalib_traits<Library>::ScatterGatherElement;
 
     constexpr static int invocation_mask = 0x00007FFF;
     constexpr static int solicited_mask = 0x00008000;

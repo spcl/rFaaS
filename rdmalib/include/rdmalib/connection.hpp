@@ -60,7 +60,6 @@ namespace rdmalib {
     using id_t      = typename library_traits<Library>::id_t;
     using channel_t = typename library_traits<Library>::channel_t;
     using ScatterGatherElement_t = typename ::rdmalib::rdmalib_traits<Library>::ScatterGatherElement;
-    //using RemoteBuffer_t = RemoteBuffer<Library>;
     using RemoteBuffer_t = typename ::rdmalib::rdmalib_traits<Library>::RemoteBuffer;
 
     qp_t _qp; 
@@ -137,6 +136,7 @@ namespace rdmalib {
 
   struct LibfabricConnection : Connection<LibfabricConnection, libfabric>
   {
+    using Library = libfabric;
     template <typename T>
     using Buffer = Buffer<T, libfabric>;
 
@@ -208,6 +208,7 @@ namespace rdmalib {
 
   struct VerbsConnection : Connection<VerbsConnection, ibverbs>
   {
+    using Library = ibverbs;
     id_t _id;
     channel_t _channel;
 
@@ -235,6 +236,7 @@ namespace rdmalib {
     int32_t post_recv(ScatterGatherElement_t && elem, int32_t id, int count=1);
     int32_t post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap);
     int32_t post_atomic_fadd(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t add);
+    int32_t post_atomic_fadd(const Buffer<uint64_t, Library> & _accounting_buf, const RemoteBuffer_t & rbuf, uint64_t add);
 
     void notify_events(bool only_solicited = false);
     ibv_cq* wait_events();
@@ -242,7 +244,6 @@ namespace rdmalib {
 
     int32_t _post_write(ScatterGatherElement_t && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
     int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, bool force_inline);
-    //int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, bool force_inline); // TODO experiment
 
     std::tuple<ibv_wc*, int> poll_wc(QueueType type, bool blocking=true, int count=-1);
 

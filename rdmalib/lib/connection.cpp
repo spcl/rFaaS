@@ -626,6 +626,13 @@ namespace rdmalib {
     return _req_count - 1;
   }
 
+  int32_t VerbsConnection::post_atomic_fadd(const Buffer<uint64_t, Library> & _accounting_buf, const RemoteBuffer_t & rbuf, uint64_t add)
+  {
+    ScatterGatherElement_t accounting_sge;
+    accounting_sge.add(_accounting_buf, _accounting_buf.size());
+    return post_atomic_fadd(std::move(accounting_sge), rbuf, add); 
+  }
+
   std::tuple<fi_cq_data_entry *, int> LibfabricConnection::poll_wc(QueueType type, bool blocking, int count, bool update)
   {
     int ret = 0;
