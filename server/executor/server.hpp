@@ -16,6 +16,7 @@
 
 namespace server {
 
+  template <typename Derived, typename Library>
   struct Server;
 
   struct SignalHandler {
@@ -26,7 +27,9 @@ namespace server {
     static void handler(int);
   };
 
+  template <typename Library>
   struct Options {
+    using rkey_t = typename library_traits<Library>::rkey_t;
 
     enum class PollingMgr {
       SERVER=0,
@@ -58,17 +61,14 @@ namespace server {
     int mgr_port;
     int mgr_secret;
     uint64_t accounting_buffer_addr;
-    #ifdef USE_LIBFABRIC
-    uint64_t accounting_buffer_rkey;
-    #else
-    uint32_t accounting_buffer_rkey;
-    #endif
+    rkey_t accounting_buffer_rkey;
     #ifdef USE_GNI_AUTH
     uint32_t authentication_cookie; 
     #endif
   };
 
-  Options opts(int argc, char ** argv);
+  template <typename Library>
+  Options<Library> opts(int argc, char ** argv);
 
   //struct InvocationStatus {
   //  rdmalib::Connection* connection;
@@ -108,6 +108,7 @@ namespace server {
 
 
 
+  template <typename Derived, typename Library>
   struct Server {
 
     // FIXME: "cheap" invocation
@@ -116,13 +117,17 @@ namespace server {
     //static const int QUEUE_MSG_SIZE = 100;
     //static const int QUEUE_MSG_SIZE = 4096;
     //std::array<rdmalib::Buffer<char>, QUEUE_SIZE> _queue;
-    rdmalib::RDMAPassive _state;
-    rdmalib::server::ServerStatus _status;
+    using RDMAPassive_t = typename rdmalib::rdmalib_traits<Library>::RDMAPassive;
+    using Connection_t = typename rdmalib::rdmalib_traits<Library>::Connection;
+    using RecvBuffer_t = typename rdmalib::rdmalib_traits<Library>::RecvBuffer;
+
+    RDMAPassive_t _state;
+    rdmalib::server::ServerStatus<Library> _status;
     rdmalib::functions::FunctionsDB _db;
     //Executors _exec;
-    FastExecutors _fast_exec;
-    rdmalib::Connection* _conn;
-    rdmalib::RecvBuffer _wc_buffer;
+    FastExecutors<Library> _fast_exec;
+    Connection_t* _conn;
+    RecvBuffer_t _wc_buffer;
     bool _inline_data;
 
     Server(
@@ -138,31 +143,18 @@ namespace server {
     );
 
     template<typename T>
-    void register_buffer(rdmalib::Buffer<T> & buf, bool is_recv_buffer)
+    void register_buffer(rdmalib::Buffer<T, Library> & buf, bool is_recv_buffer)
     {
-      if(is_recv_buffer) {
-        #ifdef USE_LIBFABRIC
-        buf.register_memory(_state.pd(), FI_WRITE | FI_REMOTE_WRITE);
-        #else
-        buf.register_memory(_state.pd(), IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE);
-        #endif
-        _status.add_buffer(buf);
-      } else {
-        #ifdef USE_LIBFABRIC
-        buf.register_memory(_state.pd(), FI_WRITE);
-        #else
-        buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
-        #endif
-      }
+      static_cast<Derived*>(this)->register_buffer(buf, is_recv_buffer);
     }
 
     //void allocate_send_buffers(int numcores, int size);
     //void allocate_rcv_buffers(int numcores, int size);
-    void reload_queue(rdmalib::Connection & conn, int32_t idx);
+    void reload_queue(Connection_t & conn, int32_t idx);
     void listen();
-    rdmalib::RDMAPassive & state();
-    rdmalib::Connection* poll_communication();
-    const rdmalib::server::ServerStatus & status() const;
+    RDMAPassive_t & state();
+    Connection_t * poll_communication();
+    const rdmalib::server::ServerStatus<Library> & status() const;
 
     std::tuple<int, int> poll_server(int, int);
     std::tuple<int, int> poll_threads(int, int);
@@ -170,6 +162,32 @@ namespace server {
 
     // FIXME: shared receive queue
     //void poll_srq();
+  };
+
+  struct LibfabricServer : Server<LibfabricServer, libfabric> {
+    template<typename T>
+    void register_buffer(rdmalib::Buffer<T, libfabric> & buf, bool is_recv_buffer)
+    {
+      if(is_recv_buffer) {
+        buf.register_memory(_state.pd(), FI_WRITE | FI_REMOTE_WRITE);
+        _status.add_buffer(buf);
+      } else {
+        buf.register_memory(_state.pd(), FI_WRITE);
+      }
+    }
+  };
+
+  struct VerbsServer : Server<VerbsServer, ibverbs> {
+    template<typename T>
+    void register_buffer(rdmalib::Buffer<T, ibverbs> & buf, bool is_recv_buffer)
+    {
+      if(is_recv_buffer) {
+        buf.register_memory(_state.pd(), IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE);
+        _status.add_buffer(buf);
+      } else {
+        buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
+      }
+    }
   };
 
 }

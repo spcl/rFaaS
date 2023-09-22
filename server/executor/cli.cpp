@@ -20,7 +20,15 @@ int main(int argc, char ** argv)
   // Register a SIGINT handler so that we can gracefully exit
   //server::SignalHandler sighandler;
 
-  auto opts = server::opts(argc, argv);
+
+  #ifdef USE_LIBFABRIC
+  using Library = libfabric;
+  #else
+  using Library = ibverbs;
+  #endif
+
+  auto opts = server::opts<Library>(argc, argv);
+
   if(opts.verbose)
     spdlog::set_level(spdlog::level::debug);
   else
@@ -55,14 +63,14 @@ int main(int argc, char ** argv)
   );
   #endif
 
-  executor::ManagerConnection mgr{
+  executor::ManagerConnection<Library> mgr{
     opts.mgr_address,
     opts.mgr_port,
     opts.mgr_secret,
     opts.accounting_buffer_addr,
     opts.accounting_buffer_rkey
   };
-  server::FastExecutors executor(
+  server::FastExecutors<Library> executor(
     opts.address, opts.port,
     opts.func_size,
     opts.fast_executors,

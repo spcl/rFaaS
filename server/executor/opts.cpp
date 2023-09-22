@@ -4,8 +4,13 @@
 #include "server.hpp"
 
 namespace server {
+  namespace types {
+    template <typename L>
+    using rkey_t = typename library_traits<L>::rkey_t;
+  }
 
-  Options opts(int argc, char ** argv)
+  template <typename Library>
+  Options<Library> opts(int argc, char ** argv)
   {
     cxxopts::Options options("serverless-rdma-server", "Handle functions invocations.");
     options.add_options()
@@ -27,20 +32,16 @@ namespace server {
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
       ("mgr-address", "Use selected address", cxxopts::value<std::string>())
       ("mgr-port", "Use selected port", cxxopts::value<int>())
-      ("mgr-secret", "Use selected port", cxxopts::value<int>())
-      ("mgr-buf-addr", "Use selected port", cxxopts::value<uint64_t>())
-      #ifdef USE_LIBFABRIC
-      ("mgr-buf-rkey", "Use selected port", cxxopts::value<uint64_t>())
-      #else
-      ("mgr-buf-rkey", "Use selected port", cxxopts::value<uint32_t>())
-      #endif
+      ("mgr-secret", "Manager secret", cxxopts::value<int>())
+      ("mgr-buf-addr", "Manager buffer address", cxxopts::value<uint64_t>())
+      ("mgr-buf-rkey", "Manager remote key", cxxopts::value<types::rkey_t<Library>>())
       #ifdef USE_GNI_AUTH
       ("authentication-cookie", "Use selected port", cxxopts::value<uint32_t>())
       #endif 
     ;
     auto parsed_options = options.parse(argc, argv);
 
-    Options result;
+    Options<Library> result;
     result.address = parsed_options["address"].as<std::string>();
     result.port = parsed_options["port"].as<int>();
     result.cheap_executors = parsed_options["cheap"].as<int>();
@@ -59,31 +60,27 @@ namespace server {
     result.mgr_port = parsed_options["mgr-port"].as<int>();
     result.mgr_secret = parsed_options["mgr-secret"].as<int>();
     result.accounting_buffer_addr = parsed_options["mgr-buf-addr"].as<uint64_t>();
-    #ifdef USE_LIBFABRIC
-    result.accounting_buffer_rkey = parsed_options["mgr-buf-rkey"].as<uint64_t>();
-    #else
-    result.accounting_buffer_rkey = parsed_options["mgr-buf-rkey"].as<uint32_t>();
-    #endif
+    result.accounting_buffer_rkey = parsed_options["mgr-buf-rkey"].as<types::rkey_t<Library>>();
     #ifdef USE_GNI_AUTH
     result.authentication_cookie = parsed_options["authentication-cookie"].as<uint32_t>();
     #endif
 
     std::string polling_mgr = parsed_options["polling-mgr"].as<std::string>();
     if(polling_mgr == "server") {
-      result.polling_manager = Options::PollingMgr::SERVER;
+      result.polling_manager = Options<Library>::PollingMgr::SERVER;
     } else if(polling_mgr == "server-notify") {
-      result.polling_manager = Options::PollingMgr::SERVER_NOTIFY;
+      result.polling_manager = Options<Library>::PollingMgr::SERVER_NOTIFY;
     } else if(polling_mgr == "thread") {
-      result.polling_manager = Options::PollingMgr::THREAD;
+      result.polling_manager = Options<Library>::PollingMgr::THREAD;
     } else {
       throw std::runtime_error("Unrecognized choice for polling-mgr option: " + polling_mgr);
     }
 
     std::string polling_type = parsed_options["polling-type"].as<std::string>();
     if(polling_type == "wc") {
-      result.polling_type = Options::PollingType::WC;
+      result.polling_type = Options<Library>::PollingType::WC;
     } else if(polling_type == "dram") {
-      result.polling_type = Options::PollingType::DRAM;
+      result.polling_type = Options<Library>::PollingType::DRAM;
     } else {
       throw std::runtime_error("Unrecognized choice for polling-type option: " + polling_type);
     }

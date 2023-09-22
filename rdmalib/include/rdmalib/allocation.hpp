@@ -4,6 +4,8 @@
 
 #include <cstdint>
 
+#include "libraries.hpp"
+
 namespace rdmalib {
 
   struct AllocationRequest
@@ -23,9 +25,8 @@ namespace rdmalib {
   template <typename Library>
   struct BufferInformation
   {
-    using rkey_t = typename library_traits<Library>::rkey_t;
     uint64_t r_addr;
-    rkey_t r_key;
+    typename library_traits<Library>::rkey_t r_key;
   };
 
 }
