@@ -41,10 +41,7 @@ namespace rdmalib
       Buffer(uint32_t size, uint32_t byte_size, uint32_t header);
       Buffer(Buffer &&);
       Buffer &operator=(Buffer &&obj);
-      ~Buffer()
-      {
-        static_cast<Derived*>(this)->destroy();
-      }
+      ~Buffer() {}
 
     public:
       uintptr_t address() const;
@@ -79,7 +76,7 @@ namespace rdmalib
       void register_memory(pd_t pd, int access);
       lkey_t lkey() const;
       rkey_t rkey() const;
-      void destroy();
+      ~LibfabricBuffer();
     };
 
     struct VerbsBuffer : Buffer<VerbsBuffer, ibverbs>
@@ -87,7 +84,7 @@ namespace rdmalib
       void register_memory(pd_t pd, int access);
       lkey_t lkey() const;
       rkey_t rkey() const;
-      void destroy();
+      ~VerbsBuffer();
     };
 
   }

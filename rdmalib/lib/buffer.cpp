@@ -92,7 +92,7 @@ namespace rdmalib
           _bytes, fmt::ptr(_ptr));
     }
 
-    void LibfabricBuffer::destroy()
+    LibfabricBuffer::~LibfabricBuffer()
     {
       SPDLOG_DEBUG(
           "Deallocate {} bytes, mr {}, ptr {}",
@@ -103,7 +103,7 @@ namespace rdmalib
         munmap(_ptr, _bytes);
     }
 
-    void VerbsBuffer::destroy()
+    VerbsBuffer::~VerbsBuffer()
     {
       SPDLOG_DEBUG(
           "Deallocate {} bytes, mr {}, ptr {}",
