@@ -157,6 +157,22 @@ namespace rfaas::executor_manager {
         };  
       }
 
+      auto wcs = _res_mgr_connection->_connection.connection().receive_wcs().poll(false);
+      if(std::get<1>(wcs)) {
+
+        for(int j = 0; j < std::get<1>(wcs); ++j) {
+
+          auto wc = std::get<0>(wcs)[j];
+          if(wc.status != 0)
+            continue;
+          uint64_t id = wc.wr_id;
+          std::cerr << _res_mgr_connection->_receive_buffer[id].lease_id << std::endl;
+          std::cerr << _res_mgr_connection->_receive_buffer[id].cores << std::endl;
+          std::cerr << _res_mgr_connection->_receive_buffer[id].memory << std::endl;
+        }
+
+      }
+
       atomic_thread_fence(std::memory_order_acquire);
       std::vector<std::map<int, Client>::iterator> removals;
       for(auto it = _clients.begin(); it != _clients.end(); ++it) {

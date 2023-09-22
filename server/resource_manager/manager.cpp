@@ -313,7 +313,7 @@ void Manager::process_clients() {
                         client.allocation_requests.data()[id].memory
             );
 
-            bool allocated = _executor_data.open_lease(cores, memory, *client.response().data());
+            auto allocated = _executor_data.open_lease(cores, memory, *client.response().data());
             if(allocated) {
               spdlog::info("[Manager] Client receives lease with id {}", client.response().data()->lease_id);
             } else {
@@ -329,6 +329,19 @@ void Manager::process_clients() {
                 0
               );
             } else {
+
+              allocated->_send_buffer[0].lease_id = client.response()[0].lease_id;
+              allocated->_send_buffer[0].cores = cores;
+              allocated->_send_buffer[0].memory = memory;
+
+              allocated->_connection->post_send(
+                allocated->_send_buffer,
+                0,
+                allocated->_send_buffer.size() <= _device.max_inline_data,
+                1
+              );
+              allocated->_connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
+
               client.connection->post_send(
                 client.response(),
                 0,

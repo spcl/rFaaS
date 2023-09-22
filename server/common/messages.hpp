@@ -19,14 +19,14 @@ namespace rfaas { namespace common {
 
     int memory;
     int cores;
-    int lease_id;
+    uint32_t lease_id;
 
   };
 
   struct LeaseDeallocation {
 
     const uint32_t message_id = 2;
-    int lease_id;
+    uint32_t lease_id;
 
   };
 

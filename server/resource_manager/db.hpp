@@ -51,13 +51,14 @@ namespace rfaas { namespace resource_manager {
     };
 
     ExecutorDB(Executors& executors):
-      _executors(executors)
+      _executors(executors),
+      _lease_count(0)
     {}
 
     ResultCode add(const std::string& node_name, const std::string & ip_address, int port, int cores, int memory);
     ResultCode remove(const std::string& node_name);
 
-    bool open_lease(int numcores, int memory, rfaas::LeaseResponse& lease);
+    std::shared_ptr<Executor> open_lease(int numcores, int memory, rfaas::LeaseResponse& lease);
 
     void close_lease(uint32_t lease_id);
 

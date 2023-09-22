@@ -42,14 +42,14 @@ namespace rfaas { namespace resource_manager {
     return erased ? ResultCode::OK : ResultCode::EXECUTOR_DOESNT_EXIST;
   }
 
-  bool ExecutorDB::open_lease(int numcores, int memory, rfaas::LeaseResponse& lease)
+  std::shared_ptr<Executor> ExecutorDB::open_lease(int numcores, int memory, rfaas::LeaseResponse& lease)
   {
     // Obtain write access
     writer_lock_t lock(_mutex);
 
     if(!_free_nodes.size()) {
       SPDLOG_DEBUG("No available executors!");
-      return false;
+      return nullptr;
     }
 
     std::weak_ptr<Executor> used_node;
@@ -57,6 +57,7 @@ namespace rfaas { namespace resource_manager {
     auto it = _free_nodes.begin();
     while(it != _free_nodes.end()) {
 
+      std::weak_ptr<Executor>& ptr = *it;
       auto shared_ptr = ptr.lock();
 
       // Verify the node has not been removed
@@ -94,11 +95,11 @@ namespace rfaas { namespace resource_manager {
         std::forward_as_tuple(numcores, memory, is_total, std::move(ptr))
       );
 
-      return true;
+      return shared_ptr;
 
     }
 
-    return false;
+    return nullptr;
   }
 
   void ExecutorDB::close_lease(uint32_t lease_id)
