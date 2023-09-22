@@ -17,6 +17,7 @@
 
 #include "functions.hpp"
 #include "common.hpp"
+#include "structures.hpp"
 #include <spdlog/spdlog.h>
 
 using namespace std::chrono_literals;
@@ -107,11 +108,12 @@ namespace server {
   };
 
   // FIXME: is not movable or copyable at the moment
-  template <typename Library>
+  template <typename Derived, typename Library>
   struct Thread {
     using Connection_t = typename rdmalib::rdmalib_traits<Library>::Connection;
     using RecvBuffer_t = typename rdmalib::rdmalib_traits<Library>::RecvBuffer;
     using Submission_t = typename rdmalib::rdmalib_traits<Library>::Submission;
+    using RDMAActive_t = typename rdmalib::rdmalib_traits<Library>::RDMAActive;
 
     constexpr static int invocation_mask = 0x00007FFF;
     constexpr static int solicited_mask = 0x00008000;
@@ -157,8 +159,48 @@ namespace server {
     {
     }
 
+    typename Accounting<Library>::timepoint_t work(int invoc_id, int func_id, bool solicited, uint32_t in_size)
+    {
+      return static_cast<Derived*>(this)->work(invoc_id, func_id, solicited, in_size);
+    }
+    void hot(uint32_t hot_timeout)
+    {
+      static_cast<Derived*>(this)->hot(hot_timeout);
+    }
+    void warm()
+    {
+      static_cast<Derived*>(this)->warm();
+    }
+    void thread_work(int timeout)
+    {
+      static_cast<Derived*>(this)->thread_work(timeout);
+    }
+  };
+
+  struct LibfabricThread : Thread<LibfabricThread, libfabric> {
+    using Library = libfabric;
+    LibfabricThread(std::string addr_, int port_, int id_, int functions_size,
+        int buf_size, int recv_buffer_size, int max_inline_data_,
+        const executor::ManagerConnection<Library> & mgr_conn):
+        Thread(addr_, port_, id_, functions_size, buf_size, recv_buffer_size, max_inline_data_,
+        _mgr_conn) {}
+
     typename Accounting<Library>::timepoint_t work(int invoc_id, int func_id, bool solicited, uint32_t in_size);
-    void hot(uint32_t hot_timeout);
+    void hot(int timeout);
+    void warm();
+    void thread_work(int timeout);
+  };
+
+  struct VerbsThread : Thread<VerbsThread, ibverbs> {
+    using Library = ibverbs;
+    VerbsThread(std::string addr_, int port_, int id_, int functions_size,
+        int buf_size, int recv_buffer_size, int max_inline_data_,
+        const executor::ManagerConnection<Library> & mgr_conn):
+        Thread(addr_, port_, id_, functions_size, buf_size, recv_buffer_size, max_inline_data_,
+        _mgr_conn) {}
+
+    typename Accounting<Library>::timepoint_t work(int invoc_id, int func_id, bool solicited, uint32_t in_size);
+    void hot(int timeout);
     void warm();
     void thread_work(int timeout);
   };
@@ -166,7 +208,8 @@ namespace server {
   template <typename Library>
   struct FastExecutors {
 
-    std::vector<Thread<Library>> _threads_data;
+    using Thread_t = typename server_traits<Library>::Thread;
+    std::vector<Thread_t> _threads_data;
     std::vector<std::thread> _threads;
     bool _closing;
     int _numcores;
