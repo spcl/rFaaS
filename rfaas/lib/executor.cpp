@@ -428,7 +428,10 @@ namespace rfaas {
           "[Executor] Established connection to executor {}, connection {}",
           established + 1, fmt::ptr(conn)
         );
-        conn->post_send(functions);
+        ScatterGatherElement_t sge;
+        sge.add(functions, functions.size(), 0);
+        conn->post_send(sge);
+        //conn->post_send(functions);
         SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", established + 1, numcores);
         ++established;
       }
@@ -570,7 +573,10 @@ namespace rfaas {
           "[Executor] Established connection to executor {}, connection {}",
           established + 1, fmt::ptr(conn)
         );
-        conn->post_send(functions);
+        ScatterGatherElement_t sge;
+        sge.add(functions, functions.size(), 0);
+        conn->post_send(sge);
+        //conn->post_send(functions);
         SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", established + 1, numcores);
         ++established;
       }

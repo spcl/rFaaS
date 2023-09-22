@@ -29,7 +29,6 @@ namespace rdmalib {
     RECV
   };
 
-  #ifndef USE_LIBFABRIC
   struct ConnectionConfiguration {
     // Configuration of QP
     ibv_qp_init_attr attr;
@@ -37,7 +36,6 @@ namespace rdmalib {
 
     ConnectionConfiguration();
   };
-  #endif
 
   enum class ConnectionStatus {
     // The connection object does not bind to a defined RDMA connection.
@@ -112,10 +110,19 @@ namespace rdmalib {
 
     // Blocking, no timeout
 
-    std::tuple<wc_t, int> poll_wc(QueueType, bool blocking = true, int count = -1, bool update = false);
+    std::tuple<wc_t, int> poll_wc(QueueType type, bool blocking = true, int count = -1, bool update = false)
+    {
+      return static_cast<Derived*>(this)->poll_wc(type, blocking, count, update);
+    }
 
-    int32_t post_send(const ScatterGatherElement_t & elem, int32_t id = -1, bool force_inline = false);
-    int32_t post_recv(ScatterGatherElement_t && elem, int32_t id = -1, int32_t count = 1);
+    int32_t post_send(const ScatterGatherElement_t & elem, int32_t id = -1, bool force_inline = false)
+    {
+      return static_cast<Derived*>(this)->post_send(elem, id, force_inline);
+    }
+    int32_t post_recv(ScatterGatherElement_t && elem, int32_t id = -1, int32_t count = 1)
+    {
+      return static_cast<Derived*>(this)->post_recv(elem, id, count);
+    }
 
     int32_t post_batched_empty_recv(int32_t count = 1);
     int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & buf, bool force_inline = false);
