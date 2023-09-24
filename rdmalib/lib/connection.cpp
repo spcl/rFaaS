@@ -127,14 +127,46 @@ namespace rdmalib {
     impl::expect_zero(fi_endpoint(pd, info, &_qp, reinterpret_cast<void*>(this)));
 
     // Bind the counter for write operations
-    _write_counter = write_cntr;
+    if (write_cntr) {
+      _write_counter = write_cntr;
+    } else {
+      fi_cntr_attr cntr_attr;
+      cntr_attr.events = FI_CNTR_EVENTS_COMP;
+      cntr_attr.wait_obj = FI_WAIT_UNSPEC;
+      cntr_attr.wait_set = nullptr;
+      cntr_attr.flags = 0;
+      impl::expect_zero(fi_cntr_open(pd, &cntr_attr, &_write_counter, nullptr));
+      impl::expect_zero(fi_cntr_set(_write_counter, 0));      
+    }
     impl::expect_zero(fi_ep_bind(_qp, &_write_counter->fid, FI_REMOTE_WRITE));
 
     // Bind with the completion queues and the event queue
     impl::expect_zero(fi_ep_bind(_qp, &ec->fid, 0));
-    _trx_channel = tx_channel;
-    _rcv_channel = rx_channel;
+    if (tx_channel) {
+      _trx_channel = tx_channel;
+    } else {
+      fi_cq_attr cq_attr;
+      memset(&cq_attr, 0, sizeof(cq_attr));
+      cq_attr.format = FI_CQ_FORMAT_DATA;
+      cq_attr.wait_obj = FI_WAIT_NONE;
+      cq_attr.wait_cond = FI_CQ_COND_NONE;
+      cq_attr.wait_set = nullptr;
+      cq_attr.size = info->rx_attr->size;
+      impl::expect_zero(fi_cq_open(pd, &cq_attr, &_trx_channel, nullptr));
+    }
     impl::expect_zero(fi_ep_bind(_qp, &_trx_channel->fid, FI_TRANSMIT));
+    if (rx_channel) {
+      _rcv_channel = rx_channel; 
+    } else {
+      fi_cq_attr cq_attr;
+      memset(&cq_attr, 0, sizeof(cq_attr));
+      cq_attr.format = FI_CQ_FORMAT_DATA;
+      cq_attr.wait_obj = FI_WAIT_NONE;
+      cq_attr.wait_cond = FI_CQ_COND_NONE;
+      cq_attr.wait_set = nullptr;
+      cq_attr.size = info->rx_attr->size;
+      impl::expect_zero(fi_cq_open(pd, &cq_attr, &_rcv_channel, nullptr));
+    }
     impl::expect_zero(fi_ep_bind(_qp, &_rcv_channel->fid, FI_RECV));
 
     // Enable the endpoint

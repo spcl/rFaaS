@@ -99,7 +99,7 @@ namespace rdmalib {
     void inlining(bool enable);
     #endif
     #ifdef USE_LIBFABRIC
-    void initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel);
+    void initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr=nullptr, fid_cq* rx_channel=nullptr, fid_cq* tx_channel=nullptr);
     #else
     void initialize(rdma_cm_id* id);
     #endif

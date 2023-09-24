@@ -611,7 +611,11 @@ namespace rdmalib {
         memcpy(entry->info->ep_attr->auth_key, &_addr.cookie, sizeof(_addr.cookie));
         entry->info->ep_attr->auth_key_size = sizeof(_addr.cookie);
         #endif
-        connection->initialize(_addr.fabric, _pd, entry->info, _ec, _write_counter, _rcv_channel, _trx_channel);
+        if (!share_cqs) {
+          connection->initialize(_addr.fabric, _pd, entry->info, _ec, _write_counter, _rcv_channel, _trx_channel);
+        } else {
+          connection->initialize(_addr.fabric, _pd, entry->info, _ec);
+        }
         SPDLOG_DEBUG(
           "[RDMAPassive] Created connection fid {} qp {}",
           fmt::ptr(connection->id()), fmt::ptr(&connection->qp()->fid)
