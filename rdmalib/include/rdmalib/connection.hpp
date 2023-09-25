@@ -39,6 +39,64 @@ namespace rdmalib {
     RECV
   };
 
+  template<int Key = 8, int UserData = 8, int Secret = 16>
+  struct PrivateData {
+
+    PrivateData(uint32_t private_data = 0):
+      _private_data(private_data)
+    {}
+
+    uint32_t secret() const
+    {
+      // Extract last Key bits, then shift to lower bits.
+      uint32_t pattern = (static_cast<uint32_t>(1) << Secret) - 1;
+      return (this->_private_data & pattern);
+    }
+
+    void secret(uint32_t value)
+    {
+      // Extract first Key bits, then store at higher bits.
+      uint32_t pattern = (static_cast<uint32_t>(1) << Secret) - 1;
+      _private_data |= (value & pattern);
+    }
+
+    uint32_t key() const
+    {
+      // Extract last Key bits, then shift to lower bits.
+      uint32_t pattern = ((static_cast<uint32_t>(1) << Key) - 1) << (UserData + Secret);
+      return (this->_private_data & pattern) >> (UserData + Secret);
+    }
+
+    void key(uint32_t value)
+    {
+      // Extract first Key bits, then store at higher bits.
+      uint32_t pattern = (static_cast<uint32_t>(1) << Key) - 1;
+      _private_data |= (value & pattern) << (UserData + Secret);
+    }
+
+    uint32_t user_data() const
+    {
+      // Extract last Key bits, then shift to lower bits.
+      uint32_t pattern = ((static_cast<uint32_t>(1) << UserData) - 1) << (Secret);
+      return (this->_private_data & pattern) >> (Secret);
+    }
+
+    void user_data(uint32_t value)
+    {
+      // Extract first Key bits, then store at higher bits.
+      uint32_t pattern = (static_cast<uint32_t>(1) << UserData) - 1;
+      _private_data |= (value & pattern) << (Secret);
+    }
+
+    uint32_t data() const
+    {
+      return _private_data;
+    }
+
+  private:
+    uint32_t _private_data;
+  };
+
   // State of a communication:
   // a) communication ID
   // b) Queue Pair
@@ -75,8 +133,6 @@ namespace rdmalib {
     ibv_qp* qp() const;
     ibv_comp_channel* completion_channel() const;
     uint32_t private_data() const;
-    uint32_t secret() const;
-    uint8_t key() const;
     ConnectionStatus status() const;
     void set_status(ConnectionStatus status);
     void set_private_data(uint32_t private_data);

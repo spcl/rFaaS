@@ -135,16 +135,6 @@ namespace rdmalib {
     return this->_private_data;
   }
 
-  uint8_t Connection::key() const
-  {
-    return (this->_private_data & 0xFF000000) >> 24;
-  }
-
-  uint32_t Connection::secret() const
-  {
-    return (this->_private_data & 0xFFFFFF);
-  }
-
   ConnectionStatus Connection::status() const
   {
     return this->_status;

@@ -429,7 +429,7 @@ namespace rdmalib {
           fmt::ptr(connection->id()), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd)
         );
 
-        uint8_t key = connection->key();
+        uint8_t key = PrivateData{connection->private_data()}.key();
         auto it = _shared_recv_completions.find(key);
         if(it == _shared_recv_completions.end()) {
 
