@@ -392,6 +392,54 @@ namespace rdmalib
       return _sges.size();
     }
   };
+
+
+  struct FabricScatterGatherElement : ScatterGatherElement<FabricScatterGatherElement, iovec, fid_mr, fid_domain, void*, uint64_t>
+  {
+
+    mutable std::vector<void *> _lkeys;
+
+    FabricScatterGatherElement(uint64_t addr, uint32_t bytes, void *lkey);
+
+    template<typename T>
+    void _add(const Buffer<T, fid_mr, fid_domain, void*, uint64_t> & buf)
+    {
+      _sges.push_back({(void *)buf.address(), (size_t)buf.bytes()});
+      _lkeys.push_back(buf.lkey());
+    }
+
+    template<typename T>
+    void _add(const Buffer<T, fid_mr, fid_domain, void*, uint64_t> & buf, uint32_t size, size_t offset = 0)
+    {
+      _sges.push_back({(void *)(buf.address() + offset), (size_t)size});
+      _lkeys.push_back(buf.lkey());
+    }
+
+    iovec *_array() const;
+    void **lkeys() const;
+  };
+
+  struct VerbsScatterGatherElement : ScatterGatherElement<VerbsScatterGatherElement, ibv_sge, ibv_mr, ibv_pd, uint32_t, uint32_t>
+  {
+
+    VerbsScatterGatherElement(uint64_t addr, uint32_t bytes, uint32_t lkey);
+
+    template<typename T>
+    void _add(const Buffer<T, ibv_mr, ibv_pd, uint32_t, uint32_t> & buf)
+    {
+      //emplace_back for structs will be supported in C++20
+      _sges.push_back({buf.address(), buf.bytes(), buf.lkey()});
+    }
+
+    template<typename T>
+    void _add(const Buffer<T, ibv_mr, ibv_pd, uint32_t, uint32_t> & buf, uint32_t size, size_t offset = 0)
+    {
+      //emplace_back for structs will be supported in C++20
+      _sges.push_back({buf.address() + offset, size, buf.lkey()});
+    }
+
+    ibv_sge *_array() const;
+  };
 }
 
 #endif
