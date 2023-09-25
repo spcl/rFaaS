@@ -248,6 +248,52 @@ namespace rdmalib {
     std::tuple<ibv_wc*, int> poll_wc(QueueType type, bool blocking=true, int count=-1);
 
   };
+
+  template <typename B>
+  void LibfabricConnection::initialize_batched_recv(const rdmalib::impl::Buffer<B, libfabric> & buf, size_t offset)
+  {
+    for(int i = 0; i < _rbatch; i++){
+      _rwc_sges[i] = buf.sge(offset, i*offset);
+      //for(auto & sg : _rwc_sges[i]._sges)
+      //sg.addr += i*offset;
+    }
+  }
+
+  template <typename B>
+  void VerbsConnection::initialize_batched_recv(const rdmalib::impl::Buffer<B, ibverbs> & buf, size_t offset)
+  {
+    for(int i = 0; i < _rbatch; i++){
+      _rwc_sges[i] = buf.sge(offset, i*offset);
+      //for(auto & sg : _rwc_sges[i]._sges)
+      //sg.addr += i*offset;
+      _batch_wrs[i].sg_list = _rwc_sges[i].array();
+      _batch_wrs[i].num_sge = _rwc_sges[i].size();
+    }
+  }
+
+  template <typename D, typename L>
+  uint32_t Connection<D,L>::private_data() const
+  {
+    return this->_private_data;
+  }
+
+  template <typename D, typename L>
+  ConnectionStatus Connection<D,L>::status() const
+  {
+    return this->_status;
+  }
+
+  template <typename D, typename L>
+  void Connection<D,L>::set_status(ConnectionStatus status)
+  {
+    this->_status = status;
+  }
+
+  template <typename D, typename L>
+  void Connection<D,L>::set_private_data(uint32_t private_data)
+  {
+    this->_private_data = private_data;
+  }
 }
 
 #endif

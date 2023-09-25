@@ -131,7 +131,6 @@ namespace rfaas::executor_manager {
           #ifdef USE_GNI_AUTH
           "--authentication-cookie", authentication_cookie.c_str(),
           #endif
-          nullptr
         };
       } else if(sandbox_type == SandboxType::SARUS) {
 
@@ -166,7 +165,6 @@ namespace rfaas::executor_manager {
           #ifdef USE_GNI_AUTH
           "--authentication-cookie", authentication_cookie.c_str(),
           #endif
-          nullptr
         };
 
       } else if(sandbox_type == SandboxType::DOCKER) {
@@ -228,7 +226,6 @@ namespace rfaas::executor_manager {
           "--mgr-secret", mgr_secret.c_str(),
           "--mgr-buf-addr", mgr_buf_addr.c_str(),
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
-          nullptr
         };
       }
 
@@ -239,6 +236,7 @@ namespace rfaas::executor_manager {
         }
       );
       std::copy(additional_args.begin(), additional_args.end(), std::back_inserter(cstrings_argv));
+      cstrings_argv.push_back(nullptr);
 
       SPDLOG_DEBUG("Executor launch arguments");
       for(const char* str : cstrings_argv)

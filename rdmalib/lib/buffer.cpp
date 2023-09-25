@@ -17,81 +17,6 @@ namespace rdmalib
 {
   namespace impl
   {
-
-    template <typename Derived, typename Library>
-    Buffer<Derived, Library>::Buffer() : _size(0),
-      _header(0),
-      _bytes(0),
-      _byte_size(0),
-      _ptr(nullptr),
-      _mr(nullptr),
-      _own_memory(false)
-    {
-    }
-
-    template <typename Derived, typename Library>
-    Buffer<Derived, Library>::Buffer(Buffer<Derived, Library> &&obj) : _size(obj._size),
-      _header(obj._header),
-      _bytes(obj._bytes),
-      _byte_size(obj._byte_size),
-      _ptr(obj._ptr),
-      _mr(obj._mr),
-      _own_memory(obj._own_memory)
-    {
-      obj._size = obj._bytes = obj._header = 0;
-      obj._ptr = obj._mr = nullptr;
-    }
-
-    template <typename Derived, typename Library>
-    Buffer<Derived, Library> &Buffer<Derived, Library>::operator=(Buffer<Derived, Library> &&obj)
-    {
-      _size = obj._size;
-      _bytes = obj._bytes;
-      _bytes = obj._byte_size;
-      _header = obj._header;
-      _ptr = obj._ptr;
-      _mr = obj._mr;
-      _own_memory = obj._own_memory;
-
-      obj._size = obj._bytes = 0;
-      obj._ptr = obj._mr = nullptr;
-      return *this;
-    }
-
-    template <typename Derived, typename Library>
-    Buffer<Derived, Library>::Buffer(uint32_t size, uint32_t byte_size, uint32_t header) : _size(size),
-      _header(header),
-      _bytes(size * byte_size + header),
-      _byte_size(byte_size),
-      _mr(nullptr),
-      _own_memory(true)
-    {
-      // size_t alloc = _bytes;
-      // if(alloc < 4096) {
-      //   alloc = 4096;
-      //   spdlog::warn("Page too small, allocating {} bytes", alloc);
-      // }
-      //  page-aligned address for maximum performance
-      _ptr = mmap(nullptr, _bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-      SPDLOG_DEBUG(
-          "Allocated {} bytes, address {}",
-          _bytes, fmt::ptr(_ptr));
-    }
-
-    template <typename Derived, typename Library>
-    Buffer<Derived, Library>::Buffer(void *ptr, uint32_t size, uint32_t byte_size) : _size(size),
-      _header(0),
-      _bytes(size * byte_size),
-      _byte_size(byte_size),
-      _ptr(ptr),
-      _mr(nullptr),
-      _own_memory(false)
-    {
-      SPDLOG_DEBUG(
-          "Allocated {} bytes, address {}",
-          _bytes, fmt::ptr(_ptr));
-    }
-
     LibfabricBuffer::~LibfabricBuffer()
     {
       SPDLOG_DEBUG(
@@ -132,24 +57,6 @@ namespace rdmalib
           _bytes, fmt::ptr(_mr), fmt::ptr(_mr->addr), _mr->lkey, _mr->rkey);
     }
 
-    template <typename Derived, typename Library>
-    uint32_t Buffer<Derived, Library>::data_size() const
-    {
-      return this->_size;
-    }
-
-    template <typename Derived, typename Library>
-    uint32_t Buffer<Derived, Library>::size() const
-    {
-      return this->_size + this->_header;
-    }
-
-    template <typename Derived, typename Library>
-    uint32_t Buffer<Derived, Library>::bytes() const
-    {
-      return this->_bytes;
-    }
-
     LibfabricBuffer::lkey_t LibfabricBuffer::lkey() const
     {
       assert(this->_mr);
@@ -173,19 +80,6 @@ namespace rdmalib
     {
       assert(this->_mr);
       return this->_mr->rkey;
-    }
-
-    template <typename Derived, typename Library>
-    uintptr_t Buffer<Derived, Library>::address() const
-    {
-      assert(this->_mr);
-      return reinterpret_cast<uint64_t>(this->_ptr);
-    }
-
-    template <typename Derived, typename Library>
-    void *Buffer<Derived, Library>::ptr() const
-    {
-      return this->_ptr;
     }
 
   }

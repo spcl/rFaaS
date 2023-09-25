@@ -117,29 +117,6 @@ namespace rdmalib {
     _batch_wrs[_rbatch-1].next = NULL;
   }
 
-
-  template <typename B>
-  void LibfabricConnection::initialize_batched_recv(const rdmalib::impl::Buffer<B, libfabric> & buf, size_t offset)
-  {
-    for(int i = 0; i < _rbatch; i++){
-      _rwc_sges[i] = buf.sge(offset, i*offset);
-      //for(auto & sg : _rwc_sges[i]._sges)
-      //sg.addr += i*offset;
-    }
-  }
-
-  template <typename B>
-  void VerbsConnection::initialize_batched_recv(const rdmalib::impl::Buffer<B, ibverbs> & buf, size_t offset)
-  {
-    for(int i = 0; i < _rbatch; i++){
-      _rwc_sges[i] = buf.sge(offset, i*offset);
-      //for(auto & sg : _rwc_sges[i]._sges)
-      //sg.addr += i*offset;
-      _batch_wrs[i].sg_list = _rwc_sges[i].array();
-      _batch_wrs[i].num_sge = _rwc_sges[i].size();
-    }
-  }
-
   void LibfabricConnection::initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel)
   {
     // Create the endpoint and set its flags up so that we get completions on RDM
@@ -245,30 +222,6 @@ namespace rdmalib {
   ibv_comp_channel* VerbsConnection::completion_channel() const
   {
     return this->_channel;
-  }
-
-  template <typename D, typename L>
-  uint32_t Connection<D,L>::private_data() const
-  {
-    return this->_private_data;
-  }
-
-  template <typename D, typename L>
-  ConnectionStatus Connection<D,L>::status() const
-  {
-    return this->_status;
-  }
-
-  template <typename D, typename L>
-  void Connection<D,L>::set_status(ConnectionStatus status)
-  {
-    this->_status = status;
-  }
-
-  template <typename D, typename L>
-  void Connection<D,L>::set_private_data(uint32_t private_data)
-  {
-    this->_private_data = private_data;
   }
 
   int32_t LibfabricConnection::post_send(const ScatterGatherElement_t & elems, int32_t id, bool force_inline)

@@ -209,7 +209,6 @@ namespace rdmalib {
 
   LibfabricAddress::~LibfabricAddress()
   {
-    #ifdef USE_LIBFABRIC
     // TODO Check how to free those and if it's necessary at all.
     //      When closing the addringo we obtain a double free or corruption problem.
     //      It seems that the problem is coming from the the ep_attr.
@@ -217,21 +216,10 @@ namespace rdmalib {
     //   impl::expect_zero(fi_close(&fabric->fid));
     // if (addrinfo)
     //   fi_freeinfo(addrinfo); 
-    #endif
   }
   VerbsAddress::~VerbsAddress()
   {
-    #ifdef USE_LIBFABRIC
-    // TODO Check how to free those and if it's necessary at all.
-    //      When closing the addringo we obtain a double free or corruption problem.
-    //      It seems that the problem is coming from the the ep_attr.
-    // if (fabric)
-    //   impl::expect_zero(fi_close(&fabric->fid));
-    // if (addrinfo)
-    //   fi_freeinfo(addrinfo); 
-    #else
     rdma_freeaddrinfo(addrinfo);
-    #endif
   }
 
   LibfabricRDMAActive::LibfabricRDMAActive(const std::string & ip, int port, int recv_buf, int max_inline_data):
@@ -460,7 +448,7 @@ namespace rdmalib {
 
   void VerbsRDMAActive::disconnect()
   {
-        spdlog::debug("[RDMAActive] Disonnecting connection with id {}", fmt::ptr(_conn->id()));
+    spdlog::debug("[RDMAActive] Disonnecting connection with id {}", fmt::ptr(_conn->id()));
     impl::expect_zero(rdma_disconnect(_conn->id()));
     _conn.reset();
     _pd = nullptr;

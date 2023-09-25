@@ -11,9 +11,11 @@
 
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/server.hpp>
+#include <rdmalib/libraries.hpp>
 #include "rdmalib/connection.hpp"
 #include "server.hpp"
 #include "fast_executor.hpp"
+#include "opts.hpp"
 
 int main(int argc, char ** argv)
 {

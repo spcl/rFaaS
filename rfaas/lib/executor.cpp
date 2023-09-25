@@ -34,30 +34,6 @@ namespace rfaas {
     return _timeout;
   }
 
-  template <typename Library>
-  executor_state<Library>::executor_state(Connection_t* conn, int rcv_buf_size):
-    conn(conn),
-    _rcv_buffer(rcv_buf_size)
-  {
-  }
-
-  template <typename Derived, typename Library>
-  executor<Derived, Library>::executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
-    _state(address, port, rcv_buf_size + 1),
-    _rcv_buffer(rcv_buf_size),
-    _execs_buf(MAX_REMOTE_WORKERS),
-    _address(address),
-    _port(port),
-    _rcv_buf_size(rcv_buf_size),
-    _executions(0),
-    _max_inlined_msg(max_inlined_msg),
-    _perf(1000)
-  {
-    events = 0;
-    _active_polling = false;
-    _end_requested = false;
-  }
-
   libfabric_executor::libfabric_executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
     executor(address, port, rcv_buf_size, max_inlined_msg)
   {
@@ -70,18 +46,6 @@ namespace rfaas {
   {
     _invoc_id = 0;
     _execs_buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-  }
-
-  template <typename Derived, typename Library>
-  executor<Derived, Library>::executor(device_data & dev):
-    executor(dev.ip_address, dev.port, dev.default_receive_buffer_size, dev.max_inline_data)
-  {}
-
-  template <typename Derived, typename Library>
-  executor<Derived, Library>::~executor()
-  {
-    this->deallocate();
-    _perf.export_csv("client_perf.csv", {"start", "function parsed", "function post written", "buffer refilled", "received result", "parsed result", "catched unlikely case", "polled send"});
   }
 
   rdmalib::Buffer<char, libfabric> libfabric_executor::load_library(std::string path)

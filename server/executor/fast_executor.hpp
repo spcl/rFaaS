@@ -238,6 +238,94 @@ namespace server {
     void allocate_threads(int, int);
   };
 
+  template <typename Library>
+  FastExecutors<Library>::FastExecutors(std::string client_addr, int port,
+      int func_size,
+      int numcores,
+      int msg_size,
+      int recv_buf_size,
+      int max_inline_data,
+      int pin_threads,
+      const executor::ManagerConnection<Library> & mgr_conn
+  ):
+    _closing(false),
+    _numcores(numcores),
+    _max_repetitions(0),
+    _pin_threads(pin_threads)
+    //_mgr_conn(mgr_conn)
+  {
+    // Reserve place to ensure that no reallocations happen
+    _threads_data.reserve(numcores);
+    for(int i = 0; i < numcores; ++i)
+      _threads_data.emplace_back(
+        client_addr, port, i, func_size, msg_size,
+        recv_buf_size, max_inline_data, mgr_conn
+      );
+  }
+
+  template <typename Library>
+  FastExecutors<Library>::~FastExecutors()
+  {
+    spdlog::info("FastExecutor is closing threads...");
+    close();
+  }
+
+  template <typename Library>
+  void FastExecutors<Library>::close()
+  {
+    if(_closing)
+      return;
+    // FIXME: this should be only for 'warm'
+    //{
+    //  std::lock_guard<std::mutex> g(m);
+    //  _closing = true;
+    //  // wake threads, letting them exit
+    //  wakeup();
+    //}
+    // make sure we join before destructing
+    SPDLOG_DEBUG("Wait on {} threads", _threads.size());
+    for(auto & thread : _threads)
+      // Might have been closed earlier
+      if(thread.joinable())
+        thread.join();
+    SPDLOG_DEBUG("Finished wait on {} threads", _threads.size());
+
+    for(auto & thread : _threads_data) {
+      thread._perf.export_csv("executor_perf.csv", {"found request", "parsed request", "obtained the header and function", "finished executing", "results post written", "accounting updated", "polling accounting updated", "send queue polled", "buffer refilled"});
+      spdlog::info("Thread {} Repetitions {} Avg time {} ms",
+        thread.id,
+        thread.repetitions,
+        static_cast<double>(thread._accounting.total_execution_time) / thread.repetitions / 1000.0
+      );
+    }
+    _closing = true;
+  }
+
+  template <typename Library>
+  void FastExecutors<Library>::allocate_threads(int timeout, int iterations)
+  {
+    int pin_threads = _pin_threads;
+    for(int i = 0; i < _numcores; ++i) {
+      _threads_data[i].max_repetitions = iterations;
+      _threads.emplace_back(
+        &Thread_t::thread_work,
+        &_threads_data[i],
+        timeout
+      );
+      // FIXME: make sure that native handle is actually from pthreads
+      if(pin_threads != -1) {
+        spdlog::info("Pin thread to core {}", pin_threads);
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(pin_threads++, &cpuset);
+        rdmalib::impl::expect_zero(pthread_setaffinity_np(
+          _threads[i].native_handle(),
+          sizeof(cpu_set_t), &cpuset
+        ));
+      }
+    }
+  }
+
 }
 
 #endif
