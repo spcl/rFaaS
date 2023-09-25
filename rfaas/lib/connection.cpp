@@ -2,6 +2,7 @@
 #include <infiniband/verbs.h>
 
 #include <rdmalib/buffer.hpp>
+#include <rdmalib/connection.hpp>
 #include <rdmalib/functions.hpp>
 #include <rdmalib/util.hpp>
 
@@ -25,7 +26,10 @@ namespace rfaas {
   bool manager_connection::connect()
   {
     SPDLOG_DEBUG("Connecting to manager at {}:{}", _address, _port);
-    bool ret = _active.connect();
+    rdmalib::PrivateData secret;
+    // tell the executor manager we are a user
+    secret.key(2);
+    bool ret = _active.connect(secret.data());
     if(!ret) {
       spdlog::error("Couldn't connect to manager at {}:{}", _address, _port);
       return false;
