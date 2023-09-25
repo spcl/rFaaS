@@ -107,8 +107,7 @@ namespace rdmalib {
       else {
         SPDLOG_DEBUG("Connection passive close destroy qp {}", fmt::ptr(_id->qp));
         rdma_destroy_qp(_id);
-        SPDLOG_DEBUG("Connection passive close destroy id {}", fmt::ptr(_id));
-        rdma_destroy_id(_id);
+        impl::expect_zero(rdma_destroy_id(_id));
       }
       _id = nullptr;
       _status = ConnectionStatus::DISCONNECTED;
