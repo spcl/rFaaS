@@ -4,6 +4,8 @@
 
 #include <cstdint>
 
+#include "libraries.hpp"
+
 namespace rdmalib {
 
   struct AllocationRequest
@@ -20,14 +22,11 @@ namespace rdmalib {
     char listen_address[16];
   };
 
+  template <typename Library>
   struct BufferInformation
   {
     uint64_t r_addr;
-    #ifdef USE_LIBFABRIC
-    uint64_t r_key;
-    #else
-    uint32_t r_key;
-    #endif
+    typename library_traits<Library>::rkey_t r_key;
   };
 
 }

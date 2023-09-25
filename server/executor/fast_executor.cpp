@@ -44,10 +44,10 @@ namespace server {
   //   SignalHandler::closing = true;
   // }
 
-  Accounting::timepoint_t Thread::work(int invoc_id, int func_id, bool solicited, uint32_t in_size)
+  typename Accounting<libfabric>::timepoint_t LibfabricThread::work(int invoc_id, int func_id, bool solicited, uint32_t in_size)
   {
     // FIXME: load func ptr
-    rdmalib::functions::Submission* header = reinterpret_cast<rdmalib::functions::Submission*>(rcv.ptr());
+    Submission_t* header = reinterpret_cast<Submission_t*>(rcv.ptr());
     auto ptr = _functions.function(func_id);
 
     SPDLOG_DEBUG("Thread {} begins work! Executing function {} with size {}, invoc id {}, solicited reply? {}",
@@ -62,7 +62,6 @@ namespace server {
     // Send back: the value of immediate write
     // first 16 bytes - invocation id
     // second 16 bytes - return value (0 on no error)
-    #ifdef USE_LIBFABRIC
     conn->post_write<char>(
       send,
       out_size, 
@@ -70,15 +69,6 @@ namespace server {
       {header->r_address, header->r_key},
       (invoc_id << 16) | 0
     );
-    #else
-    conn->post_write(
-      send.sge(out_size, 0),
-      {header->r_address, header->r_key},
-      (invoc_id << 16) | 0,
-      out_size <= max_inline_data,
-      solicited
-    );
-    #endif
     //_perf.point(4);
     auto end = std::chrono::high_resolution_clock::now();
     _accounting.update_execution_time(start, end);
@@ -89,7 +79,42 @@ namespace server {
     return end;
   }
 
-  void Thread::hot(uint32_t timeout)
+  typename Accounting<ibverbs>::timepoint_t VerbsThread::work(int invoc_id, int func_id, bool solicited, uint32_t in_size)
+  {
+    // FIXME: load func ptr
+    Submission_t* header = reinterpret_cast<Submission_t*>(rcv.ptr());
+    auto ptr = _functions.function(func_id);
+
+    SPDLOG_DEBUG("Thread {} begins work! Executing function {} with size {}, invoc id {}, solicited reply? {}",
+      id, _functions._names[func_id], in_size, invoc_id, solicited
+    );
+    auto start = std::chrono::high_resolution_clock::now();
+    // Data to ignore header passed in the buffer
+    //_perf.point(2);
+    uint32_t out_size = (*ptr)(rcv.data(), in_size, send.ptr());
+    SPDLOG_DEBUG("Thread {} finished work!", id);
+    //_perf.point(3);
+    // Send back: the value of immediate write
+    // first 16 bytes - invocation id
+    // second 16 bytes - return value (0 on no error)
+    conn->post_write(
+      send.sge(out_size, 0),
+      {header->r_address, header->r_key},
+      //(invoc_id << 16) | 0,
+      out_size <= max_inline_data
+      //solicited
+    );
+    //_perf.point(4);
+    auto end = std::chrono::high_resolution_clock::now();
+    _accounting.update_execution_time(start, end);
+    _accounting.send_updated_execution(_mgr_connection, _accounting_buf, _mgr_conn);
+    //_perf.point(5);
+    //int cpu = sched_getcpu();
+    //spdlog::info("Execution + sent took {} us on {} CPU", std::chrono::duration_cast<std::chrono::microseconds>(end-start).count(), cpu);
+    return end;
+  }
+
+  void LibfabricThread::hot(int timeout)
   {
     //rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
     SPDLOG_DEBUG("Thread {} Begins hot polling", id);
@@ -98,32 +123,16 @@ namespace server {
     while(repetitions < max_repetitions && !SignalHandler::closing) {
 
       // if we block, we never handle the interruption
-      #ifdef USE_LIBFABRIC
       auto wcs = conn->poll_wc(rdmalib::QueueType::RECV, false, -1, true);
-      #else
-      auto wcs = wc_buffer.poll();
-      #endif
       if(std::get<1>(wcs)) {
         for(int i = 0; i < std::get<1>(wcs); ++i) {
           //_perf.point();
           //server_processing_times.start();
-          #ifdef USE_LIBFABRIC
           fi_cq_data_entry* wc = &std::get<0>(wcs)[i];
           int func_id = wc->data & invocation_mask;
           int invoc_id = (wc->data >> 16) & 0x0000FFFF;
           bool solicited = wc->data & solicited_mask;
           int len = wc->data >> 32;
-          #else
-          ibv_wc* wc = &std::get<0>(wcs)[i];
-          if(wc->status) {
-            spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
-            continue;
-          }
-          int info = ntohl(wc->imm_data);
-          int func_id = info & invocation_mask;
-          int invoc_id = info >> 16;
-          bool solicited = info & solicited_mask;
-          #endif
           SPDLOG_DEBUG(
             "Thread {} Invoc id {} Execute func {} Repetition {}",
             id, invoc_id, func_id, repetitions
@@ -131,15 +140,9 @@ namespace server {
           //_perf.point(1);
           // Measure hot polling time until we started execution
           auto now = std::chrono::high_resolution_clock::now();
-          #ifdef USE_LIBFABRIC
           auto func_end = work(invoc_id, func_id, solicited,
-              len - rdmalib::functions::Submission::DATA_HEADER_SIZE
+              len - Submission_t::DATA_HEADER_SIZE
           );
-          #else
-          auto func_end = work(invoc_id, func_id, solicited,
-              wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE
-          );
-          #endif
           _accounting.update_polling_time(start, now);
           i = 0;
           start = func_end;
@@ -149,9 +152,6 @@ namespace server {
           repetitions += 1;
           //_perf.point(7);
         }
-        #ifndef USE_LIBFABRIC
-        wc_buffer.refill();
-        #endif
         //_perf.point(8);
       }
       ++i;
@@ -166,9 +166,71 @@ namespace server {
         if(_polling_state != PollingState::HOT_ALWAYS && time_passed >= timeout) {
           _polling_state = PollingState::WARM;
           // FIXME: can we miss an event here?
-          #ifndef USE_LIBFABRIC
+          SPDLOG_DEBUG("Switching to warm polling after {} us with no invocations", time_passed);
+        }
+        i = 0;
+      }
+    }
+  }
+
+  void VerbsThread::hot(int timeout)
+  {
+    //rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
+    SPDLOG_DEBUG("Thread {} Begins hot polling", id);
+    auto start = std::chrono::high_resolution_clock::now();
+    int i = 0;
+    while(repetitions < max_repetitions && !SignalHandler::closing) {
+
+      // if we block, we never handle the interruption
+      auto wcs = wc_buffer.poll();
+      if(std::get<1>(wcs)) {
+        for(int i = 0; i < std::get<1>(wcs); ++i) {
+          //_perf.point();
+          //server_processing_times.start();
+          ibv_wc* wc = &std::get<0>(wcs)[i];
+          if(wc->status) {
+            spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
+            continue;
+          }
+          int info = ntohl(wc->imm_data);
+          int func_id = info & invocation_mask;
+          int invoc_id = info >> 16;
+          bool solicited = info & solicited_mask;
+          SPDLOG_DEBUG(
+            "Thread {} Invoc id {} Execute func {} Repetition {}",
+            id, invoc_id, func_id, repetitions
+          );
+          //_perf.point(1);
+          // Measure hot polling time until we started execution
+          auto now = std::chrono::high_resolution_clock::now();
+          auto func_end = work(invoc_id, func_id, solicited,
+              wc->byte_len - Submission_t::DATA_HEADER_SIZE
+          );
+          _accounting.update_polling_time(start, now);
+          i = 0;
+          start = func_end;
+          //_perf.point(6);
+          //sum += server_processing_times.end();
+          conn->poll_wc(rdmalib::QueueType::SEND, true);
+          repetitions += 1;
+          //_perf.point(7);
+        }
+        wc_buffer.refill();
+        //_perf.point(8);
+      }
+      ++i;
+
+      // FIXME: adjust period to the timeout
+      if(i == HOT_POLLING_VERIFICATION_PERIOD) {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto time_passed = _accounting.update_polling_time(start, now);
+        _accounting.send_updated_polling(_mgr_connection, _accounting_buf, _mgr_conn);
+        start = now;
+
+        if(_polling_state != PollingState::HOT_ALWAYS && time_passed >= timeout) {
+          _polling_state = PollingState::WARM;
+          // FIXME: can we miss an event here?
           conn->notify_events();
-          #endif
           SPDLOG_DEBUG("Switching to warm polling after {} us with no invocations", time_passed);
           return;
         }
@@ -177,7 +239,7 @@ namespace server {
     }
   }
 
-  void Thread::warm()
+  void LibfabricThread::warm()
   {
     //rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
     // FIXME: this should be automatic
@@ -186,50 +248,27 @@ namespace server {
     while(repetitions < max_repetitions && !SignalHandler::closing) {
 
       // if we block, we never handle the interruption
-      #ifdef USE_LIBFABRIC
       auto wcs = conn->poll_wc(rdmalib::QueueType::RECV, false, -1, true);
-      #else
-      auto wcs = wc_buffer.poll();
-      #endif
       if(std::get<1>(wcs)) {
         for(int i = 0; i < std::get<1>(wcs); ++i) {
 
           //server_processing_times.start();
-          #ifdef USE_LIBFABRIC
           fi_cq_data_entry* wc = &std::get<0>(wcs)[i];
           int func_id = wc->data & invocation_mask;
           int invoc_id = (wc->data >> 16) & 0x0000FFFF;
           bool solicited = wc->data & solicited_mask;
           int len = wc->data >> 32;
-          #else
-          ibv_wc* wc = &std::get<0>(wcs)[i];
-          if(wc->status) {
-            spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
-            continue;
-          }
-          int info = ntohl(wc->imm_data);
-          int func_id = info & invocation_mask;
-          bool solicited = info & solicited_mask;
-          int invoc_id = info >> 16;
-          #endif
           SPDLOG_DEBUG(
             "Thread {} Invoc id {} Execute func {} Repetition {}",
             id, invoc_id, func_id, repetitions
           );
 
-          #ifdef USE_LIBFABRIC
-          work(invoc_id, func_id, solicited, len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
-          #else
-          work(invoc_id, func_id, solicited, wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
-          #endif
+          work(invoc_id, func_id, solicited, len - Submission_t::DATA_HEADER_SIZE);
 
           //sum += server_processing_times.end();
           conn->poll_wc(rdmalib::QueueType::SEND, true);
           repetitions += 1;
         }
-        #ifndef USE_LIBFABRIC
-        wc_buffer.refill();
-        #endif
         if(_polling_state != PollingState::WARM_ALWAYS) {
           SPDLOG_DEBUG("Switching to hot polling after invocation!");
           _polling_state = PollingState::HOT;
@@ -240,46 +279,87 @@ namespace server {
       // Do waiting after a single polling - avoid missing an events that
       // arrived before we called notify_events
       if(repetitions < max_repetitions && !SignalHandler::closing) {
-        #ifdef USE_LIBFABRIC
         rdmalib::impl::expect_zero(conn->wait_events());
-        #else
-        auto cq = conn->wait_events();
-        conn->ack_events(cq, 1);
-        conn->notify_events();
-        #endif
       }
     }
     SPDLOG_DEBUG("Thread {} Stopped warm polling", id);
   }
 
-  void Thread::thread_work(int timeout)
+  void VerbsThread::warm()
   {
-    rdmalib::RDMAActive mgr_connection(_mgr_conn.addr, _mgr_conn.port, wc_buffer._rcv_buf_size, max_inline_data);
+    //rdmalib::Benchmarker<1> server_processing_times{max_repetitions};
+    // FIXME: this should be automatic
+    SPDLOG_DEBUG("Thread {} Begins warm polling", id);
+
+    while(repetitions < max_repetitions && !SignalHandler::closing) {
+
+      // if we block, we never handle the interruption
+      auto wcs = wc_buffer.poll();
+      if(std::get<1>(wcs)) {
+        for(int i = 0; i < std::get<1>(wcs); ++i) {
+
+          //server_processing_times.start();
+          ibv_wc* wc = &std::get<0>(wcs)[i];
+          if(wc->status) {
+            spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
+            continue;
+          }
+          int info = ntohl(wc->imm_data);
+          int func_id = info & invocation_mask;
+          bool solicited = info & solicited_mask;
+          int invoc_id = info >> 16;
+          SPDLOG_DEBUG(
+            "Thread {} Invoc id {} Execute func {} Repetition {}",
+            id, invoc_id, func_id, repetitions
+          );
+
+          work(invoc_id, func_id, solicited, wc->byte_len - Submission_t::DATA_HEADER_SIZE);
+
+          //sum += server_processing_times.end();
+          conn->poll_wc(rdmalib::QueueType::SEND, true);
+          repetitions += 1;
+        }
+        wc_buffer.refill();
+        if(_polling_state != PollingState::WARM_ALWAYS) {
+          SPDLOG_DEBUG("Switching to hot polling after invocation!");
+          _polling_state = PollingState::HOT;
+          return;
+        }
+      }
+
+      // Do waiting after a single polling - avoid missing an events that
+      // arrived before we called notify_events
+      if(repetitions < max_repetitions && !SignalHandler::closing) {
+        auto cq = conn->wait_events();
+        conn->ack_events(cq, 1);
+        conn->notify_events();
+      }
+    }
+    SPDLOG_DEBUG("Thread {} Stopped warm polling", id);
+  }
+
+  void LibfabricThread::thread_work(int timeout)
+  {
+    RDMAActive_t mgr_connection(_mgr_conn.addr, _mgr_conn.port, wc_buffer._rcv_buf_size, max_inline_data);
     mgr_connection.allocate();
     this->_mgr_connection = &mgr_connection.connection();
-    #ifdef USE_LIBFABRIC
     _accounting_buf.register_memory(mgr_connection.pd(), FI_READ | FI_WRITE | FI_REMOTE_WRITE);
-    #else
-    _accounting_buf.register_memory(mgr_connection.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
-    #endif
     if(!mgr_connection.connect(_mgr_conn.secret))
       return;
     spdlog::info("Thread {} Established connection to the manager!", id);
 
     // FIXME: why rdmaactive needs rcv_buf_size?
-    rdmalib::RDMAActive active(addr, port, wc_buffer._rcv_buf_size, max_inline_data);
-    rdmalib::Buffer<char> func_buffer(_functions.memory(), _functions.size());
+    RDMAActive_t active(addr, port, wc_buffer._rcv_buf_size, max_inline_data);
+    rdmalib::Buffer<char, Library> func_buffer(_functions.memory(), _functions.size());
 
     active.allocate();
     this->conn = &active.connection();
     // Receive function data from the client - this WC must be posted first
     // We do it before connection to ensure that client does not start sending before us
-    #ifdef USE_LIBFABRIC
     func_buffer.register_memory(active.pd(), FI_READ | FI_WRITE | FI_REMOTE_WRITE);
-    #else
-    func_buffer.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    #endif
-    this->conn->post_recv(func_buffer);
+    ScatterGatherElement_t func_sge;
+    func_sge.add(func_buffer, func_buffer.size());
+    this->conn->post_recv(std::move(func_sge),-1,1);
 
     // Request notification before connecting - avoid missing a WC!
     // Do it only when starting from a warm directly
@@ -290,36 +370,24 @@ namespace server {
     } else {
       _polling_state = PollingState::HOT;
     }
-    #ifndef USE_LIBFABRIC
-    if(_polling_state == PollingState::WARM_ALWAYS || _polling_state == PollingState::WARM)
-      conn->notify_events();
-    #endif
 
     if(!active.connect())
       return;
 
     // Now generic receives for function invocations
-    #ifdef USE_LIBFABRIC
     send.register_memory(active.pd(), FI_WRITE | FI_READ);
     rcv.register_memory(active.pd(), FI_WRITE | FI_REMOTE_WRITE);
-    #else
-    send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
-    rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    this->wc_buffer.connect(this->conn);
-    #endif
     spdlog::info("Thread {} Established connection to client!", id);
 
     // Send to the client information about thread buffer
-    rdmalib::Buffer<rdmalib::BufferInformation> buf(1);
-    #ifdef USE_LIBFABRIC
+    rdmalib::Buffer<rdmalib::BufferInformation<Library>, Library> buf(1);
+    ScatterGatherElement_t buf_sge;
     buf.register_memory(active.pd(), FI_WRITE | FI_READ);
-    #else
-    buf.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
-    #endif
     buf.data()[0].r_addr = rcv.address();
     buf.data()[0].r_key = rcv.rkey();
     SPDLOG_DEBUG("Thread {} Sends buffer details to client! Addr {} rkey {}", id, buf.data()[0].r_addr, buf.data()[0].r_key);
-    this->conn->post_send(buf, 0, buf.size() <= max_inline_data);
+    buf_sge.add(buf, buf.size());
+    this->conn->post_send(std::move(buf_sge), 0, buf.size() <= max_inline_data);
     this->conn->poll_wc(rdmalib::QueueType::SEND, true, 1);
     SPDLOG_DEBUG("Thread {} Sent buffer details to client!", id);
 
@@ -340,9 +408,6 @@ namespace server {
     // Submit final accounting information
     _accounting.send_updated_execution(_mgr_connection, _accounting_buf, _mgr_conn, true, false);
     _accounting.send_updated_polling(_mgr_connection, _accounting_buf, _mgr_conn, true, false);
-    #ifndef USE_LIBFABRIC
-    mgr_connection.connection().poll_wc(rdmalib::QueueType::SEND, true, 2);
-    #endif
     spdlog::info(
       "Thread {} finished work, spent {} ns hot polling and {} ns computation, {} executions.",
       id, _accounting.total_hot_polling_time , _accounting.total_execution_time, repetitions
@@ -351,88 +416,86 @@ namespace server {
     // mgr_connection.disconnect();
   }
 
-  FastExecutors::FastExecutors(std::string client_addr, int port,
-      int func_size,
-      int numcores,
-      int msg_size,
-      int recv_buf_size,
-      int max_inline_data,
-      int pin_threads,
-      const executor::ManagerConnection & mgr_conn
-  ):
-    _closing(false),
-    _numcores(numcores),
-    _max_repetitions(0),
-    _pin_threads(pin_threads)
-    //_mgr_conn(mgr_conn)
+  void VerbsThread::thread_work(int timeout)
   {
-    // Reserve place to ensure that no reallocations happen
-    _threads_data.reserve(numcores);
-    for(int i = 0; i < numcores; ++i)
-      _threads_data.emplace_back(
-        client_addr, port, i, func_size, msg_size,
-        recv_buf_size, max_inline_data, mgr_conn
-      );
-  }
-
-  FastExecutors::~FastExecutors()
-  {
-    spdlog::info("FastExecutor is closing threads...");
-    close();
-  }
-
-  void FastExecutors::close()
-  {
-    if(_closing)
+    RDMAActive_t mgr_connection(_mgr_conn.addr, _mgr_conn.port, wc_buffer._rcv_buf_size, max_inline_data);
+    mgr_connection.allocate();
+    this->_mgr_connection = &mgr_connection.connection();
+    _accounting_buf.register_memory(mgr_connection.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
+    if(!mgr_connection.connect(_mgr_conn.secret))
       return;
-    // FIXME: this should be only for 'warm'
-    //{
-    //  std::lock_guard<std::mutex> g(m);
-    //  _closing = true;
-    //  // wake threads, letting them exit
-    //  wakeup();
-    //}
-    // make sure we join before destructing
-    SPDLOG_DEBUG("Wait on {} threads", _threads.size());
-    for(auto & thread : _threads)
-      // Might have been closed earlier
-      if(thread.joinable())
-        thread.join();
-    SPDLOG_DEBUG("Finished wait on {} threads", _threads.size());
+    spdlog::info("Thread {} Established connection to the manager!", id);
 
-    for(auto & thread : _threads_data) {
-      thread._perf.export_csv("executor_perf.csv", {"found request", "parsed request", "obtained the header and function", "finished executing", "results post written", "accounting updated", "polling accounting updated", "send queue polled", "buffer refilled"});
-      spdlog::info("Thread {} Repetitions {} Avg time {} ms",
-        thread.id,
-        thread.repetitions,
-        static_cast<double>(thread._accounting.total_execution_time) / thread.repetitions / 1000.0
-      );
-    }
-    _closing = true;
-  }
+    // FIXME: why rdmaactive needs rcv_buf_size?
+    RDMAActive_t active(addr, port, wc_buffer._rcv_buf_size, max_inline_data);
+    rdmalib::Buffer<char, Library> func_buffer(_functions.memory(), _functions.size());
 
-  void FastExecutors::allocate_threads(int timeout, int iterations)
-  {
-    int pin_threads = _pin_threads;
-    for(int i = 0; i < _numcores; ++i) {
-      _threads_data[i].max_repetitions = iterations;
-      _threads.emplace_back(
-        &Thread::thread_work,
-        &_threads_data[i],
-        timeout
-      );
-      // FIXME: make sure that native handle is actually from pthreads
-      if(pin_threads != -1) {
-        spdlog::info("Pin thread to core {}", pin_threads);
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(pin_threads++, &cpuset);
-        rdmalib::impl::expect_zero(pthread_setaffinity_np(
-          _threads[i].native_handle(),
-          sizeof(cpu_set_t), &cpuset
-        ));
-      }
+    active.allocate();
+    this->conn = &active.connection();
+    // Receive function data from the client - this WC must be posted first
+    // We do it before connection to ensure that client does not start sending before us
+    func_buffer.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    ScatterGatherElement_t func_buf_sge;
+    func_buf_sge.add(func_buffer, func_buffer.size());
+    this->conn->post_recv(std::move(func_buf_sge),-1);
+
+    // Request notification before connecting - avoid missing a WC!
+    // Do it only when starting from a warm directly
+    if(timeout == -1) {
+      _polling_state = PollingState::HOT_ALWAYS;
+    } else if(timeout == 0) {
+      _polling_state = PollingState::WARM_ALWAYS;
+    } else {
+      _polling_state = PollingState::HOT;
     }
+    if(_polling_state == PollingState::WARM_ALWAYS || _polling_state == PollingState::WARM)
+      conn->notify_events();
+
+    if(!active.connect())
+      return;
+
+    // Now generic receives for function invocations
+    send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
+    rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    this->wc_buffer.connect(this->conn);
+    spdlog::info("Thread {} Established connection to client!", id);
+
+    // Send to the client information about thread buffer
+    rdmalib::Buffer<rdmalib::BufferInformation<Library>, Library> buf(1);
+    buf.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
+    buf.data()[0].r_addr = rcv.address();
+    buf.data()[0].r_key = rcv.rkey();
+    SPDLOG_DEBUG("Thread {} Sends buffer details to client! Addr {} rkey {}", id, buf.data()[0].r_addr, buf.data()[0].r_key);
+    ScatterGatherElement_t buf_sge;
+    buf_sge.add(buf, buf.size());
+    this->conn->post_send(std::move(buf_sge), 0, buf.size() <= max_inline_data);
+    this->conn->poll_wc(rdmalib::QueueType::SEND, true, 1);
+    SPDLOG_DEBUG("Thread {} Sent buffer details to client!", id);
+
+    // We should have received functions data - just one message
+    this->conn->poll_wc(rdmalib::QueueType::RECV, true, 1);
+    _functions.process_library();
+
+    spdlog::info("Thread {} begins work with timeout {}", id, timeout);
+
+    // FIXME: catch interrupt handler here
+    while(repetitions < max_repetitions && !SignalHandler::closing) {
+      if(_polling_state == PollingState::HOT || _polling_state == PollingState::HOT_ALWAYS)
+        hot(timeout);
+      else
+        warm();
+    }
+
+    // Submit final accounting information
+    _accounting.send_updated_execution(_mgr_connection, _accounting_buf, _mgr_conn, true, false);
+    _accounting.send_updated_polling(_mgr_connection, _accounting_buf, _mgr_conn, true, false);
+    mgr_connection.connection().poll_wc(rdmalib::QueueType::SEND, true, 2);
+    spdlog::info(
+      "Thread {} finished work, spent {} ns hot polling and {} ns computation, {} executions.",
+      id, _accounting.total_hot_polling_time , _accounting.total_execution_time, repetitions
+    );
+    // FIXME: revert after manager starts to detect disconnection events
+    // mgr_connection.disconnect();
   }
 
   //void FastExecutors::serial_thread_poll_func(int)

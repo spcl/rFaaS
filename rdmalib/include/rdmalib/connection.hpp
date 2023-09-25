@@ -10,16 +10,17 @@
 #include <vector>
 #include <optional>
 
-#ifdef USE_LIBFABRIC
+//#ifdef USE_LIBFABRIC
 #include <rdma/fi_endpoint.h>
 #include <rdma/fi_rma.h>
 #include <spdlog/spdlog.h>
-#else
+//#else
 #include <infiniband/verbs.h>
 
 #include <rdma/rdma_cma.h>
-#endif
+//#endif
 #include <rdmalib/buffer.hpp>
+#include <rdmalib/libraries.hpp>
 
 namespace rdmalib {
 
@@ -28,7 +29,6 @@ namespace rdmalib {
     RECV
   };
 
-  #ifndef USE_LIBFABRIC
   struct ConnectionConfiguration {
     // Configuration of QP
     ibv_qp_init_attr attr;
@@ -36,7 +36,6 @@ namespace rdmalib {
 
     ConnectionConfiguration();
   };
-  #endif
 
   enum class ConnectionStatus {
     // The connection object does not bind to a defined RDMA connection.
@@ -52,96 +51,131 @@ namespace rdmalib {
   // State of a communication:
   // a) communication ID
   // b) Queue Pair
+  template <typename Derived, typename Library>
   struct Connection {
-  private:
-    #ifdef USE_LIBFABRIC
-    fid_ep* _qp;
-    fid_cq* _rcv_channel;
-    fid_cq* _trx_channel;
-    fid_cntr* _write_counter;
-    uint64_t _counter;
-    #else
-    rdma_cm_id* _id;
-    ibv_qp* _qp; 
-    ibv_comp_channel* _channel;
-    #endif
+  protected:
+    // Bring types into scope
+    using qp_t      = typename library_traits<Library>::qp_t;
+    using wc_t      = typename library_traits<Library>::wc_t;
+    using id_t      = typename library_traits<Library>::id_t;
+    using channel_t = typename library_traits<Library>::channel_t;
+    using ScatterGatherElement_t = typename ::rdmalib::rdmalib_traits<Library>::ScatterGatherElement;
+    using RemoteBuffer_t = typename ::rdmalib::rdmalib_traits<Library>::RemoteBuffer;
+
+    qp_t _qp; 
     int32_t _req_count;
     int32_t _private_data;
     bool _passive;
     ConnectionStatus _status;
     static const int _wc_size = 32; 
     // FIXME: associate this with RecvBuffer
-    #ifdef USE_LIBFABRIC
-    std::array<fi_cq_data_entry, _wc_size> _swc; // fast fix for overlapping polling
-    std::array<fi_cq_data_entry, _wc_size> _rwc;
-    fi_cq_err_entry _ewc;
-    #else
-    std::array<ibv_wc, _wc_size> _swc; // fast fix for overlapping polling
-    std::array<ibv_wc, _wc_size> _rwc;
-    #endif
-    std::array<ScatterGatherElement, _wc_size> _rwc_sges;
+    std::array<wc_t, _wc_size> _swc; // fast fix for overlapping polling
+    std::array<wc_t, _wc_size> _rwc;
+
     int _send_flags;
 
-    static const int _rbatch = 32; // 32 for faster division in the code
-    #ifndef USE_LIBFABRIC
-    struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
-    #endif
-
   public:
-    Connection(bool passive = false);
-    ~Connection();
+    static const int _rbatch = 32; // 32 for faster division in the code
+
+    Connection(bool passive = false) {
+      
+    }
+    ~Connection() {
+      
+    }
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;
     Connection(Connection&&);
 
-    void initialize_batched_recv(const rdmalib::impl::Buffer & sge, size_t offset);
-    #ifndef USE_LIBFABRIC
-    void inlining(bool enable);
-    #endif
-    #ifdef USE_LIBFABRIC
-    void initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel);
-    #else
-    void initialize(rdma_cm_id* id);
-    #endif
-    void close();
-    #ifdef USE_LIBFABRIC
-    fid_domain* _domain = nullptr;
-    fid* id() const;
-    fid_ep* qp() const;
-    fid_wait* wait_set() const;
-    fid_cq* receive_completion_channel() const;
-    fid_cq* transmit_completion_channel() const;
-    #else
-    rdma_cm_id* id() const;
-    ibv_qp* qp() const;
-    ibv_comp_channel* completion_channel() const;
-    #endif
+    template <typename B>
+    void initialize_batched_recv(const rdmalib::impl::Buffer<B, Library> & sge, size_t offset);
+    void close()
+    {
+      static_cast<Derived*>(this)->close();
+    }
+    id_t id() const
+    {
+      return static_cast<Derived*>(this)->id();
+    }
+    qp_t qp() const
+    {
+      return this->_qp; // TODO sure?
+    }
+
     uint32_t private_data() const;
     ConnectionStatus status() const;
     void set_status(ConnectionStatus status);
     void set_private_data(uint32_t private_data);
 
     // Blocking, no timeout
-    #ifdef USE_LIBFABRIC
-    std::tuple<fi_cq_data_entry*, int> poll_wc(QueueType, bool blocking = true, int count = -1, bool update = false);
-    #else
-    std::tuple<ibv_wc*, int> poll_wc(QueueType, bool blocking = true, int count = -1);
-    #endif
-    int32_t post_send(const ScatterGatherElement & elem, int32_t id = -1, bool force_inline = false);
-    int32_t post_recv(ScatterGatherElement && elem, int32_t id = -1, int32_t count = 1);
+
+    std::tuple<wc_t, int> poll_wc(QueueType type, bool blocking = true, int count = -1, bool update = false)
+    {
+      return static_cast<Derived*>(this)->poll_wc(type, blocking, count, update);
+    }
+
+    int32_t post_send(const ScatterGatherElement_t & elem, int32_t id = -1, bool force_inline = false)
+    {
+      return static_cast<Derived*>(this)->post_send(elem, id, force_inline);
+    }
+    int32_t post_recv(ScatterGatherElement_t && elem, int32_t id = -1, int32_t count = 1)
+    {
+      return static_cast<Derived*>(this)->post_recv(elem, id, count);
+    }
 
     int32_t post_batched_empty_recv(int32_t count = 1);
-
-    int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, bool force_inline = false);
+    int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & buf, bool force_inline = false);
     // Solicited makes sense only for RDMA write with immediate
-    int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf,
+    int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & buf,
       uint32_t immediate,
       bool force_inline = false,
       bool solicited = false
     );
-    int32_t post_cas(ScatterGatherElement && elems, const RemoteBuffer & buf, uint64_t compare, uint64_t swap);
-    #ifdef USE_LIBFABRIC
-    template<typename T> inline int32_t post_write(const Buffer<T> & buf, const size_t size, const uint64_t offset, const RemoteBuffer & rbuf, const uint32_t immediate) {
+    int32_t post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & buf, uint64_t compare, uint64_t swap);
+  };
+
+  struct LibfabricConnection : Connection<LibfabricConnection, libfabric>
+  {
+    using Library = libfabric;
+    template <typename T>
+    using Buffer = Buffer<T, libfabric>;
+
+    fid_cq *_rcv_channel;
+    fid_cq *_trx_channel;
+    fid_cntr* _write_counter;
+    uint64_t _counter;
+    fid_domain* _domain = nullptr;
+
+    std::array<ScatterGatherElement_t, _wc_size> _rwc_sges;
+
+    fi_cq_err_entry _ewc;
+
+    LibfabricConnection(bool passive=false);
+    LibfabricConnection(LibfabricConnection&& obj);
+    ~LibfabricConnection();
+
+    id_t id() const
+    {
+      return &this->_qp->fid;
+    }
+
+    template <typename B>
+    void initialize_batched_recv(const rdmalib::impl::Buffer<B, libfabric> & sge, size_t offset);
+
+    void initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel);
+    void close();
+
+    fid_wait* wait_set() const;
+    channel_t receive_completion_channel() const;
+    channel_t transmit_completion_channel() const;
+
+    int32_t post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap);
+    int32_t post_send(const ScatterGatherElement_t & elem, int32_t id = -1, bool force_inline = false);
+    int32_t post_batched_empty_recv(int count);
+    int32_t post_recv(ScatterGatherElement_t && elem, int32_t id, int count=1);
+
+    template <typename T>
+    int32_t post_write(const Buffer<T> & buf, const size_t size, const uint64_t offset, const RemoteBuffer_t & rbuf, const uint32_t immediate) {
       int ret = fi_writedata(_qp, (void *)(buf.address() + offset), size, buf.lkey(), immediate + (size << 32), NULL, rbuf.addr, rbuf.rkey, (void *)(_req_count++));
       if(ret) {
         spdlog::error("Post write unsuccessful, reason {} {}, buf size {}, id {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
@@ -160,27 +194,106 @@ namespace rdmalib {
         );
       return _req_count - 1;
     }
-    int32_t post_atomic_fadd(const Buffer<uint64_t> & _accounting_buf, const RemoteBuffer & rbuf, uint64_t add);
-    #else
-    int32_t post_atomic_fadd(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint64_t add);
-    #endif
+
+    int32_t post_atomic_fadd(const Buffer<uint64_t> & _accounting_buf, const RemoteBuffer_t & rbuf, uint64_t add);
 
     // Register to be notified about all events, including unsolicited ones
-    #ifdef USE_LIBFABRIC
     int wait_events(int timeout = -1);
-    #else
+
+    int32_t _post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, const uint32_t immediate = 0);
+    int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, bool force_inline);
+
+    std::tuple<fi_cq_data_entry *, int> poll_wc(QueueType type, bool blocking=true, int count=-1, bool update=false);
+  };
+
+  struct VerbsConnection : Connection<VerbsConnection, ibverbs>
+  {
+    using Library = ibverbs;
+    id_t _id;
+    channel_t _channel;
+
+    struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
+    std::array<ScatterGatherElement_t, _wc_size> _rwc_sges;
+
+    VerbsConnection(bool passive=false);
+    VerbsConnection(VerbsConnection&& obj);
+    ~VerbsConnection();
+    void close();
+
+    id_t id() const
+    {
+      return this->_id;
+    }
+
+    void inlining(bool enable);
+    template <typename B>
+    void initialize_batched_recv(const rdmalib::impl::Buffer<B, ibverbs> & sge, size_t offset);
+    void initialize(rdma_cm_id* id);
+    ibv_comp_channel* completion_channel() const;
+
+    int32_t post_send(const ScatterGatherElement_t & elem, int32_t id = -1, bool force_inline = false);
+    int32_t post_batched_empty_recv(int count);
+    int32_t post_recv(ScatterGatherElement_t && elem, int32_t id, int count=1);
+    int32_t post_cas(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t compare, uint64_t swap);
+    int32_t post_atomic_fadd(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, uint64_t add);
+    int32_t post_atomic_fadd(const Buffer<uint64_t, Library> & _accounting_buf, const RemoteBuffer_t & rbuf, uint64_t add);
+
     void notify_events(bool only_solicited = false);
     ibv_cq* wait_events();
     void ack_events(ibv_cq* cq, int len);
-    #endif
-  private:
-    #ifdef USE_LIBFABRIC
-    int32_t _post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, const uint32_t immediate = 0);
-    #else
-    int32_t _post_write(ScatterGatherElement && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
-    #endif
+
+    int32_t _post_write(ScatterGatherElement_t && elems, ibv_send_wr wr, bool force_inline, bool force_solicited);
+    int32_t post_write(ScatterGatherElement_t && elems, const RemoteBuffer_t & rbuf, bool force_inline);
+
+    std::tuple<ibv_wc*, int> poll_wc(QueueType type, bool blocking=true, int count=-1);
+
   };
+
+  template <typename B>
+  void LibfabricConnection::initialize_batched_recv(const rdmalib::impl::Buffer<B, libfabric> & buf, size_t offset)
+  {
+    for(int i = 0; i < _rbatch; i++){
+      _rwc_sges[i] = buf.sge(offset, i*offset);
+      //for(auto & sg : _rwc_sges[i]._sges)
+      //sg.addr += i*offset;
+    }
+  }
+
+  template <typename B>
+  void VerbsConnection::initialize_batched_recv(const rdmalib::impl::Buffer<B, ibverbs> & buf, size_t offset)
+  {
+    for(int i = 0; i < _rbatch; i++){
+      _rwc_sges[i] = buf.sge(offset, i*offset);
+      //for(auto & sg : _rwc_sges[i]._sges)
+      //sg.addr += i*offset;
+      _batch_wrs[i].sg_list = _rwc_sges[i].array();
+      _batch_wrs[i].num_sge = _rwc_sges[i].size();
+    }
+  }
+
+  template <typename D, typename L>
+  uint32_t Connection<D,L>::private_data() const
+  {
+    return this->_private_data;
+  }
+
+  template <typename D, typename L>
+  ConnectionStatus Connection<D,L>::status() const
+  {
+    return this->_status;
+  }
+
+  template <typename D, typename L>
+  void Connection<D,L>::set_status(ConnectionStatus status)
+  {
+    this->_status = status;
+  }
+
+  template <typename D, typename L>
+  void Connection<D,L>::set_private_data(uint32_t private_data)
+  {
+    this->_private_data = private_data;
+  }
 }
 
 #endif
-

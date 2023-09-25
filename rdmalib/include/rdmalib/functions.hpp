@@ -7,19 +7,20 @@
 
 namespace rdmalib { namespace functions {
 
-  struct Submission {
+  struct LibfabricSubmission {
     uint64_t r_address;
-    #ifdef USE_LIBFABRIC
     uint64_t r_key;
     static constexpr int DATA_HEADER_SIZE = 16;
-    #else
-    uint32_t r_key;
-    static constexpr int DATA_HEADER_SIZE = 12;
-    #endif
   };
 
-  constexpr int Submission::DATA_HEADER_SIZE;
+  struct VerbsSubmission {
+    uint64_t r_address;
+    uint32_t r_key;
+    static constexpr int DATA_HEADER_SIZE = 12;
+  };
 
+  constexpr int LibfabricSubmission::DATA_HEADER_SIZE;
+  constexpr int VerbsSubmission::DATA_HEADER_SIZE;
 
   typedef void (*FuncType)(void*, void*);
 

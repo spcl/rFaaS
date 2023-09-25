@@ -17,6 +17,16 @@ namespace rdmalib { namespace impl {
   void expect_zero(U && u)
   {
     if(u) {
+      spdlog::error("Expected zero, found: {}, errno {}, message {}", u, errno, strerror(errno));
+      traceback();
+    }
+    assert(!u);
+  }
+
+  template<typename U>
+  void expect_zero_verbose(U && u)
+  {
+    if(u) {
       #ifdef USE_LIBFABRIC
       spdlog::error("Expected zero, found: {}, message {}, errno {}, message {}", u, fi_strerror(std::abs(u)), errno, strerror(errno));
       #else
