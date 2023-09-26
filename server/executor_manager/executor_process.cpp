@@ -23,6 +23,12 @@ namespace rfaas::executor_manager {
     delete[] connections; 
   }
 
+  void ActiveExecutor::add_executor(rdmalib::Connection* connection)
+  {
+    int pos = connections_len++;
+    connections[pos] = connection;
+  }
+
   ProcessExecutor::ProcessExecutor(int cores, ProcessExecutor::time_t alloc_begin, pid_t pid):
     ActiveExecutor(cores),
     _pid(pid)

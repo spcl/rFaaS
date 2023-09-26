@@ -43,6 +43,7 @@ namespace rfaas::executor_manager {
     virtual ~ActiveExecutor();
     virtual int id() const = 0;
     virtual std::tuple<Status,int> check() const = 0;
+    void add_executor(rdmalib::Connection*);
   };
 
   struct ProcessExecutor : public ActiveExecutor

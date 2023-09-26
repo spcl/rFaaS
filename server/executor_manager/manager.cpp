@@ -11,12 +11,13 @@
 
 #include <rdmalib/connection.hpp>
 #include <rdmalib/rdmalib.hpp>
+#include <rdmalib/util.hpp>
 
 #include <rfaas/allocation.hpp>
+#include <rfaas/connection.hpp>
 #include <variant>
 
 #include "manager.hpp"
-#include "rfaas/connection.hpp"
 
 namespace rfaas::executor_manager {
 
@@ -29,8 +30,6 @@ namespace rfaas::executor_manager {
     _state(settings.device->ip_address, settings.rdma_device_port,
         settings.device->default_receive_buffer_size, true),
     _settings(settings),
-    // FIXME: randomly generated
-    _secret(0x1234),
     _skip_rm(skip_rm),
     _shutdown(false)
   {
@@ -61,7 +60,7 @@ namespace rfaas::executor_manager {
       rdmalib::PrivateData data;
       data.secret(_settings.resource_manager_secret);
       data.key(1);
-      _res_mgr_connection->connect(_settings.node_name, data.data());
+      rdmalib::impl::expect_true(_res_mgr_connection->connect(_settings.node_name, data.data()));
     }
 
     _state.register_shared_queue(0);
@@ -102,32 +101,25 @@ namespace rfaas::executor_manager {
       if(conn_status == rdmalib::ConnectionStatus::DISCONNECTED) {
         // FIXME: handle disconnect
         spdlog::debug("[Manager-listen] Disconnection on connection {}", fmt::ptr(conn));
+        _client_queue.emplace(Operation::DISCONNECT, msg_t{conn});
         continue;
       }
       // When client connects, we need to fill the receive queue with work requests before
       // accepting connection. Otherwise, we could accept before we're ready to receive data.
       else if(conn_status == rdmalib::ConnectionStatus::REQUESTED) {
-        spdlog::debug("[Manager-listen] Requested new connection {}", fmt::ptr(conn));
-        rdmalib::PrivateData private_data{conn->private_data()};
+        spdlog::debug("[Manager-listen] Requested new connection {}, private {}", fmt::ptr(conn), conn->private_data());
+        rdmalib::PrivateData<0, 0, 32> private_data{conn->private_data()};
 
-        if (private_data.key() == 1) {
+        if (private_data.secret() > 0) {
 
-          if(private_data.secret() != this->_secret) {
-            spdlog::error("[Manager] Reject executor, wrong secret {}", private_data.data());
-            _state.reject(conn);
-          } else {
-            _state.accept(conn);
-          }
+          _client_queue.emplace(Operation::CONNECT, msg_t{conn});
 
-        } else if (private_data.key() == 2) {
+        } else {
           _state.accept(conn);
 
           Client client{conn, _state.pd()};
           client._active = true;
           _client_queue.emplace(Operation::CONNECT, msg_t{std::move(client)});
-        } else {
-          spdlog::error("[Manager] Reject unknown connection! Secret {}", private_data.data());
-          _state.reject(conn);
         }
 
         continue;
@@ -136,10 +128,8 @@ namespace rfaas::executor_manager {
       // For a connection with a client we don't have to do anything. 
       else if(conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
 
-        spdlog::debug("[Manager-listen] New established connection {}", fmt::ptr(conn));
-
-        // FIXME: initialize data for atomics when executor is Connected
-        _client_queue.emplace(Operation::CONNECT, msg_t{conn});
+        SPDLOG_DEBUG("[Manager-listen] New established connection {} {}", fmt::ptr(conn), conn->private_data());
+        continue;
       }
     }
     spdlog::info("Background thread stops waiting for rdmacm events.");
@@ -147,7 +137,44 @@ namespace rfaas::executor_manager {
 
   void Manager::poll_res_mgr()
   {
+    // FIXME: add executors!
+    typedef std::variant<Client*, ResourceManagerConnection*> conn_t;
+    std::unordered_map<uint32_t, conn_t> connections;
 
+    uint32_t id = 0;
+    connections[id++] = conn_t{_res_mgr_connection.get()};
+
+    rdmalib::Connection& conn = _res_mgr_connection->_connection.connection();
+
+    conn.notify_events();
+
+    while(!_shutdown.load()) {
+
+      auto cq = conn.wait_events();
+      conn.ack_events(cq, 1);
+
+      auto wcs = _res_mgr_connection->_connection.connection().receive_wcs().poll(false);
+      if(std::get<1>(wcs)) {
+
+        for(int j = 0; j < std::get<1>(wcs); ++j) {
+
+          auto wc = std::get<0>(wcs)[j];
+          if(wc.status != 0)
+            continue;
+          uint64_t id = wc.wr_id;
+          SPDLOG_DEBUG("Receive lease {}", _res_mgr_connection->_receive_buffer[id].lease_id);
+          std::cerr << _res_mgr_connection->_receive_buffer[id].lease_id << std::endl;
+          std::cerr << _res_mgr_connection->_receive_buffer[id].cores << std::endl;
+          std::cerr << _res_mgr_connection->_receive_buffer[id].memory << std::endl;
+        }
+      }
+
+      _res_mgr_connection->_connection.connection().receive_wcs().refill();
+
+      conn.notify_events();
+    }
+
+    spdlog::info("Background thread stops waiting for resource manager events.");
   }
 
   void Manager::poll_rdma()
@@ -188,9 +215,25 @@ namespace rfaas::executor_manager {
           if(std::holds_alternative<rdmalib::Connection*>(std::get<1>(*result_ptr))) {
 
             rdmalib::Connection* conn = std::get<rdmalib::Connection*>(std::get<1>(*result_ptr));
-            // FIXME: save executors
             if(!recv_queue) {
               recv_queue = &conn->receive_wcs();
+            }
+
+            uint32_t qp_num = conn->private_data();
+            auto it = _clients.find(qp_num);
+            if(it == _clients.end()) {
+
+              SPDLOG_DEBUG("[Manager-RDMA] Rejecting executor to an unknown client {}", qp_num);
+              // This operation is thread-safe
+              _state.reject(conn);
+
+            } else {
+
+              SPDLOG_DEBUG("[Manager-RDMA] Accepted a new executor for client {}", qp_num);
+              // This operation is thread-safe
+              _state.accept(conn);
+              (*it).second.executor->add_executor(conn);
+
             }
 
           } else {
@@ -214,6 +257,15 @@ namespace rfaas::executor_manager {
         } else {
 
           // FIXME: disconnection
+          rdmalib::Connection* conn = std::get<rdmalib::Connection*>(std::get<1>(*result_ptr));
+          auto it = _clients.find(conn->qp()->qp_num);
+          if (it != _clients.end()) {
+            spdlog::debug("[Manager] Disconnecting client");
+            _clients.erase(it);
+          } else {
+            spdlog::debug("[Manager] Disconnecting unknown client");
+          }
+          //removals.push_back(client);
 
         }
 
@@ -223,39 +275,7 @@ namespace rfaas::executor_manager {
 
       }
 
-      //{
-      //  auto ptr = _client_queue.peek();
-      //  if(p1){
-      //    int client = p1->first;
-      //    SPDLOG_DEBUG("Connected executor for client {}", client);
-      //    int pos = _clients.find(client)->second.executor->connections_len++;
-      //    _clients.find(client)->second.executor->connections[pos] = p1->second; 
-      //    _q1.pop();
-      //  }; 
-      //  std::pair<int,Client>* p2 = _q2.peek();
-      //  if(p2){
-      //    _clients.insert(std::make_pair(p2->first, std::move(p2->second)));
-      //    SPDLOG_DEBUG("Connected new client id {}", p2->first);
-      //    _q2.pop();
-      //  };  
-      //}
-
       // FIXME: Move to a separate thread + read queue
-      auto wcs = _res_mgr_connection->_connection.connection().receive_wcs().poll(false);
-      if(std::get<1>(wcs)) {
-
-        for(int j = 0; j < std::get<1>(wcs); ++j) {
-
-          auto wc = std::get<0>(wcs)[j];
-          if(wc.status != 0)
-            continue;
-          uint64_t id = wc.wr_id;
-          std::cerr << _res_mgr_connection->_receive_buffer[id].lease_id << std::endl;
-          std::cerr << _res_mgr_connection->_receive_buffer[id].cores << std::endl;
-          std::cerr << _res_mgr_connection->_receive_buffer[id].memory << std::endl;
-        }
-
-      }
 
       // FIXME: users sending their lease ID 
       atomic_thread_fence(std::memory_order_acquire);
@@ -270,6 +290,8 @@ namespace rfaas::executor_manager {
             "Received at {}, work completions {}",
             i, std::get<1>(wcs)
           );
+          // How to connect a wr with a specific client?
+          // USE THE qp_num!
           for(int j = 0; j < std::get<1>(wcs); ++j) {
 
             auto wc = std::get<0>(wcs)[j];
@@ -289,8 +311,11 @@ namespace rfaas::executor_manager {
                 client.allocation_requests.data()[id].func_buf_size,
                 client.allocation_requests.data()[id].hot_timeout
               );
-              int secret = (i << 16) | (this->_secret & 0xFFFF);
+
+              rdmalib::PrivateData<0,0,32> data;
+              data.secret(client.connection->qp()->qp_num);
               uint64_t addr = client.accounting.address(); //+ sizeof(Accounting)*i;
+
               // FIXME: Docker
               auto now = std::chrono::high_resolution_clock::now();
               client.executor.reset(
@@ -300,7 +325,7 @@ namespace rfaas::executor_manager {
                   {
                     _settings.device->ip_address,
                     _settings.rdma_device_port,
-                    secret, addr, client.accounting.rkey()
+                    data.data(), addr, client.accounting.rkey()
                   }
                 )
               );

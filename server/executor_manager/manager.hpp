@@ -100,7 +100,6 @@ namespace rfaas::executor_manager {
     rdmalib::RDMAPassive _state;
     Settings _settings;
     //rdmalib::Buffer<Accounting> _accounting_data;
-    uint32_t _secret;
     bool _skip_rm;
     std::atomic<bool> _shutdown;
 
