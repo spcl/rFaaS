@@ -26,10 +26,8 @@ namespace rfaas {
   bool manager_connection::connect()
   {
     SPDLOG_DEBUG("Connecting to manager at {}:{}", _address, _port);
-    rdmalib::PrivateData secret;
     // tell the executor manager we are a user
-    secret.key(2);
-    bool ret = _active.connect(secret.data());
+    bool ret = _active.connect();
     if(!ret) {
       spdlog::error("Couldn't connect to manager at {}:{}", _address, _port);
       return false;
