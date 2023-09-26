@@ -29,6 +29,9 @@ namespace rfaas::executor_manager {
     bool _active;
 
     Client(rdmalib::Connection* conn, ibv_pd* pd);
+    Client(Client &&);
+    Client& operator=(Client &&);
+    ~Client();
     void reload_queue();
     void disable(int);
     bool active();

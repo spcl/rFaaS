@@ -30,6 +30,39 @@ namespace rfaas::executor_manager {
     connection->receive_wcs().initialize(allocation_requests);
   }
 
+  Client::Client(Client && obj):
+    connection(obj.connection),
+    allocation_requests(std::move(obj.allocation_requests)),
+    executor(std::move(obj.executor)),
+    accounting(std::move(obj.accounting)),
+    allocation_time(std::move(obj.allocation_time)),
+    _active(std::move(obj._active))
+  {
+    obj.connection = nullptr;
+  }
+
+  Client& Client::operator=(Client && obj)
+  {
+    connection = obj.connection;
+    allocation_requests = std::move(obj.allocation_requests);
+    executor = std::move(obj.executor);
+    accounting = std::move(obj.accounting);
+    allocation_time = std::move(obj.allocation_time);
+    _active = std::move(obj._active);
+
+    obj.connection = nullptr;
+
+    return *this;
+  }
+
+  Client::~Client()
+  {
+    if(connection) {
+      connection->close();
+      delete connection;
+    }
+  }
+
   void Client::reload_queue()
   {
     connection->receive_wcs().refill();
