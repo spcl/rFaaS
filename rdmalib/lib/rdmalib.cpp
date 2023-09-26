@@ -304,6 +304,10 @@ namespace rdmalib {
     if(this->_ec) {
       rdma_destroy_event_channel(this->_ec);
     }
+
+    for(auto & [key, value] : _shared_recv_completions) {
+      ibv_destroy_cq(std::get<1>(value));
+    }
   }
 
   RDMAPassive::RDMAPassive(RDMAPassive && obj):
@@ -431,17 +435,28 @@ namespace rdmalib {
 
         uint8_t key = PrivateData{connection->private_data()}.key();
         auto it = _shared_recv_completions.find(key);
+
         if(it == _shared_recv_completions.end()) {
 
-          SPDLOG_DEBUG("Allocate new queue, no sharing for key {}", key);
+          it = _shared_recv_completions.find(0);
+          if(it == _shared_recv_completions.end()) {
 
-          // Make sure to allocate new completion queue when they're not reused.
-          _cfg.attr.send_cq = _cfg.attr.recv_cq = nullptr;
+            SPDLOG_DEBUG("Allocate new queue, no sharing for key {}", key);
+            // Make sure to allocate new completion queue when they're not reused.
+            _cfg.attr.send_cq = _cfg.attr.recv_cq = nullptr;
+
+          } else {
+
+            SPDLOG_DEBUG("Allocate default shared queue for key {}", key);
+            _cfg.attr.send_cq = nullptr;
+            _cfg.attr.recv_cq = std::get<1>((*it).second);
+
+          }
 
         } else {
 
-          _cfg.attr.send_cq = nullptr;
           SPDLOG_DEBUG("Allocate existing shared queue for key {}", key);
+          _cfg.attr.send_cq = nullptr;
           _cfg.attr.recv_cq = std::get<1>((*it).second);
 
         }
@@ -455,9 +470,10 @@ namespace rdmalib {
         impl::expect_zero(rdma_create_qp(event->id, _pd, &_cfg.attr));
         connection->initialize(event->id);
         SPDLOG_DEBUG(
-          "[RDMAPassive] Created connection id {} qpnum {} qp {} send {} recv {}",
+          "[RDMAPassive] Created connection id {} qpnum {} qp {} send {} recv {}, completion channel {}",
           fmt::ptr(connection->id()), connection->qp()->qp_num, fmt::ptr(connection->qp()),
-          fmt::ptr(connection->qp()->send_cq), fmt::ptr(connection->qp()->recv_cq)
+          fmt::ptr(connection->qp()->send_cq), fmt::ptr(connection->qp()->recv_cq),
+          fmt::ptr(connection->completion_channel())
         );
 
         if(it != _shared_recv_completions.end()) {
@@ -465,7 +481,6 @@ namespace rdmalib {
           if(!std::get<1>((*it).second)) {
             std::get<1>((*it).second) = connection->qp()->recv_cq;
           }
-
         }
 
         status = ConnectionStatus::REQUESTED;
@@ -515,7 +530,10 @@ namespace rdmalib {
 
   void RDMAPassive::register_shared_queue(uint16_t key)
   {
-    _shared_recv_completions[key] = std::make_tuple(nullptr, nullptr);
+    ibv_cq* cq = ibv_create_cq(_pd->context, _cfg.attr.cap.max_recv_wr, nullptr, nullptr, 0);
+    // FIXME: create completion channel
+    _shared_recv_completions[key] = std::make_tuple(nullptr, cq);
+    SPDLOG_DEBUG("[RDMAPassive] Register CQ {} for key {}", fmt::ptr(cq), key);
   }
 
   void RDMAPassive::reject(Connection* connection) {
