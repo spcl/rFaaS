@@ -29,6 +29,7 @@ namespace rfaas::resource_manager {
     std::chrono::high_resolution_clock::time_point _cur_allocation_start;
 
     Client(int client_id, rdmalib::Connection* conn, ibv_pd* pd);
+    ~Client();
     rdmalib::Buffer<rfaas::LeaseResponse>& response();
     void begin_allocation();
     void end_allocation();

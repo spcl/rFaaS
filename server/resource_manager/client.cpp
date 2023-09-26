@@ -27,6 +27,12 @@ namespace rfaas::resource_manager {
     connection->receive_wcs().initialize(allocation_requests);
   }
 
+  Client::~Client()
+  {
+    connection->close();
+    delete connection;
+  }
+
   rdmalib::Buffer<rfaas::LeaseResponse>& Client::response()
   {
     return _response;
