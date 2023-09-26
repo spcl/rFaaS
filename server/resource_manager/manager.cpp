@@ -16,6 +16,7 @@
 #include "common/messages.hpp"
 #include "manager.hpp"
 #include "executor.hpp"
+#include "rdmalib/poller.hpp"
 
 namespace rfaas::resource_manager {
 
@@ -76,6 +77,11 @@ void Manager::listen_rdma() {
 
       // FIXME: reenable
       //_rdma_queue.enqueue(std::make_tuple(Operation::DISCONNECT, conn));
+      if (private_data.key() == 1) {
+        _executor_queue.enqueue(std::make_tuple(Operation::DISCONNECT, conn));
+      } else {
+        _client_queue.enqueue(std::make_tuple(Operation::DISCONNECT, conn));
+      }
 
     } else if (conn_status == rdmalib::ConnectionStatus::REQUESTED) {
 
@@ -223,7 +229,7 @@ void Manager::process_executors()
 
 void Manager::process_clients() {
 
-  rdmalib::RecvWorkCompletions* recv_queue = nullptr;
+  rdmalib::Poller recv_poller;
   typedef std::unordered_map<uint32_t, Client> client_t;
   client_t clients;
   std::vector<client_t::iterator> removals;
@@ -265,9 +271,10 @@ void Manager::process_clients() {
           std::forward_as_tuple((*conn).qp()->qp_num),
           std::forward_as_tuple(id++, conn, _state.pd())
         );
+        spdlog::debug("[Manager] Connecting client {}", id - 1);
 
-        if(!recv_queue) {
-          recv_queue = &conn->receive_wcs();
+        if(!recv_poller.initialized()) {
+          recv_poller.initialize(conn->qp()->recv_cq);
         }
 
       } else {
@@ -287,14 +294,16 @@ void Manager::process_clients() {
         _client_queue.pop();
       }
 
-      client_count++;
+      if (std::get<0>(*result_ptr) == Operation::CONNECT) {
+        client_count++;
+      }
     }
 
     // FIXME: sleep
 
     if(client_count > 0) {
 
-      auto wcs = recv_queue->poll(false);
+      auto wcs = recv_poller.poll(false);
       if(std::get<1>(wcs)) {
 
         for (int j = 0; j < std::get<1>(wcs); ++j) {
@@ -360,38 +369,33 @@ void Manager::process_clients() {
             break;
           }
 
-          if(wc.qp_num != recv_queue->qp()->qp_num) {
-            client.connection->receive_wcs().update_requests(-1);
-            client.connection->receive_wcs().refill();
-            recv_queue->update_requests(1);
-          } else {
-            recv_queue->refill();
-          }
+          client.connection->receive_wcs().update_requests(-1);
+          client.connection->receive_wcs().refill();
         }
 
       }
     }
-  }
 
-  if (poll_send.size()) {
-    for (auto client : poll_send) {
-      client->connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
-    }
-    poll_send.clear();
-  }
-
-  if (removals.size()) {
-    for (auto it : removals) {
-      spdlog::info("Remove client id {}", it->second.client_id);
-      clients.erase(it);
+    if (poll_send.size()) {
+      for (auto client : poll_send) {
+        client->connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
+      }
+      poll_send.clear();
     }
 
-    client_count -= removals.size();
-    if(client_count == 0) {
-      recv_queue = nullptr;
-    }
+    if (removals.size()) {
+      for (auto it : removals) {
+        spdlog::info("Remove client id {}", it->second.client_id);
+        clients.erase(it);
+      }
 
-    removals.clear();
+      client_count -= removals.size();
+      //if(client_count == 0) {
+      //  recv_poller.initialize(nullptr);
+      //}
+
+      removals.clear();
+    }
   }
 
   spdlog::info("Background thread stops processing client events");
