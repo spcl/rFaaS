@@ -9,7 +9,6 @@
 #include <spdlog/common.h>
 
 #include <rdmalib/benchmarker.hpp>
-#include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/util.hpp>
 #include "rdmalib/buffer.hpp"
 #include "rdmalib/connection.hpp"
@@ -67,7 +66,7 @@ namespace server {
     while(repetitions < max_repetitions) {
 
       // if we block, we never handle the interruption
-      auto wcs = wc_buffer.poll();
+      auto wcs = this->conn->receive_wcs().poll();
       if(std::get<1>(wcs)) {
         for(int i = 0; i < std::get<1>(wcs); ++i) {
 
@@ -99,7 +98,7 @@ namespace server {
           conn->poll_wc(rdmalib::QueueType::SEND, true);
           repetitions += 1;
         }
-        wc_buffer.refill();
+        this->conn->receive_wcs().refill();
       }
       ++i;
 
@@ -131,7 +130,7 @@ namespace server {
     while(repetitions < max_repetitions) {
 
       // if we block, we never handle the interruption
-      auto wcs = wc_buffer.poll();
+      auto wcs = this->conn->receive_wcs().poll();
       if(std::get<1>(wcs)) {
         for(int i = 0; i < std::get<1>(wcs); ++i) {
 
@@ -156,7 +155,7 @@ namespace server {
           conn->poll_wc(rdmalib::QueueType::SEND, true);
           repetitions += 1;
         }
-        wc_buffer.refill();
+        this->conn->receive_wcs().refill();
         if(_polling_state != PollingState::WARM_ALWAYS) {
           SPDLOG_DEBUG("Switching to hot polling after invocation!");
           _polling_state = PollingState::HOT;
@@ -177,7 +176,7 @@ namespace server {
 
   void Thread::thread_work(int timeout)
   {
-    rdmalib::RDMAActive mgr_connection(_mgr_conn.addr, _mgr_conn.port, wc_buffer._rcv_buf_size, max_inline_data);
+    rdmalib::RDMAActive mgr_connection(_mgr_conn.addr, _mgr_conn.port, _recv_buffer_size, max_inline_data);
     mgr_connection.allocate();
     this->_mgr_connection = &mgr_connection.connection();
     _accounting_buf.register_memory(mgr_connection.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
@@ -185,8 +184,7 @@ namespace server {
       return;
     spdlog::info("Thread {} Established connection to the manager!", id);
 
-    // FIXME: why rdmaactive needs rcv_buf_size?
-    rdmalib::RDMAActive active(addr, port, wc_buffer._rcv_buf_size, max_inline_data);
+    rdmalib::RDMAActive active(addr, port, _recv_buffer_size, max_inline_data);
     rdmalib::Buffer<char> func_buffer(_functions.memory(), _functions.size());
 
     active.allocate();
@@ -214,7 +212,8 @@ namespace server {
     // Now generic receives for function invocations
     send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    this->wc_buffer.connect(this->conn);
+
+    this->conn->receive_wcs().initialize(rcv);
     spdlog::info("Thread {} Established connection to client!", id);
 
     // Send to the client information about thread buffer

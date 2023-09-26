@@ -66,6 +66,8 @@ void Manager::listen_rdma() {
       spdlog::error("Failed connection creation");
       continue;
     }
+    rdmalib::PrivateData private_data{conn->private_data()};
+
     if (conn_status == rdmalib::ConnectionStatus::DISCONNECTED) {
 
       // FIXME: handle disconnect
@@ -77,13 +79,13 @@ void Manager::listen_rdma() {
 
     } else if (conn_status == rdmalib::ConnectionStatus::REQUESTED) {
 
-      if (conn->key() == 1 && conn->secret() != this->_secret) {
+      if (private_data.key() == 1 && private_data.secret() != this->_secret) {
 
         uint32_t private_data = (*conn).private_data();
         spdlog::error("[Manager] Reject executor, wrong secret {}", private_data);
         _state.reject(conn);
 
-      } else if (conn->key() == 1) {
+      } else if (private_data.key() == 1) {
 
         _executors.connect_executor(conn);
         _state.accept(conn);
@@ -95,10 +97,10 @@ void Manager::listen_rdma() {
 
     } else if (conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
 
-      if (conn->key() == 1) {
+      if (private_data.key() == 1) {
         SPDLOG_DEBUG("[Manager] Listen thread: connected new executor");
         _executor_queue.enqueue(std::make_tuple(Operation::CONNECT, conn));
-      } else if (conn->key() == 2) {
+      } else if (private_data.key() == 2) {
         SPDLOG_DEBUG("[Manager] Listen thread: connected new client");
         _client_queue.enqueue(std::make_tuple(Operation::CONNECT, conn));
       } else {

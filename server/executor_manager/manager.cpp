@@ -13,6 +13,7 @@
 #include <rdmalib/rdmalib.hpp>
 
 #include <rfaas/allocation.hpp>
+#include <variant>
 
 #include "manager.hpp"
 #include "rfaas/connection.hpp"
@@ -22,7 +23,7 @@ namespace rfaas::executor_manager {
   constexpr int Manager::POLLING_TIMEOUT_MS;
 
   Manager::Manager(Settings & settings, bool skip_rm):
-    _q1(100), _q2(100),
+    _client_queue(100),
     _ids(0),
     _res_mgr_connection(nullptr),
     _state(settings.device->ip_address, settings.rdma_device_port,
@@ -57,9 +58,13 @@ namespace rfaas::executor_manager {
         _settings.resource_manager_secret
       );
 
-      uint32_t secret = (1 << 24) | (_settings.resource_manager_secret & 0xFFFFFF);
-      _res_mgr_connection->connect(_settings.node_name, secret);
+      rdmalib::PrivateData data;
+      data.secret(_settings.resource_manager_secret);
+      data.key(1);
+      _res_mgr_connection->connect(_settings.node_name, data.data());
     }
+
+    _state.register_shared_queue(0);
 
     spdlog::info(
       "Begin listening at {}:{} and processing events!",
@@ -68,7 +73,9 @@ namespace rfaas::executor_manager {
     );
     std::thread listener(&Manager::listen, this);
     std::thread rdma_poller(&Manager::poll_rdma, this);
+    std::thread res_mgr_poller(&Manager::poll_res_mgr, this);
 
+    res_mgr_poller.join();
     listener.join();
     rdma_poller.join(); 
   }
@@ -101,62 +108,139 @@ namespace rfaas::executor_manager {
       // accepting connection. Otherwise, we could accept before we're ready to receive data.
       else if(conn_status == rdmalib::ConnectionStatus::REQUESTED) {
         spdlog::debug("[Manager-listen] Requested new connection {}", fmt::ptr(conn));
-        // FIXME: users sending their ID 
-        if(!conn->private_data()) {
-          int pos = _ids++;
+        rdmalib::PrivateData private_data{conn->private_data()};
+
+        if (private_data.key() == 1) {
+
+          if(private_data.secret() != this->_secret) {
+            spdlog::error("[Manager] Reject executor, wrong secret {}", private_data.data());
+            _state.reject(conn);
+          } else {
+            _state.accept(conn);
+          }
+
+        } else if (private_data.key() == 2) {
+          _state.accept(conn);
+
           Client client{conn, _state.pd()};
           client._active = true;
-          _state.accept(conn);
-          _q2.enqueue(std::make_pair(pos, std::move(client)));    
+          _client_queue.emplace(Operation::CONNECT, msg_t{std::move(client)});
+        } else {
+          spdlog::error("[Manager] Reject unknown connection! Secret {}", private_data.data());
+          _state.reject(conn);
+        }
 
-          SPDLOG_DEBUG("send to another thread\n");
-          atomic_thread_fence(std::memory_order_release);
-        } else
-          _state.accept(conn);
         continue;
       }
       // Allocate structures for connections with an executor.
       // For a connection with a client we don't have to do anything. 
       else if(conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
+
         spdlog::debug("[Manager-listen] New established connection {}", fmt::ptr(conn));
-        uint32_t private_data = conn->private_data();
-        if(private_data) {
-          if((private_data & 0xFFFF ) == this->_secret) {
-            int client = private_data >> 16;
-            SPDLOG_DEBUG("Executor for client {}", client);
-            // FIXME: check it exists
-            _q1.enqueue(std::make_pair( client, conn ));    
-          } else {
-            spdlog::error("New connection's private data that we can't understand: {}", private_data);
-          }
-        }
+
+        // FIXME: initialize data for atomics when executor is Connected
+        _client_queue.emplace(Operation::CONNECT, msg_t{conn});
       }
     }
     spdlog::info("Background thread stops waiting for rdmacm events.");
   }
 
+  void Manager::poll_res_mgr()
+  {
+
+  }
+
   void Manager::poll_rdma()
   {
+    rdmalib::RecvWorkCompletions* recv_queue = nullptr;
+    typedef std::unordered_map<uint32_t, rdmalib::RecvWorkCompletions*> exec_t;
+    exec_t executors;
+    //typedef std::unordered_map<uint32_t, Client> client_t;
+    //client_t clients;
     // FIXME: sleep when there are no clients
-    bool active_clients = true;
-    while(active_clients && !_shutdown.load()) {
-      {
-        std::pair<int, rdmalib::Connection*>* p1 = _q1.peek();
-        if(p1){
-          int client = p1->first;
-          SPDLOG_DEBUG("Connected executor for client {}", client);
-          int pos = _clients.find(client)->second.executor->connections_len++;
-          _clients.find(client)->second.executor->connections[pos] = p1->second; 
-          _q1.pop();
-        }; 
-        std::pair<int,Client>* p2 = _q2.peek();
-        if(p2){
-          _clients.insert(std::make_pair(p2->first, std::move(p2->second)));
-          SPDLOG_DEBUG("Connected new client id {}", p2->first);
-          _q2.pop();
-        };  
+
+    int conn_count = 0;
+
+    while(!_shutdown.load()) {
+
+      bool updated = false;
+      std::tuple<Operation, msg_t> result;
+      std::tuple<Operation, msg_t>* result_ptr;
+
+      if(conn_count > 0) {
+
+        result_ptr = _client_queue.peek();
+        if(result_ptr) {
+          updated = true;
+        }
+
+      } else {
+        updated = _client_queue.wait_dequeue_timed(result, POLLING_TIMEOUT_MS * 1000);
+        if(updated) {
+          result_ptr = &result;
+        }
       }
 
+      if (updated) {
+
+        if (std::get<0>(*result_ptr) == Operation::CONNECT) {
+
+          if(std::holds_alternative<rdmalib::Connection*>(std::get<1>(*result_ptr))) {
+
+            rdmalib::Connection* conn = std::get<rdmalib::Connection*>(std::get<1>(*result_ptr));
+            // FIXME: save executors
+            if(!recv_queue) {
+              recv_queue = &conn->receive_wcs();
+            }
+
+          } else {
+
+            Client& client = std::get<Client>(std::get<1>(*result_ptr));
+            if(!recv_queue) {
+              recv_queue = &client.connection->receive_wcs();
+            }
+
+            _clients.emplace(std::piecewise_construct,
+                            std::forward_as_tuple(client.connection->qp()->qp_num),
+                            std::forward_as_tuple(std::move(client))
+            );
+
+            SPDLOG_DEBUG("[Manager-RDMA] Accepted a new client");
+
+          }
+
+          // FIXME: process until not empty
+          conn_count++;
+        } else {
+
+          // FIXME: disconnection
+
+        }
+
+        if(conn_count > 0) {
+          _client_queue.pop();
+        }
+
+      }
+
+      //{
+      //  auto ptr = _client_queue.peek();
+      //  if(p1){
+      //    int client = p1->first;
+      //    SPDLOG_DEBUG("Connected executor for client {}", client);
+      //    int pos = _clients.find(client)->second.executor->connections_len++;
+      //    _clients.find(client)->second.executor->connections[pos] = p1->second; 
+      //    _q1.pop();
+      //  }; 
+      //  std::pair<int,Client>* p2 = _q2.peek();
+      //  if(p2){
+      //    _clients.insert(std::make_pair(p2->first, std::move(p2->second)));
+      //    SPDLOG_DEBUG("Connected new client id {}", p2->first);
+      //    _q2.pop();
+      //  };  
+      //}
+
+      // FIXME: Move to a separate thread + read queue
       auto wcs = _res_mgr_connection->_connection.connection().receive_wcs().poll(false);
       if(std::get<1>(wcs)) {
 
@@ -173,8 +257,9 @@ namespace rfaas::executor_manager {
 
       }
 
+      // FIXME: users sending their lease ID 
       atomic_thread_fence(std::memory_order_acquire);
-      std::vector<std::map<int, Client>::iterator> removals;
+      std::vector<std::unordered_map<uint32_t, Client>::iterator> removals;
       for(auto it = _clients.begin(); it != _clients.end(); ++it) {
 
         Client & client = it->second;
@@ -188,8 +273,6 @@ namespace rfaas::executor_manager {
           for(int j = 0; j < std::get<1>(wcs); ++j) {
 
             auto wc = std::get<0>(wcs)[j];
-            if(wc.status != 0)
-              continue;
             uint64_t id = wc.wr_id;
             int16_t cores = client.allocation_requests.data()[id].cores;
             char * client_address = client.allocation_requests.data()[id].listen_address;

@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <variant>
 #include <vector>
 #include <mutex>
 #include <map>
@@ -75,11 +76,23 @@ namespace rfaas::executor_manager {
     static constexpr int MAX_EXECUTORS_ACTIVE = 8;
     static constexpr int MAX_CLIENTS_ACTIVE = 1024;
     static constexpr int POLLING_TIMEOUT_MS = 100;
-    moodycamel::ReaderWriterQueue<std::pair<int, rdmalib::Connection*>> _q1;
-    moodycamel::ReaderWriterQueue<std::pair<int, Client>> _q2;
+
+    enum class Operation
+    {
+      CONNECT = 0,
+      DISCONNECT = 1
+    };
+
+    // The first variatn members corresponds to a new executor for a client.
+    // The second one corresponds to a client instance.
+    //
+    // Integer corresponds to the client number ID.
+    //
+    typedef std::variant<rdmalib::Connection*, Client> msg_t;
+    moodycamel::BlockingReaderWriterQueue<std::tuple<Operation, msg_t>> _client_queue;
 
     std::mutex clients;
-    std::map<int, Client> _clients;
+    std::unordered_map<uint32_t, Client> _clients;
     int _ids;
 
     std::unique_ptr<ResourceManagerConnection> _res_mgr_connection;
@@ -96,6 +109,7 @@ namespace rfaas::executor_manager {
     void start();
     void listen();
     void poll_rdma();
+    void poll_res_mgr();
     void shutdown();
   };
 

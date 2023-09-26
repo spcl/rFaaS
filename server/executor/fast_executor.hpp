@@ -11,7 +11,6 @@
 
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/connection.hpp>
-#include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/functions.hpp>
 
 #include "functions.hpp"
@@ -117,9 +116,9 @@ namespace server {
     uint32_t  max_inline_data;
     int id, repetitions;
     int max_repetitions;
+    int _recv_buffer_size;
     uint64_t sum;
     rdmalib::Buffer<char> send, rcv;
-    rdmalib::RecvBuffer wc_buffer;
     rdmalib::Connection* conn;
     rdmalib::Connection* _mgr_connection;
     const executor::ManagerConnection & _mgr_conn;
@@ -139,11 +138,11 @@ namespace server {
       id(id),
       repetitions(0),
       max_repetitions(0),
+      _recv_buffer_size(recv_buffer_size),
       sum(0),
       send(buf_size),
       rcv(buf_size, rdmalib::functions::Submission::DATA_HEADER_SIZE),
       // +1 to handle batching of functions work completions + initial code submission
-      wc_buffer(recv_buffer_size + 1),
       conn(nullptr),
       _mgr_conn(mgr_conn),
       _accounting({0,0,0,0}),
