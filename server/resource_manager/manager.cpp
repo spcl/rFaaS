@@ -300,80 +300,82 @@ void Manager::process_clients() {
     }
 
     // FIXME: sleep
+    auto wcs = recv_poller.poll(false);
+    for (int j = 0; j < std::get<1>(wcs); ++j) {
 
-    if(client_count > 0) {
+      auto wc = std::get<0>(wcs)[j];
+      uint64_t id = wc.wr_id;
+      uint32_t qp_num = wc.qp_num;
 
-      auto wcs = recv_poller.poll(false);
-      if(std::get<1>(wcs)) {
+      auto it = clients.find(qp_num);
+      if(it == clients.end()) {
+        spdlog::warn("Polled work completion for QP {}, non-existing client!", qp_num);
+        continue;
+      }
 
-        for (int j = 0; j < std::get<1>(wcs); ++j) {
+      if(wc.status != IBV_WC_SUCCESS) {
+        spdlog::error("Failed work completion on client {}, error {}", qp_num, wc.status);
+        continue;
+      }
 
-          auto wc = std::get<0>(wcs)[j];
-          uint64_t id = wc.wr_id;
-          uint32_t qp_num = wc.qp_num;
+      Client& client = (*it).second;
 
-          auto it = clients.find(qp_num);
-          Client& client = (*it).second;
+      int16_t cores = client.allocation_requests.data()[id].cores;
+      int32_t memory = client.allocation_requests.data()[id].memory;
 
-          int16_t cores = client.allocation_requests.data()[id].cores;
-          int32_t memory = client.allocation_requests.data()[id].memory;
+      if (cores > 0) {
+        spdlog::info("Client requests executor with {} threads, it should have {} memory", 
+                    client.allocation_requests.data()[id].cores,
+                    client.allocation_requests.data()[id].memory
+        );
 
-          if (cores > 0) {
-            spdlog::info("Client requests executor with {} threads, it should have {} memory", 
-                        client.allocation_requests.data()[id].cores,
-                        client.allocation_requests.data()[id].memory
-            );
-
-            auto allocated = _executor_data.open_lease(cores, memory, *client.response().data());
-            if(allocated) {
-              spdlog::info("[Manager] Client receives lease with id {}", client.response().data()->lease_id);
-            } else {
-              spdlog::info("[Manager] Client request couldn't be satisfied");
-            }
-
-            if(!allocated) {
-              // FIXME: Send empty response?
-              client.connection->post_send(
-                client.response(),
-                0,
-                client.response().size() <= _device.max_inline_data,
-                0
-              );
-            } else {
-
-              allocated->_send_buffer[0].lease_id = client.response()[0].lease_id;
-              allocated->_send_buffer[0].cores = cores;
-              allocated->_send_buffer[0].memory = memory;
-
-              allocated->_connection->post_send(
-                allocated->_send_buffer,
-                0,
-                allocated->_send_buffer.size() <= _device.max_inline_data,
-                1
-              );
-              allocated->_connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
-
-              client.connection->post_send(
-                client.response(),
-                0,
-                client.response().size() <= _device.max_inline_data,
-                1
-              );
-            }
-            poll_send.emplace_back(&client);
-
-          } else {
-            spdlog::info("Client {} disconnects", client.client_id);
-            client.disable();
-            removals.push_back(it);
-            break;
-          }
-
-          client.connection->receive_wcs().update_requests(-1);
-          client.connection->receive_wcs().refill();
+        auto allocated = _executor_data.open_lease(cores, memory, *client.response().data());
+        if(allocated) {
+          spdlog::info("[Manager] Client receives lease with id {}", client.response().data()->lease_id);
+        } else {
+          spdlog::info("[Manager] Client request couldn't be satisfied");
         }
 
+        if(!allocated) {
+          // FIXME: Send empty response?
+          client.connection->post_send(
+            client.response(),
+            0,
+            client.response().size() <= _device.max_inline_data,
+            0
+          );
+        } else {
+
+          allocated->_send_buffer[0].lease_id = client.response()[0].lease_id;
+          allocated->_send_buffer[0].cores = cores;
+          allocated->_send_buffer[0].memory = memory;
+
+          allocated->_connection->post_send(
+            allocated->_send_buffer,
+            0,
+            allocated->_send_buffer.size() <= _device.max_inline_data,
+            1
+          );
+          allocated->_connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
+
+          client.connection->post_send(
+            client.response(),
+            0,
+            client.response().size() <= _device.max_inline_data,
+            1
+          );
+        }
+        poll_send.emplace_back(&client);
+
+      } else {
+        spdlog::info("Client {} disconnects", client.client_id);
+        client.disable();
+        removals.push_back(it);
+        break;
       }
+
+      client.connection->receive_wcs().update_requests(-1);
+      client.connection->receive_wcs().refill();
     }
 
     if (poll_send.size()) {
@@ -389,7 +391,7 @@ void Manager::process_clients() {
         clients.erase(it);
       }
 
-      client_count -= removals.size();
+      //client_count -= removals.size();
       //if(client_count == 0) {
       //  recv_poller.initialize(nullptr);
       //}
