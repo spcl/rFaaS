@@ -12,13 +12,14 @@
 
 namespace rfaas::executor_manager {
 
-  Client::Client(rdmalib::Connection* conn, ibv_pd* pd): //, Accounting & _acc):
+  Client::Client(int id, rdmalib::Connection* conn, ibv_pd* pd): //, Accounting & _acc):
     connection(conn),
     allocation_requests(RECV_BUF_SIZE),
     accounting(1),
     //accounting(_acc),
     allocation_time(0),
-    _active(false)
+    _active(false),
+    _id(id)
   {
     // Make the buffer accessible to clients
     memset(accounting.data(), 0, accounting.data_size());
@@ -68,7 +69,7 @@ namespace rfaas::executor_manager {
     connection->receive_wcs().refill();
   }
 
-  void Client::disable(int id)
+  void Client::disable()
   {
     rdma_disconnect(connection->id());
     SPDLOG_DEBUG(
@@ -87,7 +88,7 @@ namespace rfaas::executor_manager {
     }
     spdlog::info(
       "Client {} exited, time allocated {} us, polling {} us, execution {} us",
-      id, allocation_time,
+      _id, allocation_time,
       accounting.data()[0].hot_polling_time / 1000.0,
       accounting.data()[0].execution_time / 1000.0
     );
