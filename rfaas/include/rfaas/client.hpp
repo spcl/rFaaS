@@ -59,6 +59,7 @@ namespace rfaas {
         _resource_mgr.response(response_id).port,
         cores,
         memory,
+        _resource_mgr.response(response_id).lease_id,
         dev
       };
     }
@@ -71,7 +72,7 @@ namespace rfaas {
 
       server_data instance = nodes_data.server(0);
 
-      return std::make_optional<rfaas::executor>(instance.address, instance.port, cores, memory, _device);
+      return std::make_optional<rfaas::executor>(instance.address, instance.port, cores, memory, -1, _device);
     }
 
   private:

@@ -58,6 +58,7 @@ namespace rfaas {
     int _memory;
     int _executions;
     int _invoc_id;
+    int _lease_id;
     // FIXME: global settings
     std::vector<executor_state> _connections;
     std::unique_ptr<manager_connection> _exec_manager;
@@ -72,7 +73,7 @@ namespace rfaas {
     int events;
 
     // Currently, we use the same device for listening and connecting to the manager.
-    executor(const std::string& address, int port, int numcores, int memory, device_data & dev);
+    executor(const std::string& address, int port, int numcores, int memory, int lease_id, device_data & dev);
     ~executor();
 
     executor(executor&& obj);

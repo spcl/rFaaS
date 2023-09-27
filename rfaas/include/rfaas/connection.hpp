@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <rdmalib/buffer.hpp>
+#include <rdmalib/poller.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/server.hpp>
 
@@ -16,20 +17,22 @@ namespace rfaas {
   struct manager_connection {
     std::string _address;
     int _port;
-    rdmalib::Buffer<char> _submit_buffer;
-    rdmalib::RDMAActive _active;
     int _rcv_buf_size;
-    rdmalib::Buffer<rfaas::AllocationRequest> _allocation_buffer;
     int _max_inline_data;
+    rdmalib::RDMAActive _active;
+    rdmalib::Buffer<char> _allocation_buffer;
+    rdmalib::Poller _poller;
 
     manager_connection(std::string address, int port, int rcv_buf,
                       int max_inline_data);
 
     rdmalib::Connection &connection();
     rfaas::AllocationRequest &request();
+    LeaseStatus* response(int idx);
     bool connect();
     void disconnect();
     bool submit();
+    LeaseStatus* poll_response();
   };
 
   struct resource_mgr_connection {

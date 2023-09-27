@@ -15,12 +15,13 @@ namespace rfaas {
       int rcv_buf, int max_inline_data):
     _address(address),
     _port(port),
-    _active(_address, _port, rcv_buf),
     _rcv_buf_size(rcv_buf),
-    _allocation_buffer(rcv_buf + 1),
-    _max_inline_data(max_inline_data)
+    _max_inline_data(max_inline_data),
+    _active(_address, _port, rcv_buf),
+    _allocation_buffer(sizeof(LeaseStatus)*rcv_buf + sizeof(AllocationRequest))
   {
     _active.allocate();
+    _poller.initialize(_active.connection().qp()->recv_cq);
   }
 
   bool manager_connection::connect()
@@ -35,7 +36,7 @@ namespace rfaas {
     _allocation_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE); 
 
     // Initialize batch receive WCs
-    _active.connection().receive_wcs().initialize(_allocation_buffer);
+    _active.connection().receive_wcs().initialize(_allocation_buffer, sizeof(LeaseStatus));
     return ret;
   }
 
@@ -44,7 +45,7 @@ namespace rfaas {
     SPDLOG_DEBUG("Disconnecting from manager at {}:{}", _address, _port);
     // Send deallocation request only if we're connected
     if(_active.is_connected()) {
-      request() = (rfaas::AllocationRequest) {-1, 0, 0, 0, 0, 0, 0, 0, ""};
+      request() = (rfaas::AllocationRequest) {-1, 0, 0, 0, 0, 0, 0, ""};
       rdmalib::ScatterGatherElement sge;
       size_t obj_size = sizeof(rfaas::AllocationRequest);
       sge.add(_allocation_buffer, obj_size, obj_size*_rcv_buf_size);
@@ -59,20 +60,62 @@ namespace rfaas {
     return _active.connection();
   }
 
-  rfaas::AllocationRequest & manager_connection::request()
+  AllocationRequest & manager_connection::request()
   {
-    return *(_allocation_buffer.data() + _rcv_buf_size);
+    return *reinterpret_cast<AllocationRequest*>(_allocation_buffer.data() + _rcv_buf_size*sizeof(LeaseStatus));
+  }
+
+  LeaseStatus* manager_connection::response(int idx)
+  {
+    return reinterpret_cast<LeaseStatus*>(_allocation_buffer.data() + idx * sizeof(LeaseStatus));
+  }
+
+  LeaseStatus* manager_connection::poll_response()
+  {
+    auto [wcs, count] = _poller.poll(true);
+    if(count > 1) {
+      spdlog::warn("Ignoring {} responses from executor manager", count - 1);
+    }
+    if(wcs[0].status != IBV_WC_SUCCESS) {
+      spdlog::error("Couldn't receive the response from executor manager!");
+      return nullptr;
+    }
+    return response(wcs[0].wr_id);
   }
 
   bool manager_connection::submit()
   {
     rdmalib::ScatterGatherElement sge;
-    size_t obj_size = sizeof(rfaas::AllocationRequest);
-    sge.add(_allocation_buffer, obj_size, obj_size*_rcv_buf_size);
+    size_t obj_size = sizeof(AllocationRequest);
+    sge.add(_allocation_buffer, obj_size, sizeof(LeaseStatus)*_rcv_buf_size);
     _active.connection().post_send(sge);
     _active.connection().poll_wc(rdmalib::QueueType::SEND, true);
-    // FIXME: check failure
-    return true;
+
+    auto response = poll_response();
+    if(!response) {
+      return false;
+    }
+
+    if(response->status == LeaseStatus::ALLOCATED) {
+      return true;
+    }
+
+    switch(response->status)
+    {
+      case LeaseStatus::UNKNOWN:
+        spdlog::error("Executor manager doesn't know this lease!");
+      break;
+      case LeaseStatus::FAILED_ALLOCATE:
+        spdlog::error("Executor manager couldn't allocate this lease!");
+      break;
+      case LeaseStatus::TERMINATING:
+        spdlog::error("Lease is being terminated!");
+      break;
+      case LeaseStatus::FAILED:
+        spdlog::error("Executor failed!");
+      break;
+    }
+    return false;
   }
 
   resource_mgr_connection::resource_mgr_connection(std::string address, int port,

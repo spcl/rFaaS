@@ -37,14 +37,15 @@ namespace rfaas {
   {
   }
 
-  executor::executor(const std::string& address, int port, int numcores, int memory, device_data & dev):
+  executor::executor(const std::string& address, int port, int numcores, int memory, int lease_id, device_data & dev):
     _state(dev.ip_address, dev.port, dev.default_receive_buffer_size + 1),
     _execs_buf(MAX_REMOTE_WORKERS),
     _device(dev),
     _numcores(numcores),
     _memory(memory),
     _executions(0),
-    _invoc_id(0)
+    _invoc_id(0),
+    _lease_id(lease_id)
   {
     _execs_buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     events = 0;
@@ -77,6 +78,7 @@ namespace rfaas {
     _memory(std::move(obj._memory)),
     _executions(std::move(obj._executions)),
     _invoc_id(std::move(obj._invoc_id)),
+    _lease_id(std::move(obj._lease_id)),
     _connections(std::move(obj._connections)),
     _exec_manager(std::move(obj._exec_manager)),
     _func_names(std::move(obj._func_names)),
@@ -281,11 +283,10 @@ namespace rfaas {
         return false;
 
       _exec_manager->request() = (rfaas::AllocationRequest) {
+        static_cast<int32_t>(_lease_id),
         static_cast<int16_t>(hot_timeout),
         // FIXME: timeout
         5,
-        static_cast<int16_t>(_numcores),
-        static_cast<int32_t>(_memory),
         // FIXME: variable number of inputs
         1,
         max_input_size,
@@ -293,9 +294,11 @@ namespace rfaas {
         _state.listen_port(),
         ""
       };
-
       strcpy(_exec_manager->request().listen_address, _device.ip_address.c_str());
-      _exec_manager->submit();
+
+      if(!_exec_manager->submit()) {
+        return false;
+      }
       // Measure submission time
       if(benchmarker) {
         benchmarker->end(1);
