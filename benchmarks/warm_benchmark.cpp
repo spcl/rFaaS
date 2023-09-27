@@ -37,7 +37,10 @@ int main(int argc, char **argv) {
       rfaas::benchmark::Settings::deserialize(benchmark_cfg);
   benchmark_cfg.close();
 
-  rfaas::client instance("192.168.0.19", 10000, *settings.device);
+  rfaas::client instance(
+    settings.resource_manager_address, settings.resource_manager_port,
+    *settings.device
+  );
   if (!instance.connect()) {
     spdlog::error("Connection to resource manager failed!");
     return 1;
@@ -137,6 +140,8 @@ int main(int argc, char **argv) {
   for (int i = 0; i < std::min(100, opts.input_size); ++i)
     printf("%d ", ((char *)out.data())[i]);
   printf("\n");
+
+  instance.disconnect();
 
   return 0;
 }
