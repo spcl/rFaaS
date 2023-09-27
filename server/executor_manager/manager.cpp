@@ -10,6 +10,7 @@
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/connection.hpp>
+#include <rdmalib/poller.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/util.hpp>
 
@@ -115,9 +116,7 @@ namespace rfaas::executor_manager {
           _client_queue.emplace(Operation::CONNECT, msg_t{conn});
 
         } else {
-          _state.accept(conn);
-
-          Client client{conn, _state.pd()};
+          Client client{conn->qp()->qp_num, conn, _state.pd()};
           client._active = true;
           _client_queue.emplace(Operation::CONNECT, msg_t{std::move(client)});
         }
@@ -146,12 +145,12 @@ namespace rfaas::executor_manager {
 
     rdmalib::Connection& conn = _res_mgr_connection->_connection.connection();
 
-    conn.notify_events();
+    //conn.notify_events();
 
     while(!_shutdown.load()) {
 
-      auto cq = conn.wait_events();
-      conn.ack_events(cq, 1);
+      //auto cq = conn.wait_events();
+      //conn.ack_events(cq, 1);
 
       auto wcs = _res_mgr_connection->_connection.connection().receive_wcs().poll(false);
       if(std::get<1>(wcs)) {
@@ -166,216 +165,237 @@ namespace rfaas::executor_manager {
           std::cerr << _res_mgr_connection->_receive_buffer[id].lease_id << std::endl;
           std::cerr << _res_mgr_connection->_receive_buffer[id].cores << std::endl;
           std::cerr << _res_mgr_connection->_receive_buffer[id].memory << std::endl;
+          // FIXME: save lease ID
         }
       }
 
       _res_mgr_connection->_connection.connection().receive_wcs().refill();
 
-      conn.notify_events();
+      //conn.notify_events();
     }
 
     spdlog::info("Background thread stops waiting for resource manager events.");
   }
 
+  bool Manager::_process_client(Client & client, uint64_t wr_id)
+  {
+    // FIXME: users sending their lease ID
+    // FIXME: check lease ID
+    int16_t cores = client.allocation_requests.data()[wr_id].cores;
+    char * client_address = client.allocation_requests.data()[wr_id].listen_address;
+    int client_port = client.allocation_requests.data()[wr_id].listen_port;
+
+    if(cores > 0) {
+      spdlog::info(
+        "Client {} requests executor with {} threads, it should connect to {}:{},"
+        "it should have buffer of size {}, func buffer {}, and hot timeout {}",
+        client.id(), client.allocation_requests.data()[wr_id].cores,
+        client.allocation_requests.data()[wr_id].listen_address,
+        client.allocation_requests.data()[wr_id].listen_port,
+        client.allocation_requests.data()[wr_id].input_buf_size,
+        client.allocation_requests.data()[wr_id].func_buf_size,
+        client.allocation_requests.data()[wr_id].hot_timeout
+      );
+
+      rdmalib::PrivateData<0,0,32> data;
+      data.secret(client.connection->qp()->qp_num);
+      uint64_t addr = client.accounting.address(); //+ sizeof(Accounting)*i;
+
+      // FIXME: Docker
+      auto now = std::chrono::high_resolution_clock::now();
+      client.executor.reset(
+        ProcessExecutor::spawn(
+          client.allocation_requests.data()[wr_id],
+          _settings.exec,
+          {
+            _settings.device->ip_address,
+            _settings.rdma_device_port,
+            data.data(), addr, client.accounting.rkey()
+          }
+        )
+      );
+      auto end = std::chrono::high_resolution_clock::now();
+      spdlog::info(
+        "Client {} at {}:{} has executor with {} ID and {} cores, time {} us",
+        client.id(), client_address, client_port, client.executor->id(), cores,
+        std::chrono::duration_cast<std::chrono::microseconds>(end-now).count()
+      );
+
+          client.connection->receive_wcs().update_requests(-1);
+      client.connection->receive_wcs().refill();
+      return true;
+    } else {
+
+      spdlog::info("Client {} disconnects", client.id());
+      if(client.executor) {
+        auto now = std::chrono::high_resolution_clock::now();
+        client.allocation_time +=
+          std::chrono::duration_cast<std::chrono::microseconds>(
+            now - client.executor->_allocation_finished
+          ).count();
+      }
+      //client.disable(i, _accounting_data.data()[i]);
+      client.disable();
+
+      return false;
+    }
+
+  }
+
+  void Manager::_check_executors(removals_t & removals)
+  {
+    for(auto it = _clients.begin(); it != _clients.end(); ++it) {
+
+      Client & client = it->second;
+      int i = it->first;
+      if(!client.active()) {
+        continue;
+      }
+
+      if(!client.executor) {
+        continue;
+      }
+
+      auto status = client.executor->check();
+      if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
+        auto now = std::chrono::high_resolution_clock::now();
+        client.allocation_time +=
+          std::chrono::duration_cast<std::chrono::microseconds>(
+            now - client.executor->_allocation_finished
+          ).count();
+
+        // FIXME: update global manager
+        // send lease cancellation
+        spdlog::info(
+          "Executor at client {} exited, status {}, time allocated {} us, polling {} us, execution {} us",
+          i, std::get<1>(status), client.allocation_time,
+          client.accounting.data()[i].hot_polling_time / 1000.0,
+          client.accounting.data()[i].execution_time / 1000.0
+        );
+        client.executor.reset(nullptr);
+        spdlog::info("Finished cleanup");
+
+        // FIXME: notify client
+        client.disable();
+        removals.push_back(it);
+      }
+
+    }
+  }
+
+  std::tuple<Manager::Operation, Manager::msg_t>* Manager::_check_queue(int conn_count)
+  {
+    static std::tuple<Operation, msg_t> result;
+    bool updated = false;
+
+    if(conn_count > 0) {
+      updated = _client_queue.try_dequeue(result);
+    } else {
+      updated = _client_queue.wait_dequeue_timed(result, POLLING_TIMEOUT_MS * 1000);
+    }
+
+    return updated ? &result : nullptr;
+  }
+
+  void Manager::_handle_connections(msg_t & message)
+  {
+    if(std::holds_alternative<rdmalib::Connection*>(message)) {
+
+      rdmalib::Connection* conn = std::get<rdmalib::Connection*>(message);
+
+      uint32_t qp_num = conn->private_data();
+      auto it = _clients.find(qp_num);
+      if(it == _clients.end()) {
+
+        SPDLOG_DEBUG("[Manager-RDMA] Rejecting executor to an unknown client {}", qp_num);
+        // This operation is thread-safe
+        _state.reject(conn);
+        delete conn;
+
+      } else {
+
+        SPDLOG_DEBUG("[Manager-RDMA] Accepted a new executor for client {}", qp_num);
+        // This operation is thread-safe
+        _state.accept(conn);
+        (*it).second.executor->add_executor(conn);
+
+      }
+
+    } else {
+
+      Client& client = std::get<Client>(message);
+      _state.accept(client.connection);
+      _clients.emplace(std::piecewise_construct,
+                      std::forward_as_tuple(client.connection->qp()->qp_num),
+                      std::forward_as_tuple(std::move(client))
+      );
+      SPDLOG_DEBUG("[Manager-RDMA] Accepted a new client");
+
+    }
+  }
+
+  void Manager::_handle_disconnections(msg_t & message)
+  {
+    rdmalib::Connection* conn = std::get<rdmalib::Connection*>(message);
+    auto it = _clients.find(conn->qp()->qp_num);
+    if (it != _clients.end()) {
+      spdlog::debug("[Manager] Disconnecting client");
+      _clients.erase(it);
+    } else {
+      spdlog::debug("[Manager] Disconnecting unknown client");
+    }
+  }
+
   void Manager::poll_rdma()
   {
-    rdmalib::RecvWorkCompletions* recv_queue = nullptr;
-    typedef std::unordered_map<uint32_t, rdmalib::RecvWorkCompletions*> exec_t;
-    exec_t executors;
-    //typedef std::unordered_map<uint32_t, Client> client_t;
-    //client_t clients;
-    // FIXME: sleep when there are no clients
-
+    rdmalib::Poller recv_poller{_state.shared_queue(0)};
     int conn_count = 0;
+    // FIXME: sleep when there are no clients
 
     while(!_shutdown.load()) {
 
-      bool updated = false;
-      std::tuple<Operation, msg_t> result;
-      std::tuple<Operation, msg_t>* result_ptr;
+      while(true) {
 
-      if(conn_count > 0) {
-
-        result_ptr = _client_queue.peek();
-        if(result_ptr) {
-          updated = true;
+        auto ptr = _check_queue(conn_count);
+        if(!ptr) {
+          break;
         }
 
-      } else {
-        updated = _client_queue.wait_dequeue_timed(result, POLLING_TIMEOUT_MS * 1000);
-        if(updated) {
-          result_ptr = &result;
-        }
-      }
-
-      if (updated) {
-
-        if (std::get<0>(*result_ptr) == Operation::CONNECT) {
-
-          if(std::holds_alternative<rdmalib::Connection*>(std::get<1>(*result_ptr))) {
-
-            rdmalib::Connection* conn = std::get<rdmalib::Connection*>(std::get<1>(*result_ptr));
-            if(!recv_queue) {
-              recv_queue = &conn->receive_wcs();
-            }
-
-            uint32_t qp_num = conn->private_data();
-            auto it = _clients.find(qp_num);
-            if(it == _clients.end()) {
-
-              SPDLOG_DEBUG("[Manager-RDMA] Rejecting executor to an unknown client {}", qp_num);
-              // This operation is thread-safe
-              _state.reject(conn);
-
-            } else {
-
-              SPDLOG_DEBUG("[Manager-RDMA] Accepted a new executor for client {}", qp_num);
-              // This operation is thread-safe
-              _state.accept(conn);
-              (*it).second.executor->add_executor(conn);
-
-            }
-
-          } else {
-
-            Client& client = std::get<Client>(std::get<1>(*result_ptr));
-            if(!recv_queue) {
-              recv_queue = &client.connection->receive_wcs();
-            }
-
-            _clients.emplace(std::piecewise_construct,
-                            std::forward_as_tuple(client.connection->qp()->qp_num),
-                            std::forward_as_tuple(std::move(client))
-            );
-
-            SPDLOG_DEBUG("[Manager-RDMA] Accepted a new client");
-
-          }
-
-          // FIXME: process until not empty
+        if (std::get<0>(*ptr) == Operation::CONNECT) {
+          _handle_connections(std::get<1>(*ptr));
           conn_count++;
         } else {
-
-          // FIXME: disconnection
-          rdmalib::Connection* conn = std::get<rdmalib::Connection*>(std::get<1>(*result_ptr));
-          auto it = _clients.find(conn->qp()->qp_num);
-          if (it != _clients.end()) {
-            spdlog::debug("[Manager] Disconnecting client");
-            _clients.erase(it);
-          } else {
-            spdlog::debug("[Manager] Disconnecting unknown client");
-          }
-          //removals.push_back(client);
-
+          _handle_disconnections(std::get<1>(*ptr));
         }
-
-        if(conn_count > 0) {
-          _client_queue.pop();
-        }
-
       }
 
-      // FIXME: Move to a separate thread + read queue
-
-      // FIXME: users sending their lease ID 
-      atomic_thread_fence(std::memory_order_acquire);
       std::vector<std::unordered_map<uint32_t, Client>::iterator> removals;
-      for(auto it = _clients.begin(); it != _clients.end(); ++it) {
+      auto wcs = recv_poller.poll(false);
+      for(int j = 0; j < std::get<1>(wcs); ++j) {
 
-        Client & client = it->second;
-        int i = it->first;
-        auto wcs = client.connection->receive_wcs().poll(false);
-        if(std::get<1>(wcs)) {
-          SPDLOG_DEBUG(
-            "Received at {}, work completions {}",
-            i, std::get<1>(wcs)
-          );
-          // How to connect a wr with a specific client?
-          // USE THE qp_num!
-          for(int j = 0; j < std::get<1>(wcs); ++j) {
+        auto wc = std::get<0>(wcs)[j];
+        uint32_t qp_num = wc.qp_num;
+        auto it = _clients.find(qp_num);
+        if(it != _clients.end()) {
 
-            auto wc = std::get<0>(wcs)[j];
-            uint64_t id = wc.wr_id;
-            int16_t cores = client.allocation_requests.data()[id].cores;
-            char * client_address = client.allocation_requests.data()[id].listen_address;
-            int client_port = client.allocation_requests.data()[id].listen_port;
-
-            if(cores > 0) {
-              spdlog::info(
-                "Client {} requests executor with {} threads, it should connect to {}:{},"
-                "it should have buffer of size {}, func buffer {}, and hot timeout {}",
-                i, client.allocation_requests.data()[id].cores,
-                client.allocation_requests.data()[id].listen_address,
-                client.allocation_requests.data()[id].listen_port,
-                client.allocation_requests.data()[id].input_buf_size,
-                client.allocation_requests.data()[id].func_buf_size,
-                client.allocation_requests.data()[id].hot_timeout
-              );
-
-              rdmalib::PrivateData<0,0,32> data;
-              data.secret(client.connection->qp()->qp_num);
-              uint64_t addr = client.accounting.address(); //+ sizeof(Accounting)*i;
-
-              // FIXME: Docker
-              auto now = std::chrono::high_resolution_clock::now();
-              client.executor.reset(
-                ProcessExecutor::spawn(
-                  client.allocation_requests.data()[id],
-                  _settings.exec,
-                  {
-                    _settings.device->ip_address,
-                    _settings.rdma_device_port,
-                    data.data(), addr, client.accounting.rkey()
-                  }
-                )
-              );
-              auto end = std::chrono::high_resolution_clock::now();
-              spdlog::info(
-                "Client {} at {}:{} has executor with {} ID and {} cores, time {} us",
-                i, client_address, client_port, client.executor->id(), cores,
-                std::chrono::duration_cast<std::chrono::microseconds>(end-now).count()
-              );
-            } else {
-              spdlog::info("Client {} disconnects", i);
-              if(client.executor) {
-                auto now = std::chrono::high_resolution_clock::now();
-                client.allocation_time +=
-                  std::chrono::duration_cast<std::chrono::microseconds>(
-                    now - client.executor->_allocation_finished
-                  ).count();
-              }
-              //client.disable(i, _accounting_data.data()[i]);
-              client.disable(i);
-              removals.push_back(it);
-              break;
-            }
+          if(wc.status != IBV_WC_SUCCESS) {
+            spdlog::error("Failed work completion on client {}, error {}", qp_num, wc.status);
+            continue;
           }
-          //if(client.connection)
-          //  client.connection->poll_wc(rdmalib::QueueType::SEND, false);
-        }
-        if(client.active()) {
-          client.connection->receive_wcs().refill();
-          if(client.executor) {
-            auto status = client.executor->check();
-            if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
-              auto now = std::chrono::high_resolution_clock::now();
-              client.allocation_time +=
-                std::chrono::duration_cast<std::chrono::microseconds>(
-                  now - client.executor->_allocation_finished
-                ).count();
-              // FIXME: update global manager
-              spdlog::info(
-                "Executor at client {} exited, status {}, time allocated {} us, polling {} us, execution {} us",
-                i, std::get<1>(status), client.allocation_time,
-                client.accounting.data()[i].hot_polling_time / 1000.0,
-                client.accounting.data()[i].execution_time / 1000.0
-              );
-              client.executor.reset(nullptr);
-              spdlog::info("Finished cleanup");
-            }
+
+          Client & client = (*it).second;
+          if(!_process_client(client, wc.wr_id)) {
+            removals.push_back(it);
           }
+
+        } else {
+          spdlog::error("Polled work completion for QP {}, non-existing client!", qp_num);
         }
+
       }
+
+      _check_executors(removals);
+
       if(removals.size()) {
         for(auto it : removals) {
           spdlog::info("Remove client id {}", it->first);
@@ -386,87 +406,5 @@ namespace rfaas::executor_manager {
     spdlog::info("Background thread stops processing RDMA events.");
     _clients.clear();
   }
-
-  //void Manager::poll_rdma()
-  //{
-  //  // FIXME: sleep when there are no clients
-  //  bool active_clients = true;
-  //  while(active_clients) {
-  //    // FIXME: not safe? memory fance
-  //    atomic_thread_fence(std::memory_order_acquire);
-  //    for(int i = 0; i < _clients.size(); ++i) {
-  //      Client & client = _clients[i];
-  //      if(!client.active())
-  //        continue;
-  //      //auto wcs = client.connection->poll_wc(rdmalib::QueueType::RECV, false);
-  //      auto wcs = client.rcv_buffer.poll(false);
-  //      if(std::get<1>(wcs)) {
-  //        SPDLOG_DEBUG(
-  //          "Received at {}, work completions {}, clients active {}, clients datastructure size {}",
-  //          i, std::get<1>(wcs), _clients_active, _clients.size()
-  //        );
-  //        for(int j = 0; j < std::get<1>(wcs); ++j) {
-  //          auto wc = std::get<0>(wcs)[j];
-  //          if(wc.status != 0)
-  //            continue;
-  //          uint64_t id = wc.wr_id;
-  //          int16_t cores = client.allocation_requests.data()[id].cores;
-  //          char * client_address = client.allocation_requests.data()[id].listen_address;
-  //          int client_port = client.allocation_requests.data()[id].listen_port;
-
-  //          if(cores > 0) {
-  //            int secret = (i << 16) | (this->_secret & 0xFFFF);
-  //            uint64_t addr = _accounting_data.address() + sizeof(Accounting)*i;
-  //            // FIXME: Docker
-  //            client.executor.reset(
-  //              ProcessExecutor::spawn(
-  //                client.allocation_requests.data()[id],
-  //                _settings,
-  //                {this->_address, this->_port, secret, addr, _accounting_data.rkey()}
-  //              )
-  //            );
-  //            spdlog::info(
-  //              "Client {} at {}:{} has executor with {} ID and {} cores",
-  //              i, client_address, client_port, client.executor->id(), cores
-  //            );
-  //          } else {
-  //            spdlog::info("Client {} disconnects", i);
-  //            if(client.executor) {
-  //              auto now = std::chrono::high_resolution_clock::now();
-  //              client.allocation_time +=
-  //                std::chrono::duration_cast<std::chrono::microseconds>(
-  //                  now - client.executor->_allocation_finished
-  //                ).count();
-  //            }
-  //            client.disable(i, _accounting_data.data()[i]);
-  //            --_clients_active;
-  //            break;
-  //          }
-  //        }
-  //      }
-  //      if(client.active()) {
-  //        client.rcv_buffer.refill();
-  //        if(client.executor) {
-  //          auto status = client.executor->check();
-  //          if(std::get<0>(status) != ActiveExecutor::Status::RUNNING) {
-  //            auto now = std::chrono::high_resolution_clock::now();
-  //            client.allocation_time +=
-  //              std::chrono::duration_cast<std::chrono::microseconds>(
-  //                now - client.executor->_allocation_finished
-  //              ).count();
-  //            // FIXME: update global manager
-  //            spdlog::info(
-  //              "Executor at client {} exited, status {}, time allocated {} us, polling {} us, execution {} us",
-  //              i, std::get<1>(status), client.allocation_time,
-  //              _accounting_data.data()[i].hot_polling_time,
-  //              _accounting_data.data()[i].execution_time
-  //            );
-  //            client.executor.reset(nullptr);
-  //          }
-  //        }
-  //      }
-  //    }
-  //  }
-  //}
 
 }
