@@ -15,11 +15,13 @@
 #include <rdmalib/server.hpp>
 #include <rdmalib/buffer.hpp>
 
+#include <rfaas/allocation.hpp>
+
 #include "client.hpp"
-#include "common/messages.hpp"
 #include "settings.hpp"
-#include "../common.hpp"
-#include "../common/readerwriterqueue.h"
+#include "common/messages.hpp"
+#include "common.hpp"
+#include "common/readerwriterqueue.h"
 
 namespace rdmalib {
   struct AllocationRequest;
@@ -71,6 +73,27 @@ namespace rfaas::executor_manager {
     }
   };
 
+  struct Lease
+  {
+    int id;
+    int cores;
+    int memory;
+  };
+
+  struct Leases
+  {
+
+    void insert(Lease &&);
+    void insert_threadsafe(Lease &&);
+
+    std::optional<Lease> get(int id);
+    std::optional<Lease> get_threadsafe(int id);
+
+  private:
+    std::unordered_map<int, Lease> _leases;
+    std::mutex _mutex;
+  };
+
   struct Manager
   {
     static constexpr int MAX_EXECUTORS_ACTIVE = 8;
@@ -98,10 +121,13 @@ namespace rfaas::executor_manager {
     std::unique_ptr<ResourceManagerConnection> _res_mgr_connection;
 
     rdmalib::RDMAPassive _state;
+    // We could use a circular buffer here if polling for send WCs becomes an issue.
+    rdmalib::Buffer<rfaas::LeaseStatus> _client_responses;
     Settings _settings;
     //rdmalib::Buffer<Accounting> _accounting_data;
     bool _skip_rm;
     std::atomic<bool> _shutdown;
+    Leases _leases;
 
     Manager(Settings &, bool skip_rm);
 

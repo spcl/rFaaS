@@ -9,6 +9,7 @@
 
 #include <rfaas/allocation.hpp>
 
+#include "manager.hpp"
 #include "executor_process.hpp"
 #include "settings.hpp"
 #include "../common.hpp"
@@ -73,7 +74,8 @@ namespace rfaas::executor_manager {
   ProcessExecutor* ProcessExecutor::spawn(
     const rfaas::AllocationRequest & request,
     const ExecutorSettings & exec,
-    const executor::ManagerConnection & conn
+    const executor::ManagerConnection & conn,
+    const Lease & lease
   )
   {
     static int counter = 0;
@@ -84,7 +86,7 @@ namespace rfaas::executor_manager {
     //spdlog::error("Child fork begins work on PID {} req {}", mypid, fmt::ptr(&request));
     std::string client_in_size = std::to_string(request.input_buf_size);
     std::string client_func_size = std::to_string(request.func_buf_size);
-    std::string client_cores = std::to_string(request.cores);
+    std::string client_cores = std::to_string(lease.cores);
     std::string client_timeout = std::to_string(request.hot_timeout);
     //spdlog::error("Child fork begins work on PID {}", mypid);
     std::string executor_repetitions = std::to_string(exec.repetitions);
@@ -217,7 +219,7 @@ namespace rfaas::executor_manager {
     }
     if(counter == 36)
       counter = 0;
-    return new ProcessExecutor{request.cores, begin, mypid};
+    return new ProcessExecutor{lease.cores, begin, mypid};
   }
 
 }

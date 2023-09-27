@@ -12,14 +12,13 @@ namespace rfaas {
 }
 
 namespace executor {
-
   struct ManagerConnection;
-
 }
 
 namespace rfaas::executor_manager {
 
   struct ExecutorSettings;
+  struct Lease;
 
   struct ActiveExecutor {
 
@@ -60,7 +59,8 @@ namespace rfaas::executor_manager {
     static ProcessExecutor* spawn(
       const rfaas::AllocationRequest & request,
       const ExecutorSettings & exec,
-      const executor::ManagerConnection & conn
+      const executor::ManagerConnection & conn,
+      const Lease & lease
     );
   };
 

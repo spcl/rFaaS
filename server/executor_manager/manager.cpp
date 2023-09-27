@@ -1,12 +1,15 @@
 
 #include <chrono>
+#include <mutex>
 #include <thread>
+#include <variant>
 
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <infiniband/verbs.h>
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/connection.hpp>
@@ -16,11 +19,47 @@
 
 #include <rfaas/allocation.hpp>
 #include <rfaas/connection.hpp>
-#include <variant>
 
 #include "manager.hpp"
 
 namespace rfaas::executor_manager {
+
+  void Leases::insert(Lease && obj)
+  {
+    _leases.try_emplace(obj.id, obj) ;
+  }
+
+  void Leases::insert_threadsafe(Lease && obj)
+  {
+    std::unique_lock lock{_mutex};
+    _leases.try_emplace(obj.id, obj) ;
+  }
+
+  std::optional<Lease> Leases::get(int id)
+  {
+    auto it = _leases.find(id);
+    if(it != _leases.end()) {
+      Lease lease = (*it).second;
+      _leases.erase(it);
+      return lease;
+    } else {
+      return std::nullopt;
+    }
+  }
+
+  std::optional<Lease> Leases::get_threadsafe(int id)
+  {
+    std::unique_lock lock{_mutex};
+
+    auto it = _leases.find(id);
+    if(it != _leases.end()) {
+      Lease lease = (*it).second;
+      _leases.erase(it);
+      return lease;
+    } else {
+      return std::nullopt;
+    }
+  }
 
   constexpr int Manager::POLLING_TIMEOUT_MS;
 
@@ -30,6 +69,7 @@ namespace rfaas::executor_manager {
     _res_mgr_connection(nullptr),
     _state(settings.device->ip_address, settings.rdma_device_port,
         settings.device->default_receive_buffer_size, true),
+    _client_responses(1),
     _settings(settings),
     _skip_rm(skip_rm),
     _shutdown(false)
@@ -65,6 +105,7 @@ namespace rfaas::executor_manager {
     }
 
     _state.register_shared_queue(0);
+    _client_responses.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
 
     spdlog::info(
       "Begin listening at {}:{} and processing events!",
@@ -162,10 +203,13 @@ namespace rfaas::executor_manager {
             continue;
           uint64_t id = wc.wr_id;
           SPDLOG_DEBUG("Receive lease {}", _res_mgr_connection->_receive_buffer[id].lease_id);
-          std::cerr << _res_mgr_connection->_receive_buffer[id].lease_id << std::endl;
-          std::cerr << _res_mgr_connection->_receive_buffer[id].cores << std::endl;
-          std::cerr << _res_mgr_connection->_receive_buffer[id].memory << std::endl;
-          // FIXME: save lease ID
+
+          Lease lease {
+            _res_mgr_connection->_receive_buffer[id].lease_id,
+            _res_mgr_connection->_receive_buffer[id].cores,
+            _res_mgr_connection->_receive_buffer[id].memory
+          };
+          _leases.insert_threadsafe(std::move(lease));
         }
       }
 
@@ -179,23 +223,34 @@ namespace rfaas::executor_manager {
 
   bool Manager::_process_client(Client & client, uint64_t wr_id)
   {
-    // FIXME: users sending their lease ID
-    // FIXME: check lease ID
-    int16_t cores = client.allocation_requests.data()[wr_id].cores;
+    int32_t lease_id = client.allocation_requests.data()[wr_id].lease_id;
     char * client_address = client.allocation_requests.data()[wr_id].listen_address;
     int client_port = client.allocation_requests.data()[wr_id].listen_port;
 
-    if(cores > 0) {
+    if(lease_id >= 0) {
+
       spdlog::info(
-        "Client {} requests executor with {} threads, it should connect to {}:{},"
+        "Client {} requests lease {}, it should connect to {}:{},"
         "it should have buffer of size {}, func buffer {}, and hot timeout {}",
-        client.id(), client.allocation_requests.data()[wr_id].cores,
+        client.id(), lease_id,
         client.allocation_requests.data()[wr_id].listen_address,
         client.allocation_requests.data()[wr_id].listen_port,
         client.allocation_requests.data()[wr_id].input_buf_size,
         client.allocation_requests.data()[wr_id].func_buf_size,
         client.allocation_requests.data()[wr_id].hot_timeout
       );
+
+      auto lease = _leases.get_threadsafe(lease_id);
+
+      if(!lease.has_value()) {
+        spdlog::warn("Received request for unknown lease {}", lease_id);
+        *_client_responses.data() = (LeaseStatus) {LeaseStatus::UNKNOWN};
+        client.connection->post_send(_client_responses);
+        client.connection->receive_wcs().update_requests(-1);
+        client.connection->receive_wcs().refill();
+        client.connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
+        return true;
+      }
 
       rdmalib::PrivateData<0,0,32> data;
       data.secret(client.connection->qp()->qp_num);
@@ -211,18 +266,24 @@ namespace rfaas::executor_manager {
             _settings.device->ip_address,
             _settings.rdma_device_port,
             data.data(), addr, client.accounting.rkey()
-          }
+          },
+          lease.value()
         )
       );
       auto end = std::chrono::high_resolution_clock::now();
       spdlog::info(
         "Client {} at {}:{} has executor with {} ID and {} cores, time {} us",
-        client.id(), client_address, client_port, client.executor->id(), cores,
+        client.id(), client_address, client_port, client.executor->id(), lease->cores,
         std::chrono::duration_cast<std::chrono::microseconds>(end-now).count()
       );
 
-          client.connection->receive_wcs().update_requests(-1);
+      *_client_responses.data() = (LeaseStatus) {LeaseStatus::ALLOCATED};
+      client.connection->post_send(_client_responses);
+
+      client.connection->receive_wcs().update_requests(-1);
       client.connection->receive_wcs().refill();
+
+      client.connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
       return true;
     } else {
 
