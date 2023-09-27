@@ -29,8 +29,10 @@ namespace rfaas::resource_manager {
 
   Client::~Client()
   {
-    connection->close();
-    delete connection;
+    if(connection) {
+      connection->close();
+      delete connection;
+    }
   }
 
   rdmalib::Buffer<rfaas::LeaseResponse>& Client::response()
