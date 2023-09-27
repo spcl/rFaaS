@@ -536,6 +536,12 @@ namespace rdmalib {
     SPDLOG_DEBUG("[RDMAPassive] Register CQ {} for key {}", fmt::ptr(cq), key);
   }
 
+  ibv_cq* RDMAPassive::shared_queue(uint16_t key)
+  {
+    auto it = _shared_recv_completions.find(key);
+    return it != _shared_recv_completions.end() ? std::get<1>(it->second) : nullptr;
+  }
+
   void RDMAPassive::reject(Connection* connection) {
     if(rdma_reject(connection->id(), nullptr, 0)) {
       spdlog::error("Conection rejection unsuccesful, reason {} {}", errno, strerror(errno));

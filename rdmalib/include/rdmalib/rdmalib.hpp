@@ -81,6 +81,7 @@ namespace rdmalib {
 
     // 0 is reserved value - it's a generic shared queue
     void register_shared_queue(uint16_t key);
+    ibv_cq* shared_queue(uint16_t key);
 
     // Blocking poll for new rdmacm events.
     // Returns connection pointer and connection change status.

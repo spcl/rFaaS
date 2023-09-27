@@ -32,7 +32,7 @@ namespace rdmalib {
     std::tuple<ibv_wc*, int> poll(bool blocking = false, int count = -1);
 
   private:
-    static const int _wc_size = 32;
+    static const int _wc_size = 64;
     std::array<ibv_wc, _wc_size> _rcv_work_completions;
     ibv_cq* _recv_cq;
   };
