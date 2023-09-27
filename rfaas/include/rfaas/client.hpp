@@ -25,6 +25,11 @@ namespace rfaas {
       return _resource_mgr.connect();
     }
 
+    void disconnect()
+    {
+      _resource_mgr.disconnect();
+    }
+
     std::optional<rfaas::executor> lease(int16_t cores, int32_t memory, device_data & dev)
     { 
       if(!_resource_mgr.connected()) {

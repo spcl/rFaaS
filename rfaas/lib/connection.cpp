@@ -114,8 +114,8 @@ namespace rfaas {
     if(_active.is_connected()) {
       request() = (rfaas::LeaseRequest) {-1, 0};
       rdmalib::ScatterGatherElement sge;
-      size_t obj_size = sizeof(rfaas::AllocationRequest);
-      sge.add(_send_buffer, obj_size, obj_size*_rcv_buf_size);
+      size_t obj_size = sizeof(rfaas::LeaseRequest);
+      sge.add(_send_buffer, obj_size, 0);
       _active.connection().post_send(sge);
       _active.connection().poll_wc(rdmalib::QueueType::SEND, true);
       _active.disconnect();
