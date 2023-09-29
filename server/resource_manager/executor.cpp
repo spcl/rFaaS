@@ -147,6 +147,7 @@ namespace rfaas::resource_manager {
       _executors_by_name[name] = ((*conn_it).second);
     } else {
       (*exec_it).second->merge((*conn_it).second);
+      _executors_by_conn[qp_num] = (*exec_it).second;
     }
     SPDLOG_DEBUG("Registered executor with name {}, qp num {}", name, qp_num);
 
@@ -155,7 +156,7 @@ namespace rfaas::resource_manager {
 
   void Executor::merge(std::shared_ptr<Executor>& exec)
   {
-    spdlog::info("Merge two executors {}", fmt::ptr(exec->_connection));
+    SPDLOG_DEBUG("Merge two executors {}", fmt::ptr(exec->_connection));
     this->_connection = exec->_connection;
 
     this->_receive_buffer = std::move(exec->_receive_buffer);
