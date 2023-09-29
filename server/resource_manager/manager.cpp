@@ -32,7 +32,9 @@ Manager::Manager(Settings &settings)
       _executors(_state.pd()),
       _executor_data(_executors),
       _http_server(_executor_data, settings),
-      _secret(settings.rdma_secret) {}
+      _settings(settings),
+      _secret(settings.rdma_secret)
+  {}
 
 void Manager::start() {
   // Start HTTP server on a new thread
@@ -43,12 +45,21 @@ void Manager::start() {
   _state.register_shared_queue(2);
 
   std::thread listener(&Manager::listen_rdma, this);
-  std::thread rdma_poller(&Manager::process_clients, this);
-  std::thread exec_poller(&Manager::process_executors, this);
 
+  if(_settings.rdma_sleep) {
+
+    std::thread rdma_processer(&Manager::process_clients, this);
+
+  } else {
+
+    std::thread rdma_poller(&Manager::process_clients, this);
+    std::thread exec_poller(&Manager::process_executors, this);
+
+    rdma_poller.join();
+    exec_poller.join();
+
+  }
   listener.join();
-  rdma_poller.join();
-  exec_poller.join();
 }
 
 void Manager::listen_rdma() {
@@ -148,8 +159,7 @@ void Manager::process_executors()
   exec_t executors;
 
   std::vector<exec_t::iterator> removals;
-  // FIXME: reenable
-  //std::vector<Executor*> poll_send;
+  std::vector<Executor*> poll_send;
 
   while (!_shutdown.load()) {
 
@@ -183,6 +193,7 @@ void Manager::process_executors()
         if(!recv_queue) {
           recv_queue = &conn->receive_wcs();
         }
+
         
       } else {
 
@@ -195,7 +206,12 @@ void Manager::process_executors()
         _executor_queue.pop();
       }
 
-      executor_count++;
+      if (std::get<0>(*result_ptr) == Operation::CONNECT) {
+        executor_count++;
+      } else {
+        executor_count--;
+      }
+
     }
 
     // FIXME: sleep
@@ -226,19 +242,19 @@ void Manager::process_executors()
       }
     }
 
-    // FIXME: reenable
-    //if (poll_send.size()) {
-    //  for (auto client : poll_send) {
-    //    client->connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
-    //  }
-    //  poll_send.clear();
-    //}
+    if (poll_send.size()) {
+      for (auto client : poll_send) {
+        client->_connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
+      }
+      poll_send.clear();
+    }
 
     if (removals.size()) {
       for (auto it : removals) {
         //spdlog::info("Remove client id {}", it->second.client_id);
         executors.erase(it);
       }
+      executor_count -= removals.size();
       removals.clear();
     }
   }
@@ -255,10 +271,6 @@ void Manager::process_clients() {
   std::vector<Client*> poll_send;
   int client_count = 0;
   int id = 0;
-
-
-  // FIXME: reenable
-  //std::vector<Executor*> poll_send;
 
   while (!_shutdown.load()) {
 
@@ -410,157 +422,12 @@ void Manager::process_clients() {
         clients.erase(it);
       }
 
-      //client_count -= removals.size();
-      //if(client_count == 0) {
-      //  recv_poller.initialize(nullptr);
-      //}
-
+      client_count -= removals.size();
       removals.clear();
     }
   }
 
   spdlog::info("Background thread stops processing client events");
-
-  //while (!_shutdown.load()) {
-
-  //  auto update = _rdma_queue.peek();
-  //  if (update) {
-
-  //    auto [status, conn] = *update;
-
-  //    if (status == Operation::CONNECT) {
-
-  //      uint32_t private_data = (*conn).private_data();
-  //      if (private_data) {
-
-  //        spdlog::debug("[Manager] connected new executor.");
-  //        // FIXME: allocate atomic memory  for updates
-  //        // FIXME: executor registration
-  //        _executors.connect_executor(conn);
-
-  //      } else {
-  //        spdlog::debug("[Manager] connected new client.");
-  //        clients.emplace(std::piecewise_construct,
-  //                        std::forward_as_tuple((*conn).qp()->qp_num),
-  //                        std::forward_as_tuple(id++, conn, _state.pd()));
-  //      }
-  //    } else {
-
-  //      // FIXME: disconnect executor
-  //      uint32_t qp_num = conn->qp()->qp_num;
-  //      auto it = clients.find(qp_num);
-  //      if (it != clients.end()) {
-  //        removals.push_back(it);
-  //        spdlog::debug("[Manager] Disconnecting client {}",
-  //                      it->second.client_id);
-  //      } else {
-  //        spdlog::debug("[Manager] Disconnecting unknown client");
-  //      }
-  //    }
-
-  //    _rdma_queue.pop();
-  //  }
-
-  //  // FIXME: sleep
-  //  // FIXME: shared CQS
-  //  // FIXME: poll managers
- 
-  //  // FIXME: abstraction!
-  //  auto it = _executors._unregistered_executors.begin();
-
-  //  if(it != _executors._unregistered_executors.end()) {
-  //    auto wcs = (*it).second->poll_wc(rdmalib::QueueType::RECV, false, 1);
-  //    if(std::get<1>(wcs)) {
-
-  //      spdlog::info("Polled!");
-
-  //      for (int j = 0; j < std::get<1>(wcs); ++j) {
-
-  //        auto wc = std::get<0>(wcs)[j];
-  //        uint64_t id = wc.wr_id;
-  //        // FIXME: parse message
-  //        spdlog::error("{} {}", fmt::ptr(_executors._receive_buffer.data()), id * sizeof(Executors::MSG_SIZE));
-  //        spdlog::error("{} {}", fmt::ptr(&_executors._receive_buffer[id * sizeof(Executors::MSG_SIZE)]), id * sizeof(Executors::MSG_SIZE));
-  //        auto ptr = reinterpret_cast<common::NodeRegistration*>(&_executors._receive_buffer[id * sizeof(Executors::MSG_SIZE)]);
-  //        spdlog::error("{}", fmt::ptr(ptr));
-  //        std::cerr << strlen(ptr->node_name) << std::endl;
-  //      }
-  //    }
-  //  }
-
-  //  for (auto it = clients.begin(); it != clients.end(); ++it) {
-
-  //    Client &client = std::get<1>(*it);
-  //    int client_id = std::get<0>(*it);
-  //    auto wcs = client.rcv_buffer.poll(false);
-
-  //    if (std::get<1>(wcs)) {
-
-  //      for (int j = 0; j < std::get<1>(wcs); ++j) {
-
-  //        auto wc = std::get<0>(wcs)[j];
-  //        if (wc.status != 0)
-  //          continue;
-  //        uint64_t id = wc.wr_id;
-  //        int16_t cores = client.allocation_requests.data()[id].cores;
-  //        int32_t memory = client.allocation_requests.data()[id].memory;
-
-  //        if (cores > 0) {
-  //          spdlog::info("Client requests executor with {} threads, it should have {} memory", 
-  //                       client.allocation_requests.data()[id].cores,
-  //                       client.allocation_requests.data()[id].memory
-  //          );
-
-  //          bool allocated = _executor_data.open_lease(cores, memory, *client.response().data());
-  //          if(allocated) {
-  //            spdlog::info("[Manager] Client receives lease with id {}", client.response().data()->lease_id);
-  //          } else {
-  //            spdlog::info("[Manager] Client request couldn't be satisfied");
-  //          }
-
-  //          if(!allocated) {
-  //            // FIXME: Send empty response?
-  //            client.connection->post_send(
-  //              client.response(),
-  //              0,
-  //              client.response().size() <= _device.max_inline_data,
-  //              0
-  //            );
-  //          } else {
-  //            client.connection->post_send(
-  //              client.response(),
-  //              0,
-  //              client.response().size() <= _device.max_inline_data,
-  //              1
-  //            );
-  //          }
-  //          poll_send.emplace_back(&client);
-
-  //        } else {
-  //          spdlog::info("Client {} disconnects", client_id);
-  //          client.disable();
-  //          removals.push_back(it);
-  //          break;
-  //        }
-  //      }
-  //    }
-  //  }
-
-  //  if (poll_send.size()) {
-  //    for (auto client : poll_send) {
-  //      client->connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
-  //    }
-  //    poll_send.clear();
-  //  }
-
-  //  if (removals.size()) {
-  //    for (auto it : removals) {
-  //      spdlog::info("Remove client id {}", it->second.client_id);
-  //      clients.erase(it);
-  //    }
-  //    removals.clear();
-  //  }
-  //}
 }
 
 void Manager::shutdown() {
