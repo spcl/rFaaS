@@ -18,6 +18,8 @@ namespace rfaas {
 
 namespace rfaas::executor_manager {
 
+  struct ResourceManagerConnection;
+
   struct Client
   {
     static constexpr int RECV_BUF_SIZE = 8;
@@ -34,7 +36,7 @@ namespace rfaas::executor_manager {
     Client& operator=(Client &&);
     ~Client();
     void reload_queue();
-    void disable();
+    void disable(ResourceManagerConnection* res_mgr_connection);
     bool active();
 
     int id() const

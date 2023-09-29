@@ -7,8 +7,10 @@
 #include <sys/wait.h>
 
 #include <rfaas/allocation.hpp>
+#include <rfaas/connection.hpp>
 
 #include "client.hpp"
+#include "manager.hpp"
 
 namespace rfaas::executor_manager {
 
@@ -69,7 +71,7 @@ namespace rfaas::executor_manager {
     connection->receive_wcs().refill();
   }
 
-  void Client::disable()
+  void Client::disable(ResourceManagerConnection* res_mgr_connection)
   {
     rdma_disconnect(connection->id());
     SPDLOG_DEBUG(
@@ -92,6 +94,18 @@ namespace rfaas::executor_manager {
       accounting.data()[0].hot_polling_time / 1000.0,
       accounting.data()[0].execution_time / 1000.0
     );
+
+    if(res_mgr_connection) {
+
+      res_mgr_connection->close_lease(
+        _id,
+        allocation_time,
+        accounting.data()[0].execution_time,
+        accounting.data()[0].hot_polling_time
+      );
+
+    }
+
     //acc.hot_polling_time = acc.execution_time = 0;
     // SEGFAULT?
     //ibv_dereg_mr(allocation_requests._mr);

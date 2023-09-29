@@ -82,6 +82,8 @@ namespace rfaas::resource_manager {
     void listen_rdma();
     void process_clients();
     void process_executors();
+  private:
+    void _handle_message(int qp_num, int msg_num);
   };
 
 }

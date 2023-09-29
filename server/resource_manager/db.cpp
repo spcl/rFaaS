@@ -9,6 +9,7 @@
 #include <rfaas/allocation.hpp>
 #include <rfaas/resources.hpp>
 
+#include "common/messages.hpp"
 #include "db.hpp"
 
 namespace rfaas { namespace resource_manager {
@@ -102,11 +103,11 @@ namespace rfaas { namespace resource_manager {
     return nullptr;
   }
 
-  void ExecutorDB::close_lease(uint32_t lease_id)
+  void ExecutorDB::close_lease(common::LeaseDeallocation & msg)
   {
-    auto it = _leases.find(lease_id);
+    auto it = _leases.find(msg.lease_id);
     if(it == _leases.end()) {
-      spdlog::warn("Ignoring non-existing lease {}", lease_id);
+      spdlog::warn("Ignoring non-existing lease {}", msg.lease_id);
       return;
     }
 
@@ -115,6 +116,8 @@ namespace rfaas { namespace resource_manager {
     if(!shared_ptr) {
       return;
     }
+
+    SPDLOG_DEBUG("Cancelled lease {}, allocation took {} us.", msg.lease_id, msg.allocation_time);
 
     shared_ptr->cancel_lease((*it).second);
 

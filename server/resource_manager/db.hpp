@@ -60,7 +60,7 @@ namespace rfaas { namespace resource_manager {
 
     std::shared_ptr<Executor> open_lease(int numcores, int memory, rfaas::LeaseResponse& lease);
 
-    void close_lease(uint32_t lease_id);
+    void close_lease(common::LeaseDeallocation & msg);
 
     void reclaim(const std::string& node_name, int numcores, int memory);
 

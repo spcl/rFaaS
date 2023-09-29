@@ -119,6 +119,27 @@ void Manager::listen_rdma() {
   spdlog::info("Background thread stops waiting for rdmacm events");
 }
 
+void Manager::_handle_message(int qp_num, int msg_num)
+{
+  auto buf = &_executors.get_executor(qp_num)->_receive_buffer[msg_num * Executor::MSG_SIZE];
+
+  auto type = *reinterpret_cast<uint32_t*>(buf);
+  if(type == common::id_to_int(common::MessageIDs::NODE_REGISTRATION)) {
+
+    auto ptr = reinterpret_cast<common::NodeRegistration*>(buf);
+    _executors.register_executor(qp_num, ptr->node_name);
+
+  } else if(type == common::id_to_int(common::MessageIDs::LEASE_DEALLOCATION)) {
+
+    auto ptr = reinterpret_cast<common::LeaseDeallocation*>(buf);
+    _executor_data.close_lease(*ptr);
+
+  } else {
+    spdlog::error("Unknown message from executor! Unknown message type {}", type);
+  }
+
+}
+
 void Manager::process_executors()
 {
   int executor_count = 0;
@@ -129,7 +150,6 @@ void Manager::process_executors()
   std::vector<exec_t::iterator> removals;
   // FIXME: reenable
   //std::vector<Executor*> poll_send;
-  int id = 0;
 
   while (!_shutdown.load()) {
 
@@ -192,8 +212,7 @@ void Manager::process_executors()
           uint64_t id = wc.wr_id;
           uint32_t qp_num = wc.qp_num;
 
-          auto ptr = reinterpret_cast<common::NodeRegistration*>(&_executors.get_executor(qp_num)->_receive_buffer[id * Executor::MSG_SIZE]);
-          _executors.register_executor(qp_num, ptr->node_name);
+          _handle_message(qp_num, id);
 
           if(wc.qp_num != recv_queue->qp()->qp_num) {
             executors[wc.qp_num]->update_requests(-1);

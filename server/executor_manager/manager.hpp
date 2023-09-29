@@ -71,6 +71,22 @@ namespace rfaas::executor_manager {
 
       return true;
     }
+
+    void close_lease(int32_t lease_id, uint64_t allocation_time, uint64_t execution_time, uint64_t hot_polling_time)
+    {
+      *reinterpret_cast<common::LeaseDeallocation*>(_send_buffer.data()) = {
+        .lease_id = lease_id,
+        .allocation_time = allocation_time,
+        .hot_polling_time = hot_polling_time,
+        .execution_time = execution_time
+      };
+
+      _connection.connection().post_send(_send_buffer, 0);
+      auto [wcs, count] = _connection.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
+      if(count == 0 || wcs[0].status != IBV_WC_SUCCESS) {
+        spdlog::error("Failed to notify resource manager of lease {} close down.", lease_id);
+      }
+    }
   };
 
   struct Lease
