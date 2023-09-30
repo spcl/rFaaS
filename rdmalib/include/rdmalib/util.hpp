@@ -49,7 +49,7 @@ namespace rdmalib { namespace impl {
       spdlog::error("Expected non-negative number, found: {}", u);
       display_message(display_strerror, msg);
     }
-    assert(u);
+    assert(u >= 0);
   }
 
   template<typename U>
