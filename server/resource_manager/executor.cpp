@@ -20,7 +20,6 @@ namespace rfaas::resource_manager {
     _receive_buffer(RECV_BUF_SIZE * MSG_SIZE),
     _send_buffer(1)
   {
-
     this->initialize_data(node_name, ip, port, cores, memory);
   }
 
@@ -169,6 +168,22 @@ namespace rfaas::resource_manager {
     throw std::runtime_error("Not implemented!");
   }
 
+  bool Executors::remove_executor(uint32_t qp_num)
+  {
+    auto conn_it = _executors_by_conn.find(qp_num);
+    if(conn_it != _executors_by_conn.end()) {
+
+      auto it = _executors_by_name.find((*conn_it).second->node);
+      if(it != _executors_by_name.end()) {
+        _executors_by_name.erase(it);
+      }
+
+      _executors_by_conn.erase(conn_it);
+      return true;
+    }
+    return false;
+  }
+
   std::shared_ptr<Executor> Executors::get_executor(const std::string& name)
   {
     auto conn_it = _executors_by_name.find(name);
@@ -176,7 +191,6 @@ namespace rfaas::resource_manager {
       return (*conn_it).second;
     }
     return nullptr;
-
   }
 
   std::shared_ptr<Executor> Executors::get_executor(uint32_t qp_num)

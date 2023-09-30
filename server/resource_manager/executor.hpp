@@ -80,6 +80,7 @@ namespace rfaas { namespace resource_manager {
     bool register_executor(uint32_t qp_num, const std::string& name);
 
     bool remove_executor(const std::string& name);
+    bool remove_executor(uint32_t qp_num);
     std::shared_ptr<Executor> get_executor(const std::string& name);
     std::shared_ptr<Executor> get_executor(uint32_t qp_num);
 
