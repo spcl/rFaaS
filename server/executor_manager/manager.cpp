@@ -412,6 +412,7 @@ namespace rfaas::executor_manager {
     rdmalib::Poller recv_poller{_state.shared_queue(0)};
     int conn_count = 0;
     // FIXME: sleep when there are no clients
+    std::vector<std::unordered_map<uint32_t, Client>::iterator> removals;
 
     while(!_shutdown.load()) {
 
@@ -430,7 +431,6 @@ namespace rfaas::executor_manager {
         }
       }
 
-      std::vector<std::unordered_map<uint32_t, Client>::iterator> removals;
       auto wcs = recv_poller.poll(false);
       for(int j = 0; j < std::get<1>(wcs); ++j) {
 
@@ -462,6 +462,7 @@ namespace rfaas::executor_manager {
           spdlog::info("Remove client id {}", it->first);
           _clients.erase(it);
         }
+        removals.clear();
       }
     }
     spdlog::info("Background thread stops processing RDMA events.");
