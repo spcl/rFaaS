@@ -103,7 +103,15 @@ void Manager::listen_rdma() {
 
       } else if (private_data.key() == 1) {
 
-        _executors.connect_executor(conn);
+        auto exec = std::make_shared<Executor>();
+        exec->initialize_connection(_state.pd(), conn);
+
+        _executor_queue.enqueue(
+            std::make_tuple(
+              Operation::CONNECT,
+              exec_msg_t{std::move(exec)}
+            )
+        );
         _state.accept(conn);
 
       } else {
@@ -111,7 +119,7 @@ void Manager::listen_rdma() {
         _client_queue.enqueue(
             std::make_tuple(
               Operation::CONNECT,
-              msg_t{Client{_client_id++, conn, _state.pd()}}
+              client_msg_t{Client{_client_id++, conn, _state.pd()}}
             )
         );
         _state.accept(conn);
@@ -121,7 +129,6 @@ void Manager::listen_rdma() {
 
       if (private_data.key() == 1) {
         SPDLOG_DEBUG("[Manager] Listen thread: connected new executor");
-        _executor_queue.enqueue(std::make_tuple(Operation::CONNECT, conn));
       } else if (private_data.key() == 2) {
         SPDLOG_DEBUG("[Manager] Listen thread: connected new client");
       } else {
@@ -172,9 +179,9 @@ void Manager::_handle_message(ibv_wc& wc)
   exec->_connection->receive_wcs().refill();
 }
 
-std::tuple<Manager::Operation, rdmalib::Connection*>* Manager::_check_queue(queue_t& queue, bool sleep)
+std::tuple<Manager::Operation, Manager::exec_msg_t>* Manager::_check_queue(executor_queue_t& queue, bool sleep)
 {
-  static std::tuple<Operation, rdmalib::Connection*> result;
+  static std::tuple<Operation, exec_msg_t> result;
   bool updated = false;
 
   if(!sleep) {
@@ -186,9 +193,9 @@ std::tuple<Manager::Operation, rdmalib::Connection*>* Manager::_check_queue(queu
   return updated ? &result : nullptr;
 }
 
-std::tuple<Manager::Operation, Manager::msg_t>* Manager::_check_queue(client_queue_t& queue, bool sleep)
+std::tuple<Manager::Operation, Manager::client_msg_t>* Manager::_check_queue(client_queue_t& queue, bool sleep)
 {
-  static std::tuple<Operation, msg_t> result;
+  static std::tuple<Operation, client_msg_t> result;
   bool updated = false;
 
   if(!sleep) {
@@ -198,6 +205,11 @@ std::tuple<Manager::Operation, Manager::msg_t>* Manager::_check_queue(client_que
   }
 
   return updated ? &result : nullptr;
+}
+
+void Manager::_handle_executor_connection(std::shared_ptr<Executor> && exec)
+{
+  _executors.connect_executor(std::move(exec));
 }
 
 void Manager::_handle_executor_disconnection(rdmalib::Connection* conn)
@@ -220,9 +232,14 @@ void Manager::process_executors()
       }
 
       if (std::get<0>(*ptr) == Operation::CONNECT) {
+        _handle_executor_connection(
+          std::move(std::get<1>(std::get<1>(*ptr)))
+        );
         executor_count++;
       } else {
-        _handle_executor_disconnection(std::get<1>(*ptr));
+        _handle_executor_disconnection(
+          std::get<0>(std::get<1>(*ptr))
+        );
         executor_count--;
       }
     }
@@ -353,10 +370,10 @@ void Manager::process_clients()
       }
 
       if (std::get<0>(*ptr) == Operation::CONNECT) {
-        _handle_client_connection(std::get<Client>(std::get<1>(*ptr)));
+        _handle_client_connection(std::get<1>(std::get<1>(*ptr)));
         client_count++;
       } else {
-        _handle_client_disconnection(std::get<rdmalib::Connection*>(std::get<1>(*ptr)));
+        _handle_client_disconnection(std::get<0>(std::get<1>(*ptr)));
         client_count--;
       }
     }
@@ -421,9 +438,9 @@ void Manager::process_events_sleep()
         auto ptr = _check_queue(_client_queue, false);
         if(ptr) {
           if (std::get<0>(*ptr) == Operation::CONNECT) {
-            _handle_client_connection(std::get<Client>(std::get<1>(*ptr)));
+            _handle_client_connection(std::get<1>(std::get<1>(*ptr)));
           } else {
-            _handle_client_disconnection(std::get<rdmalib::Connection*>(std::get<1>(*ptr)));
+            _handle_client_disconnection(std::get<0>(std::get<1>(*ptr)));
           }
         }
 
@@ -443,8 +460,9 @@ void Manager::process_events_sleep()
         auto ptr_exec = _check_queue(_executor_queue, false);
         if(ptr_exec) {
           if (std::get<0>(*ptr_exec) == Operation::CONNECT) {
+            _handle_executor_connection(std::move(std::get<1>(std::get<1>(*ptr_exec))));
           } else {
-            _handle_executor_disconnection(std::get<1>(*ptr_exec));
+            _handle_executor_disconnection(std::get<0>(std::get<1>(*ptr_exec)));
           }
         }
 

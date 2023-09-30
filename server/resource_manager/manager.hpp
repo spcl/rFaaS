@@ -50,17 +50,18 @@ namespace rfaas::resource_manager {
       DISCONNECT = 1
     };
 
-    typedef std::variant<rdmalib::Connection*, Client> msg_t;
+    typedef std::variant<rdmalib::Connection*, Client> client_msg_t;
     typedef moodycamel::BlockingReaderWriterQueue<
-      std::tuple<Operation, msg_t>
+      std::tuple<Operation, client_msg_t>
     > client_queue_t;
 
     client_queue_t _client_queue;
 
+    typedef std::variant<rdmalib::Connection*, std::shared_ptr<Executor>> exec_msg_t;
     typedef moodycamel::BlockingReaderWriterQueue<
-      std::tuple<Operation, rdmalib::Connection*>
-    > queue_t;
-    queue_t _executor_queue;
+      std::tuple<Operation, exec_msg_t>
+    > executor_queue_t;
+    executor_queue_t _executor_queue;
 
     typedef std::unordered_map<uint32_t, Client> client_t;
     client_t _clients;
@@ -96,9 +97,11 @@ namespace rfaas::resource_manager {
     void process_events_sleep();
   private:
     void _handle_message(ibv_wc& wc);
-    std::tuple<Manager::Operation, rdmalib::Connection*>* _check_queue(queue_t& queue, bool sleep);
-    std::tuple<Manager::Operation, msg_t>* _check_queue(client_queue_t& queue, bool sleep);
+    std::tuple<Manager::Operation, exec_msg_t>* _check_queue(executor_queue_t& queue, bool sleep);
+    std::tuple<Manager::Operation, client_msg_t>* _check_queue(client_queue_t& queue, bool sleep);
+
     void _handle_executor_disconnection(rdmalib::Connection* conn);
+    void _handle_executor_connection(std::shared_ptr<Executor> && exec);
 
     void _handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send);
     void _handle_client_connection(Client & client);

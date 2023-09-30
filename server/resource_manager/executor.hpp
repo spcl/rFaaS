@@ -76,7 +76,7 @@ namespace rfaas { namespace resource_manager {
     Executors(ibv_pd* pd);
 
     std::tuple<std::weak_ptr<Executor>, bool> add_executor(const std::string& name, const std::string & ip, int32_t port, int16_t cores, int32_t memory);
-    void connect_executor(rdmalib::Connection*);
+    void connect_executor(std::shared_ptr<Executor> && exec);
     bool register_executor(uint32_t qp_num, const std::string& name);
 
     bool remove_executor(const std::string& name);

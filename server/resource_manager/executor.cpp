@@ -111,14 +111,10 @@ namespace rfaas::resource_manager {
     }
   }
 
-  void Executors::connect_executor(rdmalib::Connection* conn)
+  void Executors::connect_executor(std::shared_ptr<Executor> && exec)
   {
-    auto exec = std::make_shared<Executor>();
-    exec->initialize_connection(_pd, conn);
-
-    uint32_t qp_num = conn->qp()->qp_num;
+    uint32_t qp_num = exec->_connection->qp()->qp_num;
     _executors_by_conn[qp_num] = std::move(exec);
-
   }
 
   bool Executors::register_executor(uint32_t qp_num, const std::string& name)
