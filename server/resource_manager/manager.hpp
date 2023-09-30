@@ -18,6 +18,7 @@
 #include <rfaas/devices.hpp>
 
 #include "common/readerwriterqueue.h"
+#include "client.hpp"
 #include "db.hpp"
 #include "http.hpp"
 #include "settings.hpp"
@@ -48,12 +49,16 @@ namespace rfaas::resource_manager {
       DISCONNECT = 1
     };
 
-    moodycamel::BlockingReaderWriterQueue<
+    typedef moodycamel::BlockingReaderWriterQueue<
       std::tuple<Operation, rdmalib::Connection*>
-    > _client_queue;
-    moodycamel::BlockingReaderWriterQueue<
-      std::tuple<Operation, rdmalib::Connection*>
-    > _executor_queue;
+    > queue_t;
+
+    queue_t _client_queue;
+    queue_t _executor_queue;
+
+    typedef std::unordered_map<uint32_t, Client> client_t;
+    client_t _clients;
+    int _client_id;
 
     rdmalib::RDMAPassive _state;
     std::atomic<bool> _shutdown;
@@ -83,7 +88,13 @@ namespace rfaas::resource_manager {
     void process_clients();
     void process_executors();
   private:
-    void _handle_message(int qp_num, int msg_num);
+    void _handle_message(ibv_wc& wc);
+    std::tuple<Manager::Operation, rdmalib::Connection*>* _check_queue(queue_t& queue, int conn_count);
+    void _handle_executor_disconnection(rdmalib::Connection* conn);
+
+    void _handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send);
+    void _handle_client_connection(rdmalib::Connection* conn);
+    void _handle_client_disconnection(rdmalib::Connection* conn);
   };
 
 }
