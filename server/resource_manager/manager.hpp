@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <variant>
 #include <vector>
 #include <mutex>
 #include <map>
@@ -49,11 +50,16 @@ namespace rfaas::resource_manager {
       DISCONNECT = 1
     };
 
+    typedef std::variant<rdmalib::Connection*, Client> msg_t;
+    typedef moodycamel::BlockingReaderWriterQueue<
+      std::tuple<Operation, msg_t>
+    > client_queue_t;
+
+    client_queue_t _client_queue;
+
     typedef moodycamel::BlockingReaderWriterQueue<
       std::tuple<Operation, rdmalib::Connection*>
     > queue_t;
-
-    queue_t _client_queue;
     queue_t _executor_queue;
 
     typedef std::unordered_map<uint32_t, Client> client_t;
@@ -91,10 +97,11 @@ namespace rfaas::resource_manager {
   private:
     void _handle_message(ibv_wc& wc);
     std::tuple<Manager::Operation, rdmalib::Connection*>* _check_queue(queue_t& queue, bool sleep);
+    std::tuple<Manager::Operation, msg_t>* _check_queue(client_queue_t& queue, bool sleep);
     void _handle_executor_disconnection(rdmalib::Connection* conn);
 
     void _handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send);
-    void _handle_client_connection(rdmalib::Connection* conn);
+    void _handle_client_connection(Client & client);
     void _handle_client_disconnection(rdmalib::Connection* conn);
   };
 

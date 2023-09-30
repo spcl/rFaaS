@@ -84,12 +84,9 @@ void Manager::listen_rdma() {
 
     if (conn_status == rdmalib::ConnectionStatus::DISCONNECTED) {
 
-      // FIXME: handle disconnect
       spdlog::debug("[Manager-listen] Disconnection on connection {}",
                     fmt::ptr(conn));
 
-      // FIXME: reenable
-      //_rdma_queue.enqueue(std::make_tuple(Operation::DISCONNECT, conn));
       if (private_data.key() == 1) {
         _executor_queue.enqueue(std::make_tuple(Operation::DISCONNECT, conn));
       } else {
@@ -111,6 +108,12 @@ void Manager::listen_rdma() {
 
       } else {
 
+        _client_queue.enqueue(
+            std::make_tuple(
+              Operation::CONNECT,
+              msg_t{Client{_client_id++, conn, _state.pd()}}
+            )
+        );
         _state.accept(conn);
       }
 
@@ -121,7 +124,6 @@ void Manager::listen_rdma() {
         _executor_queue.enqueue(std::make_tuple(Operation::CONNECT, conn));
       } else if (private_data.key() == 2) {
         SPDLOG_DEBUG("[Manager] Listen thread: connected new client");
-        _client_queue.enqueue(std::make_tuple(Operation::CONNECT, conn));
       } else {
         SPDLOG_DEBUG("[Manager] Listen thread: unknown connection!");
         conn->close();
@@ -184,6 +186,20 @@ std::tuple<Manager::Operation, rdmalib::Connection*>* Manager::_check_queue(queu
   return updated ? &result : nullptr;
 }
 
+std::tuple<Manager::Operation, Manager::msg_t>* Manager::_check_queue(client_queue_t& queue, bool sleep)
+{
+  static std::tuple<Operation, msg_t> result;
+  bool updated = false;
+
+  if(!sleep) {
+    updated = queue.try_dequeue(result);
+  } else {
+    updated = queue.wait_dequeue_timed(result, POLLING_TIMEOUT_MS * 1000);
+  }
+
+  return updated ? &result : nullptr;
+}
+
 void Manager::_handle_executor_disconnection(rdmalib::Connection* conn)
 {
   _executors.remove_executor(conn->qp()->qp_num);
@@ -211,7 +227,6 @@ void Manager::process_executors()
       }
     }
 
-    // FIXME: sleep
     auto wcs = recv_poller.poll(false);
     if(std::get<1>(wcs)) {
       for (int j = 0; j < std::get<1>(wcs); ++j) {
@@ -224,13 +239,10 @@ void Manager::process_executors()
   spdlog::info("Background thread stops processing rdmacm events");
 }
 
-void Manager::_handle_client_connection(rdmalib::Connection* conn)
+void Manager::_handle_client_connection(Client& client)
 {
-  _clients.emplace(
-    std::piecewise_construct,
-    std::forward_as_tuple((*conn).qp()->qp_num),
-    std::forward_as_tuple(_client_id++, conn, _state.pd())
-  );
+  uint32_t qp_num = client.connection->qp()->qp_num;
+  _clients.insert_or_assign(qp_num, std::move(client));
   spdlog::debug("[Manager] Connecting client {}", _client_id - 1);
 }
 
@@ -341,15 +353,14 @@ void Manager::process_clients()
       }
 
       if (std::get<0>(*ptr) == Operation::CONNECT) {
-        _handle_client_connection(std::get<1>(*ptr));
+        _handle_client_connection(std::get<Client>(std::get<1>(*ptr)));
         client_count++;
       } else {
-        _handle_client_disconnection(std::get<1>(*ptr));
+        _handle_client_disconnection(std::get<rdmalib::Connection*>(std::get<1>(*ptr)));
         client_count--;
       }
     }
 
-    // FIXME: sleep
     auto wcs = recv_poller.poll(false);
     if(std::get<1>(wcs)) {
       for (int j = 0; j < std::get<1>(wcs); ++j) {
@@ -401,37 +412,20 @@ void Manager::process_events_sleep()
 
   while (!_shutdown.load()) {
 
-    bool updated = true;
-    while(updated) {
-
-      updated = false;
-      auto ptr = _check_queue(_client_queue, false);
-
-      if(ptr) {
-        if (std::get<0>(*ptr) == Operation::CONNECT) {
-          _handle_client_connection(std::get<1>(*ptr));
-        } else {
-          _handle_client_disconnection(std::get<1>(*ptr));
-        }
-        updated = true;
-      }
-
-      ptr = _check_queue(_executor_queue, false);
-      if(ptr) {
-        if (std::get<0>(*ptr) == Operation::CONNECT) {
-        } else {
-          _handle_executor_disconnection(std::get<1>(*ptr));
-        }
-        updated = true;
-      }
-
-    }
-
     auto [events, count] = event_poller.poll(POLLING_TIMEOUT_MS*10);
 
     for(int i = 0; i < count; ++i) {
 
       if(events[i].data.u32 == 2) {
+
+        auto ptr = _check_queue(_client_queue, false);
+        if(ptr) {
+          if (std::get<0>(*ptr) == Operation::CONNECT) {
+            _handle_client_connection(std::get<Client>(std::get<1>(*ptr)));
+          } else {
+            _handle_client_disconnection(std::get<rdmalib::Connection*>(std::get<1>(*ptr)));
+          }
+        }
 
         auto cq = client_poller.wait_events();
         client_poller.ack_events(cq, 1);
@@ -445,6 +439,14 @@ void Manager::process_events_sleep()
         }
 
       } else {
+
+        auto ptr_exec = _check_queue(_executor_queue, false);
+        if(ptr_exec) {
+          if (std::get<0>(*ptr_exec) == Operation::CONNECT) {
+          } else {
+            _handle_executor_disconnection(std::get<1>(*ptr_exec));
+          }
+        }
 
         auto cq = executor_poller.wait_events();
         executor_poller.ack_events(cq, 1);
