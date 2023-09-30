@@ -307,6 +307,7 @@ namespace rdmalib {
 
     for(auto & [key, value] : _shared_recv_completions) {
       ibv_destroy_cq(std::get<1>(value));
+      ibv_destroy_comp_channel(std::get<0>(value));
     }
   }
 
@@ -530,16 +531,17 @@ namespace rdmalib {
 
   void RDMAPassive::register_shared_queue(uint16_t key)
   {
-    ibv_cq* cq = ibv_create_cq(_pd->context, _cfg.attr.cap.max_recv_wr, nullptr, nullptr, 0);
-    // FIXME: create completion channel
-    _shared_recv_completions[key] = std::make_tuple(nullptr, cq);
-    SPDLOG_DEBUG("[RDMAPassive] Register CQ {} for key {}", fmt::ptr(cq), key);
+    ibv_comp_channel* channel = ibv_create_comp_channel(_pd->context);
+    ibv_cq* cq = ibv_create_cq(_pd->context, _cfg.attr.cap.max_recv_wr, nullptr, channel, 0);
+
+    _shared_recv_completions[key] = std::make_tuple(channel, cq);
+    SPDLOG_DEBUG("[RDMAPassive] Register CQ {} for key {}, channel {} {}", fmt::ptr(cq), key, fmt::ptr(channel), fmt::ptr(cq->channel));
   }
 
-  ibv_cq* RDMAPassive::shared_queue(uint16_t key)
+  std::tuple<ibv_comp_channel*, ibv_cq*>* RDMAPassive::shared_queue(uint16_t key)
   {
     auto it = _shared_recv_completions.find(key);
-    return it != _shared_recv_completions.end() ? std::get<1>(it->second) : nullptr;
+    return it != _shared_recv_completions.end() ? &it->second : nullptr;
   }
 
   void RDMAPassive::reject(Connection* connection) {
