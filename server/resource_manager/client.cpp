@@ -35,6 +35,33 @@ namespace rfaas::resource_manager {
     }
   }
 
+  Client::Client(Client&& obj)
+  {
+    _move(std::move(obj));
+  }
+
+  Client& Client::operator=(Client&& obj)
+  {
+    _move(std::move(obj));
+    return *this;
+  }
+
+  void Client::_move(Client&& obj)
+  {
+    this->connection = obj.connection;
+    obj.connection = nullptr;
+
+    this->_response = std::move(obj._response);
+    this->allocation_requests = std::move(obj.allocation_requests);
+
+    this->allocation_time = obj.allocation_time;
+    obj.allocation_time = 0;
+    this->client_id = obj.client_id;
+    obj.client_id = 0;
+
+    this->_cur_allocation_start = obj._cur_allocation_start;
+  }
+
   rdmalib::Buffer<rfaas::LeaseResponse>& Client::response()
   {
     return _response;

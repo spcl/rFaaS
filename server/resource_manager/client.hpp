@@ -30,11 +30,16 @@ namespace rfaas::resource_manager {
 
     Client(int client_id, rdmalib::Connection* conn, ibv_pd* pd);
     ~Client();
+    Client(Client&&);
+    Client& operator=(Client&&);
+
     rdmalib::Buffer<rfaas::LeaseResponse>& response();
     void begin_allocation();
     void end_allocation();
     void reload_queue();
     void disable();
+
+    void _move(Client&& obj);
   };
 
 }
