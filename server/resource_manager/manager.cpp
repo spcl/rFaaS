@@ -3,6 +3,7 @@
 #include <spdlog/spdlog.h>
 
 #include <stdexcept>
+#include <sys/poll.h>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -48,7 +49,8 @@ void Manager::start() {
 
   if(_settings.rdma_sleep) {
 
-    std::thread rdma_processer(&Manager::process_clients, this);
+    std::thread rdma_processer(&Manager::process_events_sleep, this);
+    rdma_processer.join();
 
   } else {
 
@@ -168,12 +170,12 @@ void Manager::_handle_message(ibv_wc& wc)
   exec->_connection->receive_wcs().refill();
 }
 
-std::tuple<Manager::Operation, rdmalib::Connection*>* Manager::_check_queue(queue_t& queue, int conn_count)
+std::tuple<Manager::Operation, rdmalib::Connection*>* Manager::_check_queue(queue_t& queue, bool sleep)
 {
   static std::tuple<Operation, rdmalib::Connection*> result;
   bool updated = false;
 
-  if(conn_count > 0) {
+  if(!sleep) {
     updated = queue.try_dequeue(result);
   } else {
     updated = queue.wait_dequeue_timed(result, POLLING_TIMEOUT_MS * 1000);
@@ -189,14 +191,14 @@ void Manager::_handle_executor_disconnection(rdmalib::Connection* conn)
 
 void Manager::process_executors()
 {
-  rdmalib::Poller recv_poller{_state.shared_queue(1)};
+  rdmalib::Poller recv_poller{std::get<1>(*_state.shared_queue(1))};
   int executor_count = 0;
 
   while (!_shutdown.load()) {
 
     while(true) {
 
-      auto ptr = _check_queue(_executor_queue, executor_count);
+      auto ptr = _check_queue(_executor_queue, executor_count == 0);
       if(!ptr) {
         break;
       }
@@ -324,7 +326,7 @@ void Manager::_handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send
 
 void Manager::process_clients()
 {
-  rdmalib::Poller recv_poller{_state.shared_queue(2)};
+  rdmalib::Poller recv_poller{std::get<1>(*_state.shared_queue(2))};
   int client_count = 0;
   std::vector<Client*> poll_send;
   std::vector<client_t::iterator> removals;
@@ -333,7 +335,7 @@ void Manager::process_clients()
 
     while(true) {
 
-      auto ptr = _check_queue(_client_queue, client_count);
+      auto ptr = _check_queue(_client_queue, client_count == 0);
       if(!ptr) {
         break;
       }
@@ -374,6 +376,107 @@ void Manager::process_clients()
 
   }
 
+  spdlog::info("Background thread stops processing client events");
+}
+
+void Manager::process_events_sleep()
+{
+  rdmalib::EventPoller event_poller;
+
+  auto [client_channel, client_cq] = *_state.shared_queue(2);
+  rdmalib::Poller client_poller{client_cq};
+  client_poller.set_nonblocking();
+  client_poller.notify_events(false);
+
+  auto [executor_channel, executor_cq] = *_state.shared_queue(1);
+  rdmalib::Poller executor_poller{executor_cq};
+  executor_poller.set_nonblocking();
+  executor_poller.notify_events(false);
+
+  event_poller.add_channel(client_poller, 2);
+  event_poller.add_channel(executor_poller, 1);
+
+  std::vector<Client*> poll_send;
+  std::vector<client_t::iterator> removals;
+
+  while (!_shutdown.load()) {
+
+    bool updated = true;
+    while(updated) {
+
+      updated = false;
+      auto ptr = _check_queue(_client_queue, false);
+
+      if(ptr) {
+        if (std::get<0>(*ptr) == Operation::CONNECT) {
+          _handle_client_connection(std::get<1>(*ptr));
+        } else {
+          _handle_client_disconnection(std::get<1>(*ptr));
+        }
+        updated = true;
+      }
+
+      ptr = _check_queue(_executor_queue, false);
+      if(ptr) {
+        if (std::get<0>(*ptr) == Operation::CONNECT) {
+        } else {
+          _handle_executor_disconnection(std::get<1>(*ptr));
+        }
+        updated = true;
+      }
+
+    }
+
+    auto [events, count] = event_poller.poll(POLLING_TIMEOUT_MS*10);
+
+    for(int i = 0; i < count; ++i) {
+
+      if(events[i].data.u32 == 2) {
+
+        auto cq = client_poller.wait_events();
+        client_poller.ack_events(cq, 1);
+        client_poller.notify_events(false) ;
+
+        auto wcs = client_poller.poll(false);
+        if(std::get<1>(wcs)) {
+          for (int j = 0; j < std::get<1>(wcs); ++j) {
+            _handle_client_message(std::get<0>(wcs)[j], poll_send);
+          }
+        }
+
+      } else {
+
+        auto cq = executor_poller.wait_events();
+        executor_poller.ack_events(cq, 1);
+        executor_poller.notify_events(false);
+
+        auto wcs = executor_poller.poll(false);
+        if(std::get<1>(wcs)) {
+          for (int j = 0; j < std::get<1>(wcs); ++j) {
+            _handle_message(std::get<0>(wcs)[j]);
+          }
+        }
+
+      }
+
+    }
+
+    if (poll_send.size()) {
+      for (auto client : poll_send) {
+        client->connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
+      }
+      poll_send.clear();
+    }
+
+    if (removals.size()) {
+      for (auto it : removals) {
+        spdlog::info("Remove client id {}", it->second.client_id);
+        _clients.erase(it);
+      }
+      removals.clear();
+    }
+
+  }
   spdlog::info("Background thread stops processing client events");
 }
 

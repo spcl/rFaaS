@@ -87,9 +87,10 @@ namespace rfaas::resource_manager {
     void listen_rdma();
     void process_clients();
     void process_executors();
+    void process_events_sleep();
   private:
     void _handle_message(ibv_wc& wc);
-    std::tuple<Manager::Operation, rdmalib::Connection*>* _check_queue(queue_t& queue, int conn_count);
+    std::tuple<Manager::Operation, rdmalib::Connection*>* _check_queue(queue_t& queue, bool sleep);
     void _handle_executor_disconnection(rdmalib::Connection* conn);
 
     void _handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send);
