@@ -426,6 +426,48 @@ void Manager::process_events_sleep()
 
   std::vector<Client*> poll_send;
 
+  auto queue_client = [this]() {
+
+    while(true) {
+
+      auto ptr = _check_queue(_client_queue, false);
+      if(!ptr) {
+        break;
+      }
+
+      if(ptr) {
+        if (std::get<0>(*ptr) == Operation::CONNECT) {
+          _handle_client_connection(std::get<1>(std::get<1>(*ptr)));
+        } else {
+          _handle_client_disconnection(std::get<0>(std::get<1>(*ptr)));
+        }
+      }
+
+    }
+
+  };
+
+  auto queue_executor = [this]() {
+
+    while(true) {
+
+      auto ptr_exec = _check_queue(_executor_queue, false);
+      if(!ptr_exec) {
+        break;
+      }
+
+      if(ptr_exec) {
+        if (std::get<0>(*ptr_exec) == Operation::CONNECT) {
+          _handle_executor_connection(std::move(std::get<1>(std::get<1>(*ptr_exec))));
+        } else {
+          _handle_executor_disconnection(std::get<0>(std::get<1>(*ptr_exec)));
+        }
+      }
+
+    }
+
+  };
+
   while (!_shutdown.load()) {
 
     auto [events, count] = event_poller.poll(POLLING_TIMEOUT_MS*10);
@@ -434,14 +476,7 @@ void Manager::process_events_sleep()
 
       if(events[i].data.u32 == 2) {
 
-        auto ptr = _check_queue(_client_queue, false);
-        if(ptr) {
-          if (std::get<0>(*ptr) == Operation::CONNECT) {
-            _handle_client_connection(std::get<1>(std::get<1>(*ptr)));
-          } else {
-            _handle_client_disconnection(std::get<0>(std::get<1>(*ptr)));
-          }
-        }
+        queue_client();
 
         auto cq = client_poller.wait_events();
         client_poller.ack_events(cq, 1);
@@ -456,14 +491,7 @@ void Manager::process_events_sleep()
 
       } else {
 
-        auto ptr_exec = _check_queue(_executor_queue, false);
-        if(ptr_exec) {
-          if (std::get<0>(*ptr_exec) == Operation::CONNECT) {
-            _handle_executor_connection(std::move(std::get<1>(std::get<1>(*ptr_exec))));
-          } else {
-            _handle_executor_disconnection(std::get<0>(std::get<1>(*ptr_exec)));
-          }
-        }
+        queue_executor();
 
         auto cq = executor_poller.wait_events();
         executor_poller.ack_events(cq, 1);
@@ -479,6 +507,9 @@ void Manager::process_events_sleep()
       }
 
     }
+
+    queue_client();
+    queue_executor();
 
     if (poll_send.size()) {
       for (auto client : poll_send) {

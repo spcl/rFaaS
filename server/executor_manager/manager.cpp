@@ -155,9 +155,12 @@ namespace rfaas::executor_manager {
         continue;
       }
       if(conn_status == rdmalib::ConnectionStatus::DISCONNECTED) {
-        // FIXME: handle disconnect
+
         spdlog::debug("[Manager-listen] Disconnection on connection {}", fmt::ptr(conn));
+
         _client_queue.emplace(Operation::DISCONNECT, msg_t{conn});
+
+        clients_to_connect.erase(conn->qp()->qp_num);
         continue;
       }
       // When client connects, we need to fill the receive queue with work requests before
@@ -183,7 +186,6 @@ namespace rfaas::executor_manager {
             _state.accept(conn);
 
             _client_queue.emplace(Operation::CONNECT, msg_t{conn});
-            clients_to_connect.erase(it);
           }
 
         } else {
@@ -506,9 +508,29 @@ namespace rfaas::executor_manager {
     std::vector<Client*> poll_send;
     std::vector<rdmalib::Connection*> disconnections;
 
+    auto queue = [this,&disconnections]() {
+
+      while(true) {
+
+        auto ptr = _check_queue(false);
+        if(!ptr) {
+          break;
+        }
+
+        if(ptr) {
+          if (std::get<0>(*ptr) == Operation::CONNECT) {
+            _handle_connections(std::get<1>(*ptr));
+          } else {
+            disconnections.emplace_back(std::get<0>(std::get<1>(*ptr)));
+          }
+        }
+
+      }
+    };
+
     while (!_shutdown.load()) {
 
-      auto [events, count] = event_poller.poll(POLLING_TIMEOUT_MS*10);
+      auto [events, count] = event_poller.poll(POLLING_TIMEOUT_MS);
 
       for(int i = 0; i < count; ++i) {
 
@@ -522,22 +544,7 @@ namespace rfaas::executor_manager {
           // Furthermore, we will process final messages from clients that are disconnecting.
           // Example is the final message cancelling a lease.
 
-          while(true) {
-
-            auto ptr = _check_queue(false);
-            if(!ptr) {
-              break;
-            }
-
-            if(ptr) {
-              if (std::get<0>(*ptr) == Operation::CONNECT) {
-                _handle_connections(std::get<1>(*ptr));
-              } else {
-                disconnections.emplace_back(std::get<0>(std::get<1>(*ptr)));
-              }
-            }
-
-          }
+          queue();
 
           auto cq = client_poller.wait_events();
           client_poller.ack_events(cq, 1);
@@ -565,6 +572,10 @@ namespace rfaas::executor_manager {
 
         }
 
+      }
+
+      if (count == 0) {
+        queue();
       }
 
       if(disconnections.size()) {
