@@ -183,12 +183,15 @@ namespace rfaas::executor_manager {
             _state.accept(conn);
 
             _client_queue.emplace(Operation::CONNECT, msg_t{conn});
+            clients_to_connect.erase(it);
           }
 
         } else {
 
-          Client client{conn->qp()->qp_num, conn, _state.pd(), true};
-          clients_to_connect.insert(conn->qp()->qp_num);
+          uint32_t qp_num = conn->qp()->qp_num;
+          SPDLOG_DEBUG("[Manager-RDMA] Accepted a new client {}", qp_num);
+          Client client{qp_num, conn, _state.pd(), true};
+          clients_to_connect.insert(qp_num);
 
           _state.accept(client.connection);
           _client_queue.emplace(Operation::CONNECT, msg_t{std::move(client)});
@@ -228,19 +231,7 @@ namespace rfaas::executor_manager {
 
   void Manager::poll_res_mgr()
   {
-    // FIXME: add executors!
-    //typedef std::variant<Client*, ResourceManagerConnection*> conn_t;
-    //std::unordered_map<uint32_t, conn_t> connections;
-
-    //uint32_t id = 0;
-    //connections[id++] = conn_t{_res_mgr_connection.get()};
-
-    //conn.notify_events();
-
     while(!_shutdown.load()) {
-
-      //auto cq = conn.wait_events();
-      //conn.ack_events(cq, 1);
 
       auto wcs = _res_mgr_connection->connection().receive_wcs().poll(false);
       if(std::get<1>(wcs)) {
@@ -250,7 +241,6 @@ namespace rfaas::executor_manager {
         }
       }
 
-      //conn.notify_events();
     }
 
     spdlog::info("Background thread stops waiting for resource manager events.");
@@ -323,13 +313,6 @@ namespace rfaas::executor_manager {
     } else {
 
       spdlog::info("Client {} disconnects", client.id());
-      if(client.executor) {
-        auto now = std::chrono::high_resolution_clock::now();
-        client.allocation_time +=
-          std::chrono::duration_cast<std::chrono::microseconds>(
-            now - client.executor->_allocation_finished
-          ).count();
-      }
       //client.disable(i, _accounting_data.data()[i]);
       client.disable(_res_mgr_connection.get());
 
@@ -428,7 +411,12 @@ namespace rfaas::executor_manager {
     auto it = _clients.find(conn->qp()->qp_num);
     if (it != _clients.end()) {
       spdlog::debug("[Manager] Disconnecting client");
+
+      Client& client = (*it).second;
+      //client.disable(i, _accounting_data.data()[i]);
+      client.disable(_res_mgr_connection.get());
       _clients.erase(it);
+
     } else {
       spdlog::debug("[Manager] Disconnecting unknown client");
     }
@@ -510,6 +498,8 @@ namespace rfaas::executor_manager {
     client_poller.notify_events(false);
 
     rdmalib::Poller res_mgr{_res_mgr_connection->connection().qp()->recv_cq};
+    res_mgr.set_nonblocking();
+    res_mgr.notify_events(false);
 
     event_poller.add_channel(client_poller, 0);
     event_poller.add_channel(res_mgr, 1);
@@ -522,15 +512,23 @@ namespace rfaas::executor_manager {
 
       for(int i = 0; i < count; ++i) {
 
-        if(events[i].data.u32 == 2) {
+        if(events[i].data.u32 == 0) {
 
-          auto ptr = _check_queue(false);
-          if(ptr) {
-            if (std::get<0>(*ptr) == Operation::CONNECT) {
-              _handle_connections(std::get<1>(*ptr));
-            } else {
-              _handle_disconnections(std::get<1>(*ptr));
+          while(true) {
+
+            auto ptr = _check_queue(false);
+            if(!ptr) {
+              break;
             }
+
+            if(ptr) {
+              if (std::get<0>(*ptr) == Operation::CONNECT) {
+                _handle_connections(std::get<1>(*ptr));
+              } else {
+                _handle_disconnections(std::get<1>(*ptr));
+              }
+            }
+
           }
 
           auto cq = client_poller.wait_events();
@@ -545,6 +543,10 @@ namespace rfaas::executor_manager {
           }
 
         } else {
+
+          auto cq = res_mgr.wait_events();
+          res_mgr.ack_events(cq, 1);
+          res_mgr.notify_events(false) ;
 
           auto wcs = res_mgr.poll(false);
           if(std::get<1>(wcs)) {

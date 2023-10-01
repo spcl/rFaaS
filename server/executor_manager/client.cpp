@@ -73,6 +73,15 @@ namespace rfaas::executor_manager {
 
   void Client::disable(ResourceManagerConnection* res_mgr_connection)
   {
+
+    if(executor) {
+      auto now = std::chrono::high_resolution_clock::now();
+      allocation_time +=
+        std::chrono::duration_cast<std::chrono::microseconds>(
+          now - executor->_allocation_finished
+        ).count();
+    }
+
     rdma_disconnect(connection->id());
     SPDLOG_DEBUG(
       "[Client] Disconnect client with connection {} id {}",
