@@ -425,7 +425,6 @@ void Manager::process_events_sleep()
   event_poller.add_channel(executor_poller, 1);
 
   std::vector<Client*> poll_send;
-  std::vector<client_t::iterator> removals;
 
   while (!_shutdown.load()) {
 
@@ -486,14 +485,6 @@ void Manager::process_events_sleep()
         client->connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
       }
       poll_send.clear();
-    }
-
-    if (removals.size()) {
-      for (auto it : removals) {
-        spdlog::info("Remove client id {}", it->second.client_id);
-        _clients.erase(it);
-      }
-      removals.clear();
     }
 
   }
