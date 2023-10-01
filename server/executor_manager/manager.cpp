@@ -113,16 +113,30 @@ namespace rfaas::executor_manager {
       _settings.rdma_device_port
     );
     std::thread listener(&Manager::listen, this);
-    std::thread rdma_poller(&Manager::poll_rdma, this);
-    std::thread res_mgr_poller(&Manager::poll_res_mgr, this);
 
-    res_mgr_poller.join();
+    if(_settings.rdma_sleep) {
+
+      std::thread rdma_processer(&Manager::_process_events_sleep, this);
+      rdma_processer.join();
+
+    } else {
+
+      std::thread rdma_poller(&Manager::poll_rdma, this);
+      std::thread res_mgr_poller(&Manager::poll_res_mgr, this);
+
+      res_mgr_poller.join();
+      rdma_poller.join();
+
+    }
+
+
     listener.join();
-    rdma_poller.join(); 
   }
 
   void Manager::listen()
   {
+    std::unordered_set<uint32_t> clients_to_connect;
+
     // FIXME: sleep when there are no clients
     while(!_shutdown.load()) {
 
@@ -154,11 +168,29 @@ namespace rfaas::executor_manager {
 
         if (private_data.secret() > 0) {
 
-          _client_queue.emplace(Operation::CONNECT, msg_t{conn});
+          uint32_t qp_num = conn->private_data();
+          auto it = clients_to_connect.find(qp_num);
+          if(it == clients_to_connect.end()) {
+
+            SPDLOG_DEBUG("[Manager-RDMA] Rejecting executor to an unknown client {}", qp_num);
+            // This operation is thread-safe
+            _state.reject(conn);
+            delete conn;
+
+          } else {
+            SPDLOG_DEBUG("[Manager-RDMA] Accepted a new executor for client {}", qp_num);
+            // This operation is thread-safe
+            _state.accept(conn);
+
+            _client_queue.emplace(Operation::CONNECT, msg_t{conn});
+          }
 
         } else {
-          Client client{conn->qp()->qp_num, conn, _state.pd()};
-          client._active = true;
+
+          Client client{conn->qp()->qp_num, conn, _state.pd(), true};
+          clients_to_connect.insert(conn->qp()->qp_num);
+
+          _state.accept(client.connection);
           _client_queue.emplace(Operation::CONNECT, msg_t{std::move(client)});
         }
 
@@ -175,16 +207,33 @@ namespace rfaas::executor_manager {
     spdlog::info("Background thread stops waiting for rdmacm events.");
   }
 
+  void Manager::_handle_res_mgr_message(ibv_wc& wc)
+  {
+    if(wc.status != 0) {
+      return;
+    }
+
+    uint64_t id = wc.wr_id;
+    SPDLOG_DEBUG("Receive lease {}", _res_mgr_connection->_receive_buffer[id].lease_id);
+
+    Lease lease {
+      _res_mgr_connection->_receive_buffer[id].lease_id,
+      _res_mgr_connection->_receive_buffer[id].cores,
+      _res_mgr_connection->_receive_buffer[id].memory
+    };
+    _leases.insert_threadsafe(std::move(lease));
+
+    _res_mgr_connection->_connection.connection().receive_wcs().refill();
+  }
+
   void Manager::poll_res_mgr()
   {
     // FIXME: add executors!
-    typedef std::variant<Client*, ResourceManagerConnection*> conn_t;
-    std::unordered_map<uint32_t, conn_t> connections;
+    //typedef std::variant<Client*, ResourceManagerConnection*> conn_t;
+    //std::unordered_map<uint32_t, conn_t> connections;
 
-    uint32_t id = 0;
-    connections[id++] = conn_t{_res_mgr_connection.get()};
-
-    rdmalib::Connection& conn = _res_mgr_connection->_connection.connection();
+    //uint32_t id = 0;
+    //connections[id++] = conn_t{_res_mgr_connection.get()};
 
     //conn.notify_events();
 
@@ -193,27 +242,13 @@ namespace rfaas::executor_manager {
       //auto cq = conn.wait_events();
       //conn.ack_events(cq, 1);
 
-      auto wcs = _res_mgr_connection->_connection.connection().receive_wcs().poll(false);
+      auto wcs = _res_mgr_connection->connection().receive_wcs().poll(false);
       if(std::get<1>(wcs)) {
 
         for(int j = 0; j < std::get<1>(wcs); ++j) {
-
-          auto wc = std::get<0>(wcs)[j];
-          if(wc.status != 0)
-            continue;
-          uint64_t id = wc.wr_id;
-          SPDLOG_DEBUG("Receive lease {}", _res_mgr_connection->_receive_buffer[id].lease_id);
-
-          Lease lease {
-            _res_mgr_connection->_receive_buffer[id].lease_id,
-            _res_mgr_connection->_receive_buffer[id].cores,
-            _res_mgr_connection->_receive_buffer[id].memory
-          };
-          _leases.insert_threadsafe(std::move(lease));
+          _handle_res_mgr_message(std::get<0>(wcs)[j]);
         }
       }
-
-      _res_mgr_connection->_connection.connection().receive_wcs().refill();
 
       //conn.notify_events();
     }
@@ -344,12 +379,12 @@ namespace rfaas::executor_manager {
     }
   }
 
-  std::tuple<Manager::Operation, Manager::msg_t>* Manager::_check_queue(int conn_count)
+  std::tuple<Manager::Operation, Manager::msg_t>* Manager::_check_queue(bool sleep)
   {
     static std::tuple<Operation, msg_t> result;
     bool updated = false;
 
-    if(conn_count > 0) {
+    if(sleep) {
       updated = _client_queue.try_dequeue(result);
     } else {
       updated = _client_queue.wait_dequeue_timed(result, POLLING_TIMEOUT_MS * 1000);
@@ -367,25 +402,17 @@ namespace rfaas::executor_manager {
       uint32_t qp_num = conn->private_data();
       auto it = _clients.find(qp_num);
       if(it == _clients.end()) {
-
-        SPDLOG_DEBUG("[Manager-RDMA] Rejecting executor to an unknown client {}", qp_num);
-        // This operation is thread-safe
-        _state.reject(conn);
+        spdlog::error("Unmatched executor! Client ID {}", qp_num);
+        // FIXME: disconnect
         delete conn;
 
       } else {
-
-        SPDLOG_DEBUG("[Manager-RDMA] Accepted a new executor for client {}", qp_num);
-        // This operation is thread-safe
-        _state.accept(conn);
         (*it).second.executor->add_executor(conn);
-
       }
 
     } else {
 
       Client& client = std::get<Client>(message);
-      _state.accept(client.connection);
       _clients.emplace(std::piecewise_construct,
                       std::forward_as_tuple(client.connection->qp()->qp_num),
                       std::forward_as_tuple(std::move(client))
@@ -407,18 +434,38 @@ namespace rfaas::executor_manager {
     }
   }
 
+  void Manager::_handle_client_message(ibv_wc& wc)
+  {
+    uint32_t qp_num = wc.qp_num;
+    auto it = _clients.find(qp_num);
+    if(it != _clients.end()) {
+
+      if(wc.status != IBV_WC_SUCCESS) {
+        spdlog::error("Failed work completion on client {}, error {}", qp_num, wc.status);
+        return;
+      }
+
+      Client & client = (*it).second;
+      if(!_process_client(client, wc.wr_id)) {
+        _clients.erase(it);
+      }
+
+    } else {
+      spdlog::error("Polled work completion for QP {}, non-existing client!", qp_num);
+    }
+  }
+
   void Manager::poll_rdma()
   {
-    rdmalib::Poller recv_poller{_state.shared_queue(0)};
-    int conn_count = 0;
-    // FIXME: sleep when there are no clients
+    rdmalib::Poller recv_poller{std::get<1>(*_state.shared_queue(0))};
     std::vector<std::unordered_map<uint32_t, Client>::iterator> removals;
+    int conn_count = 0;
 
     while(!_shutdown.load()) {
 
       while(true) {
 
-        auto ptr = _check_queue(conn_count);
+        auto ptr = _check_queue(conn_count > 0);
         if(!ptr) {
           break;
         }
@@ -435,23 +482,7 @@ namespace rfaas::executor_manager {
       for(int j = 0; j < std::get<1>(wcs); ++j) {
 
         auto wc = std::get<0>(wcs)[j];
-        uint32_t qp_num = wc.qp_num;
-        auto it = _clients.find(qp_num);
-        if(it != _clients.end()) {
-
-          if(wc.status != IBV_WC_SUCCESS) {
-            spdlog::error("Failed work completion on client {}, error {}", qp_num, wc.status);
-            continue;
-          }
-
-          Client & client = (*it).second;
-          if(!_process_client(client, wc.wr_id)) {
-            removals.push_back(it);
-          }
-
-        } else {
-          spdlog::error("Polled work completion for QP {}, non-existing client!", qp_num);
-        }
+        _handle_client_message(wc);
 
       }
 
@@ -467,6 +498,74 @@ namespace rfaas::executor_manager {
     }
     spdlog::info("Background thread stops processing RDMA events.");
     _clients.clear();
+  }
+
+  void Manager::_process_events_sleep()
+  {
+    rdmalib::EventPoller event_poller;
+
+    auto [client_channel, client_cq] = *_state.shared_queue(0);
+    rdmalib::Poller client_poller{client_cq};
+    client_poller.set_nonblocking();
+    client_poller.notify_events(false);
+
+    rdmalib::Poller res_mgr{_res_mgr_connection->connection().qp()->recv_cq};
+
+    event_poller.add_channel(client_poller, 0);
+    event_poller.add_channel(res_mgr, 1);
+
+    std::vector<Client*> poll_send;
+
+    while (!_shutdown.load()) {
+
+      auto [events, count] = event_poller.poll(POLLING_TIMEOUT_MS*10);
+
+      for(int i = 0; i < count; ++i) {
+
+        if(events[i].data.u32 == 2) {
+
+          auto ptr = _check_queue(false);
+          if(ptr) {
+            if (std::get<0>(*ptr) == Operation::CONNECT) {
+              _handle_connections(std::get<1>(*ptr));
+            } else {
+              _handle_disconnections(std::get<1>(*ptr));
+            }
+          }
+
+          auto cq = client_poller.wait_events();
+          client_poller.ack_events(cq, 1);
+          client_poller.notify_events(false) ;
+
+          auto wcs = client_poller.poll(false);
+          if(std::get<1>(wcs)) {
+            for (int j = 0; j < std::get<1>(wcs); ++j) {
+              _handle_client_message(std::get<0>(wcs)[j]);
+            }
+          }
+
+        } else {
+
+          auto wcs = res_mgr.poll(false);
+          if(std::get<1>(wcs)) {
+            for (int j = 0; j < std::get<1>(wcs); ++j) {
+              _handle_res_mgr_message(std::get<0>(wcs)[j]);
+            }
+          }
+
+        }
+
+      }
+
+      if (poll_send.size()) {
+        for (auto client : poll_send) {
+          client->connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
+        }
+        poll_send.clear();
+      }
+
+    }
+    spdlog::info("Background thread stops processing client events");
   }
 
 }

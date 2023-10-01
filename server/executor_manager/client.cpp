@@ -14,13 +14,13 @@
 
 namespace rfaas::executor_manager {
 
-  Client::Client(int id, rdmalib::Connection* conn, ibv_pd* pd): //, Accounting & _acc):
+  Client::Client(int id, rdmalib::Connection* conn, ibv_pd* pd, bool active): //, Accounting & _acc):
     connection(conn),
     allocation_requests(RECV_BUF_SIZE),
     accounting(1),
     //accounting(_acc),
     allocation_time(0),
-    _active(false),
+    _active(active),
     _id(id)
   {
     // Make the buffer accessible to clients

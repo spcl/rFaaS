@@ -87,6 +87,11 @@ namespace rfaas::executor_manager {
         spdlog::error("Failed to notify resource manager of lease {} close down.", lease_id);
       }
     }
+
+    rdmalib::Connection& connection()
+    {
+      return _connection.connection();
+    }
   };
 
   struct Lease
@@ -157,10 +162,13 @@ namespace rfaas::executor_manager {
 
     typedef std::vector<std::unordered_map<uint32_t, Client>::iterator> removals_t;
     void _check_executors(removals_t & removals);
-    std::tuple<Operation, msg_t>* _check_queue(int conn_count);
+    std::tuple<Operation, msg_t>* _check_queue(bool sleep);
     void _handle_connections(msg_t & message);
     void _handle_disconnections(msg_t & message);
     bool _process_client(Client & client, uint64_t wr_id);
+    void _process_events_sleep();
+    void _handle_client_message(ibv_wc& wc);
+    void _handle_res_mgr_message(ibv_wc& wc);
   };
 
 }

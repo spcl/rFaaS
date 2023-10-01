@@ -38,6 +38,7 @@ namespace rfaas::executor_manager {
     int rdma_device_port;
     rfaas::device_data* device;
     std::string node_name;
+    bool rdma_sleep;
 
     // resource manager connection
     std::string resource_manager_address;
@@ -52,7 +53,7 @@ namespace rfaas::executor_manager {
     {
       ar(
         CEREAL_NVP(rdma_device), CEREAL_NVP(rdma_device_port),
-        CEREAL_NVP(node_name),
+        CEREAL_NVP(node_name), cereal::make_nvp("rdma-sleep", rdma_sleep),
         CEREAL_NVP(resource_manager_address), CEREAL_NVP(resource_manager_port),
         CEREAL_NVP(resource_manager_secret)
       );

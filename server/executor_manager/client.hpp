@@ -31,7 +31,7 @@ namespace rfaas::executor_manager {
     bool _active;
     int _id;
 
-    Client(int id, rdmalib::Connection* conn, ibv_pd* pd);
+    Client(int id, rdmalib::Connection* conn, ibv_pd* pd, bool active);
     Client(Client &&);
     Client& operator=(Client &&);
     ~Client();
