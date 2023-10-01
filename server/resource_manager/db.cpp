@@ -105,6 +105,8 @@ namespace rfaas { namespace resource_manager {
 
   void ExecutorDB::close_lease(common::LeaseDeallocation & msg)
   {
+    writer_lock_t lock(_mutex);
+
     auto it = _leases.find(msg.lease_id);
     if(it == _leases.end()) {
       spdlog::warn("Ignoring non-existing lease {}", msg.lease_id);
