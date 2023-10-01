@@ -164,7 +164,7 @@ namespace rfaas::executor_manager {
     void _check_executors(removals_t & removals);
     std::tuple<Operation, msg_t>* _check_queue(bool sleep);
     void _handle_connections(msg_t & message);
-    void _handle_disconnections(msg_t & message);
+    void _handle_disconnections(rdmalib::Connection* conn);
     bool _process_client(Client & client, uint64_t wr_id);
     void _process_events_sleep();
     void _handle_client_message(ibv_wc& wc);

@@ -405,9 +405,8 @@ namespace rfaas::executor_manager {
     }
   }
 
-  void Manager::_handle_disconnections(msg_t & message)
+  void Manager::_handle_disconnections(rdmalib::Connection* conn)
   {
-    rdmalib::Connection* conn = std::get<rdmalib::Connection*>(message);
     auto it = _clients.find(conn->qp()->qp_num);
     if (it != _clients.end()) {
       spdlog::debug("[Manager] Disconnecting client");
@@ -462,7 +461,7 @@ namespace rfaas::executor_manager {
           _handle_connections(std::get<1>(*ptr));
           conn_count++;
         } else {
-          _handle_disconnections(std::get<1>(*ptr));
+          _handle_disconnections(std::get<0>(std::get<1>(*ptr)));
         }
       }
 
@@ -505,6 +504,7 @@ namespace rfaas::executor_manager {
     event_poller.add_channel(res_mgr, 1);
 
     std::vector<Client*> poll_send;
+    std::vector<rdmalib::Connection*> disconnections;
 
     while (!_shutdown.load()) {
 
@@ -513,6 +513,14 @@ namespace rfaas::executor_manager {
       for(int i = 0; i < count; ++i) {
 
         if(events[i].data.u32 == 0) {
+
+          // First, handle new connections to correctly recognize clients.
+          // Then, poll new messages.
+          // Finally, handle disconnections.
+          //
+          // This way, we will correctly recognize messages arriving from new clients.
+          // Furthermore, we will process final messages from clients that are disconnecting.
+          // Example is the final message cancelling a lease.
 
           while(true) {
 
@@ -525,7 +533,7 @@ namespace rfaas::executor_manager {
               if (std::get<0>(*ptr) == Operation::CONNECT) {
                 _handle_connections(std::get<1>(*ptr));
               } else {
-                _handle_disconnections(std::get<1>(*ptr));
+                disconnections.emplace_back(std::get<0>(std::get<1>(*ptr)));
               }
             }
 
@@ -557,6 +565,15 @@ namespace rfaas::executor_manager {
 
         }
 
+      }
+
+      if(disconnections.size()) {
+
+        for (auto conn : disconnections) {
+          _handle_disconnections(conn);
+        }
+
+        disconnections.clear();
       }
 
       if (poll_send.size()) {
