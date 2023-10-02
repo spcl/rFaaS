@@ -20,7 +20,7 @@ namespace rfaas::resource_manager {
 
   struct Client
   {
-    static constexpr int RECV_BUF_SIZE = 8;
+    static constexpr int RECV_BUF_SIZE = 32;
     rdmalib::Connection* connection;
     rdmalib::Buffer<rfaas::LeaseResponse> _response;
     rdmalib::Buffer<rfaas::LeaseRequest> allocation_requests;
