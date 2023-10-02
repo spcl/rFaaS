@@ -1,12 +1,13 @@
 
 
-#include <spdlog/spdlog.h>
 
 #include <stdexcept>
-#include <sys/poll.h>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
+
+#include <spdlog/spdlog.h>
+#include <sys/poll.h>
 
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/connection.hpp>
@@ -411,12 +412,14 @@ void Manager::process_events_sleep()
 {
   rdmalib::EventPoller event_poller;
 
-  auto [client_channel, client_cq] = *_state.shared_queue(2);
+  auto [client_channel, client_cq, _] = *_state.shared_queue(2);
   rdmalib::Poller client_poller{client_cq};
   client_poller.set_nonblocking();
   client_poller.notify_events(false);
 
-  auto [executor_channel, executor_cq] = *_state.shared_queue(1);
+  ibv_comp_channel* executor_channel;
+  ibv_cq* executor_cq;
+  std::tie(executor_channel, executor_cq, std::ignore) = *_state.shared_queue(1);
   rdmalib::Poller executor_poller{executor_cq};
   executor_poller.set_nonblocking();
   executor_poller.notify_events(false);

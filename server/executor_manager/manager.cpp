@@ -493,7 +493,7 @@ namespace rfaas::executor_manager {
   {
     rdmalib::EventPoller event_poller;
 
-    auto [client_channel, client_cq] = *_state.shared_queue(0);
+    auto [client_channel, client_cq, _] = *_state.shared_queue(0);
     rdmalib::Poller client_poller{client_cq};
     client_poller.set_nonblocking();
     client_poller.notify_events(false);
