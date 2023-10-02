@@ -53,7 +53,7 @@ namespace rfaas {
     _end_requested = false;
 
     // Enables sharing receive queue across all connections.
-    _state.register_shared_queue(0);
+    _state.register_shared_queue(0, true);
 
     _exec_manager.reset(
       new manager_connection(
