@@ -318,7 +318,8 @@ namespace rdmalib {
     _listen_id(std::move(obj._listen_id)),
     _pd(std::move(obj._pd)),
     _recv_buf(obj._recv_buf),
-    _active_connections(std::move(obj._active_connections))
+    _active_connections(std::move(obj._active_connections)),
+    _shared_recv_completions(std::move(obj._shared_recv_completions))
   {
     obj._ec = nullptr;
     obj._listen_id = nullptr;
@@ -333,6 +334,7 @@ namespace rdmalib {
     _listen_id = std::move(obj._listen_id);
     _pd = std::move(obj._pd);
     _active_connections = std::move(obj._active_connections);
+    _shared_recv_completions = std::move(obj._shared_recv_completions);
 
     obj._ec = nullptr;
     obj._listen_id = nullptr;
@@ -449,7 +451,7 @@ namespace rdmalib {
           } else {
 
             SPDLOG_DEBUG("Allocate default shared queue for key {}", key);
-            _cfg.attr.send_cq = nullptr;
+            _cfg.attr.send_cq = std::get<2>((*it).second);;
             _cfg.attr.recv_cq = std::get<1>((*it).second);
 
           }
@@ -457,7 +459,7 @@ namespace rdmalib {
         } else {
 
           SPDLOG_DEBUG("Allocate existing shared queue for key {}", key);
-          _cfg.attr.send_cq = nullptr;
+          _cfg.attr.send_cq = std::get<2>((*it).second);
           _cfg.attr.recv_cq = std::get<1>((*it).second);
 
         }
@@ -529,16 +531,20 @@ namespace rdmalib {
     return std::make_tuple(connection, status);
   }
 
-  void RDMAPassive::register_shared_queue(uint16_t key)
+  void RDMAPassive::register_shared_queue(uint16_t key, bool share_send_queue)
   {
     ibv_comp_channel* channel = ibv_create_comp_channel(_pd->context);
     ibv_cq* cq = ibv_create_cq(_pd->context, _cfg.attr.cap.max_recv_wr, nullptr, channel, 0);
+    ibv_cq* send_cq = nullptr;
+    if(share_send_queue) {
+      send_cq = ibv_create_cq(_pd->context, _cfg.attr.cap.max_send_wr, nullptr, channel, 0);
+    }
 
-    _shared_recv_completions[key] = std::make_tuple(channel, cq);
-    SPDLOG_DEBUG("[RDMAPassive] Register CQ {} for key {}, channel {} {}", fmt::ptr(cq), key, fmt::ptr(channel), fmt::ptr(cq->channel));
+    _shared_recv_completions[key] = std::make_tuple(channel, cq, send_cq);
+    SPDLOG_DEBUG("[RDMAPassive] Register CQ {} for key {}, channel {}", fmt::ptr(cq), key, fmt::ptr(cq->channel));
   }
 
-  std::tuple<ibv_comp_channel*, ibv_cq*>* RDMAPassive::shared_queue(uint16_t key)
+  std::tuple<ibv_comp_channel*, ibv_cq*, ibv_cq*>* RDMAPassive::shared_queue(uint16_t key)
   {
     auto it = _shared_recv_completions.find(key);
     return it != _shared_recv_completions.end() ? &it->second : nullptr;
