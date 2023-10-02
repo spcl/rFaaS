@@ -46,49 +46,14 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  // if (!opts.executors_database.empty()) {
-  //   std::ifstream in_cfg(opts.executors_database);
-  //   rfaas::servers::deserialize(in_cfg);
-  //   in_cfg.close();
-
-  //  // FIXME: create executor
-
-  //} else {
-
-  auto leased_executor = instance.lease(1, 512, *settings.device);
-  // auto executor = instance.lease(1, 512, *settings.device);
+  auto leased_executor = instance.lease(settings.benchmark.numcores, settings.benchmark.memory, *settings.device);
   if (!leased_executor.has_value()) {
     spdlog::error("Couldn't acquire a lease!");
     return 1;
   }
+
   rfaas::executor executor = std::move(leased_executor.value());
-  //}
-  // rfaas::executor *executor = &executors;
 
-  // executor.connect(settings.device->ip_address,
-  //                          settings.rdma_device_port,
-  //                          settings.device->default_receive_buffer_size,
-  //                          settings.device->max_inline_data);
-
-  // return 0;
-
-  // Read connection details to the executors
-  // if (opts.executors_database != "") {
-  //  std::ifstream in_cfg(opts.executors_database);
-  //  rfaas::servers::deserialize(in_cfg);
-  //  in_cfg.close();
-  //} else {
-  //  spdlog::error("Connection to resource manager is temporarily disabled, use
-  //  "
-  //                "executor database "
-  //                "option instead!");
-  //  return 1;
-  //}
-
-  // rfaas::executor executor(settings.device->ip_address,
-  //                          settings.rdma_device_port,
-  //                          settings.device->default_receive_buffer_size,
-  //                          settings.device->max_inline_data);
   if (!executor.allocate(opts.flib, opts.input_size,
                          settings.benchmark.hot_timeout, false)) {
     spdlog::error("Connection to executor and allocation failed!");
