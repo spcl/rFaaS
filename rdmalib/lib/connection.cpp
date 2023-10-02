@@ -74,8 +74,11 @@ namespace rdmalib {
   void Connection::initialize(rdma_cm_id* id)
   {
     this->_id = id;
-    this->_channel = _id->recv_cq_channel;
     this->_qp = this->_id->qp;
+    this->_channel = _id->recv_cq_channel;
+    if(!this->_channel) {
+      this->_channel = this->_qp->recv_cq->channel;
+    }
 
     this->_send_wcs.set_qp(id->qp);
     this->_rcv_wcs.set_qp(id->qp);
