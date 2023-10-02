@@ -369,7 +369,7 @@ namespace rfaas::executor_manager {
     static std::tuple<Operation, msg_t> result;
     bool updated = false;
 
-    if(sleep) {
+    if(!sleep) {
       updated = _client_queue.try_dequeue(result);
     } else {
       updated = _client_queue.wait_dequeue_timed(result, POLLING_TIMEOUT_MS * 1000);
