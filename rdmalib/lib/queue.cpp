@@ -131,7 +131,7 @@ namespace rdmalib {
     _requests += change;
   }
 
-  inline bool RecvWorkCompletions::refill()
+  bool RecvWorkCompletions::refill()
   {
     if(_requests < _refill_threshold) {
       SPDLOG_DEBUG("Post {} requests to buffer at QP {}", _rcv_buf_size - _requests, fmt::ptr(this->qp()));
