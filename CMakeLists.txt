@@ -241,6 +241,8 @@ foreach(target ${targets})
   target_link_libraries(${target} PRIVATE rdmalib)
   target_link_libraries(${target} PRIVATE rfaaslib)
   target_link_libraries(${target} PRIVATE Threads::Threads)
+  # Needed for older Clang versions
+  target_link_libraries(${target} PRIVATE stdc++fs)
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 endforeach()
 target_link_libraries(executor PRIVATE dl)
@@ -272,6 +274,7 @@ endif()
 if( ${WITH_LIBFABRIC} AND ${WITH_GNI_AUTH})
   configure_file(
     scripts/setup.sh.in scripts/setup.sh
+    @ONLY
     FILE_PERMISSIONS GROUP_READ GROUP_WRITE GROUP_EXECUTE OWNER_READ OWNER_WRITE OWNER_EXECUTE
   )
 endif()

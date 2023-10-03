@@ -1,13 +1,41 @@
 #!/bin/bash
 
-module load rdma-credentials
-srun -l -N1 -n1 ${CMAKE_CURRENT_BINARY_DIR}/benchmarks/credentials
-COOKIE=$(cat "credential.txt")
+SKIP_GENERATION=$1
 
-echo "Setting credential ${COOKIE}"
-for arg in "$@"
-do
-  jq --arg cookie $COOKIE '.configuration = {"authentication_credential": $cookie |fromjson}' $arg > $arg.tmp
-  mv $arg.tmp $arg
+usage() {
+	echo "Usage: $0 --skip-generation" 1>&2
+}
+
+skip_generation='false'
+devices=''
+
+while getopts "d:sh" opt; do
+	case $opt in
+	s) skip_generation="true" ;;
+	d) devices="$OPTARG" ;;
+	h)
+		usage
+		exit 0
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
 done
 
+if [ "$skip_generation" == "false" ]; then
+	echo "Generate Cray credentials"
+
+	module load rdma-credentials
+	srun -l -N1 -n1 @CMAKE_CURRENT_BINARY_DIR@/benchmarks/credentials
+fi
+
+COOKIE=$(cat "credential.txt")
+
+echo "Setting credential for files in $devices"
+for arg in ${devices}/*.json; do
+	echo $arg
+	jq --arg cookie $COOKIE '.configuration = {"authentication_credential": $cookie |fromjson}' $arg >$arg.tmp
+	mv $arg.tmp $arg
+done
