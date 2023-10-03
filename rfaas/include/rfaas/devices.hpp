@@ -18,7 +18,7 @@ namespace rfaas {
     std::string name;
     std::string ip_address;
     int port;
-    int16_t max_inline_data;
+    uint16_t max_inline_data;
     int16_t default_receive_buffer_size;
 
     template <class Archive>
@@ -42,6 +42,7 @@ namespace rfaas {
     std::vector<device_data> _data; 
 
     device_data * device (std::string name) noexcept;
+    device_data * front () noexcept;
     static devices & instance();
     static void deserialize(std::istream & in);
   private:

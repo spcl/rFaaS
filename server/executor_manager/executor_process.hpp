@@ -7,19 +7,18 @@
 
 #include <rdmalib/connection.hpp>
 
-namespace rdmalib {
+namespace rfaas {
   struct AllocationRequest;
 }
 
 namespace executor {
-
   struct ManagerConnection;
-
 }
 
 namespace rfaas::executor_manager {
 
   struct ExecutorSettings;
+  struct Lease;
 
   struct ActiveExecutor {
 
@@ -43,6 +42,7 @@ namespace rfaas::executor_manager {
     virtual ~ActiveExecutor();
     virtual int id() const = 0;
     virtual std::tuple<Status,int> check() const = 0;
+    void add_executor(rdmalib::Connection*);
   };
 
   struct ProcessExecutor : public ActiveExecutor
@@ -57,9 +57,10 @@ namespace rfaas::executor_manager {
     int id() const override;
     std::tuple<Status,int> check() const override;
     static ProcessExecutor* spawn(
-      const rdmalib::AllocationRequest & request,
+      const rfaas::AllocationRequest & request,
       const ExecutorSettings & exec,
-      const executor::ManagerConnection & conn
+      const executor::ManagerConnection & conn,
+      const Lease & lease
     );
   };
 

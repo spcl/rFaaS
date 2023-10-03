@@ -7,11 +7,11 @@
 #include <cxxopts.hpp>
 
 #include <rdmalib/rdmalib.hpp>
-#include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/benchmarker.hpp>
-#include <rdmalib/allocation.hpp>
 #include <rdmalib/functions.hpp>
 
+#include <rfaas/allocation.hpp>
+#include <rfaas/client.hpp>
 #include <rfaas/executor.hpp>
 #include <rfaas/resources.hpp>
 
@@ -38,48 +38,55 @@ int main(int argc, char ** argv)
   rfaas::benchmark::Settings settings = rfaas::benchmark::Settings::deserialize(benchmark_cfg);
   benchmark_cfg.close();
 
-  // Read connection details to the executors
-  if(opts.executors_database != "") {
-    std::ifstream in_cfg(opts.executors_database);
-    rfaas::servers::deserialize(in_cfg);
-    in_cfg.close();
-  } else {
-    spdlog::error(
-      "Connection to resource manager is temporarily disabled, use executor database "
-      "option instead!"
-    );
+  rfaas::client instance(
+    settings.resource_manager_address, settings.resource_manager_port,
+    *settings.device
+  );
+  if (!instance.connect()) {
+    spdlog::error("Connection to resource manager failed!");
     return 1;
   }
 
-  rfaas::executor executor(
-    settings.device->ip_address,
-    settings.rdma_device_port,
-    settings.device->default_receive_buffer_size,
-    settings.device->max_inline_data
-  );
-  std::vector<rdmalib::Buffer<char>> in;
-  std::vector<rdmalib::Buffer<char>> out;
-  for(int i = 0; i < opts.cores; ++i) {
-    in.emplace_back(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE);
-    in.back().register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
-    memset(in.back().data(), 0, opts.input_size);
-    for(int i = 0; i < opts.input_size; ++i) {
-      ((char*)in.back().data())[i] = 1;
-    }
-  }
-  for(int i = 0; i < opts.cores; ++i) {
-    out.emplace_back(opts.input_size);
-    out.back().register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    memset(out.back().data(), 0, opts.input_size);
-  }
+
 
   rdmalib::Benchmarker<5> benchmarker{settings.benchmark.repetitions};
   spdlog::info("Measurements begin");
   auto start = std::chrono::high_resolution_clock::now();
   for(int i = 0; i < settings.benchmark.repetitions;++i) {
+
+    // Allow the lease information to be propagated
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
     spdlog::info("Begin iteration {}", i);
+
+    auto leased_executor = instance.lease(settings.benchmark.numcores, settings.benchmark.memory, *settings.device);
+    if (!leased_executor.has_value()) {
+      spdlog::error("Couldn't acquire a lease!");
+      return 1;
+    }
+    rfaas::executor executor = std::move(leased_executor.value());
+
+    // Allow the lease information to be propagated
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+    std::vector<rdmalib::Buffer<char>> in;
+    std::vector<rdmalib::Buffer<char>> out;
+    for(int i = 0; i < settings.benchmark.numcores; ++i) {
+      in.emplace_back(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE);
+      in.back().register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
+      memset(in.back().data(), 0, opts.input_size);
+      for(int i = 0; i < opts.input_size; ++i) {
+        ((char*)in.back().data())[i] = 1;
+      }
+    }
+    for(int i = 0; i < settings.benchmark.numcores; ++i) {
+      out.emplace_back(opts.input_size);
+      out.back().register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+      memset(out.back().data(), 0, opts.input_size);
+    }
+
     if(executor.allocate(
-      opts.flib, opts.cores, opts.input_size, 
+      opts.flib, opts.input_size, 
       settings.benchmark.hot_timeout, false, &benchmarker
     )) {
       executor.execute(opts.fname, in, out);
@@ -113,13 +120,15 @@ int main(int argc, char ** argv)
       {"connect", "submit", "spawn_connect", "initialize", "execute"}
     );
 
-  int i = 0;
-  for(rdmalib::Buffer<char> & buf : out) {
-    printf("%d ", i++);
-    for(int i = 0; i < std::min(10, opts.input_size); ++i)
-      printf("%d ", ((char*)buf.data())[i]);
-    printf("\n");
-  }
+  //int i = 0;
+  //for(rdmalib::Buffer<char> & buf : out) {
+  //  printf("%d ", i++);
+  //  for(int i = 0; i < std::min(10, opts.input_size); ++i)
+  //    printf("%d ", ((char*)buf.data())[i]);
+  //  printf("\n");
+  //}
+
+  instance.disconnect();
 
   return 0;
 }

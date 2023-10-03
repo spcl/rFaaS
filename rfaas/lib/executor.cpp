@@ -1,12 +1,12 @@
 
-#include "rdmalib/rdmalib.hpp"
 #include <spdlog/spdlog.h>
 
-#include <rdmalib/allocation.hpp>
+#include <rdmalib/rdmalib.hpp>
 #include <rdmalib/connection.hpp>
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/util.hpp>
 
+#include <rfaas/allocation.hpp>
 #include <rfaas/connection.hpp>
 #include <rfaas/executor.hpp>
 #include <rfaas/resources.hpp>
@@ -33,35 +33,63 @@ namespace rfaas {
   }
 
   executor_state::executor_state(rdmalib::Connection* conn, int rcv_buf_size):
-    conn(conn),
-    _rcv_buffer(rcv_buf_size)
+    conn(conn)
   {
   }
 
-  executor::executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg):
-    _state(address, port, rcv_buf_size + 1),
-    _rcv_buffer(rcv_buf_size),
+  executor::executor(const std::string& address, int port, int numcores, int memory, int lease_id, device_data & dev):
+    _state(dev.ip_address, dev.port, dev.default_receive_buffer_size + 1),
     _execs_buf(MAX_REMOTE_WORKERS),
-    _address(address),
-    _port(port),
-    _rcv_buf_size(rcv_buf_size),
+    _device(dev),
+    _numcores(numcores),
+    _memory(memory),
     _executions(0),
     _invoc_id(0),
-    _max_inlined_msg(max_inlined_msg)
+    _lease_id(lease_id)
   {
     _execs_buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     events = 0;
     _active_polling = false;
     _end_requested = false;
-  }
 
-  executor::executor(device_data & dev):
-    executor(dev.ip_address, dev.port, dev.default_receive_buffer_size, dev.max_inline_data)
-  {}
+    // Enables sharing receive queue across all connections.
+    _state.register_shared_queue(0, true);
+
+    _exec_manager.reset(
+      new manager_connection(
+        address,
+        port,
+        dev.default_receive_buffer_size,
+        dev.max_inline_data
+      )
+    );
+  }
 
   executor::~executor()
   {
     this->deallocate();
+  }
+
+  executor::executor(executor&& obj):
+    _state(std::move(obj._state)),
+    _execs_buf(std::move(obj._execs_buf)),
+    _device(std::move(obj._device)),
+    _numcores(std::move(obj._numcores)),
+    _memory(std::move(obj._memory)),
+    _executions(std::move(obj._executions)),
+    _invoc_id(std::move(obj._invoc_id)),
+    _lease_id(std::move(obj._lease_id)),
+    _connections(std::move(obj._connections)),
+    _exec_manager(std::move(obj._exec_manager)),
+    _func_names(std::move(obj._func_names)),
+    _futures(std::move(obj._futures)),
+    _background_thread(std::move(obj._background_thread))
+  {
+    _end_requested = obj._end_requested.load();
+    obj._end_requested.store(false);
+
+    _active_polling = obj._active_polling.load();
+    obj._active_polling.store(false);
   }
 
   rdmalib::Buffer<char> executor::load_library(std::string path)
@@ -87,14 +115,14 @@ namespace rfaas {
       ),
       [](){ spdlog::error(dlerror()); }
     );
-	  struct link_map * map = nullptr;
-		dlinfo(library_handle, RTLD_DI_LINKMAP, &map);
+    struct link_map * map = nullptr;
+    dlinfo(library_handle, RTLD_DI_LINKMAP, &map);
 
-		Elf64_Sym * symtab = nullptr;
-		char * strtab = nullptr;
-		int symentries = 0;
-		for (auto section = map->l_ld; section->d_tag != DT_NULL; ++section)
-		{
+    Elf64_Sym * symtab = nullptr;
+    char * strtab = nullptr;
+    int symentries = 0;
+    for (auto section = map->l_ld; section->d_tag != DT_NULL; ++section)
+    {
       if (section->d_tag == DT_SYMTAB)
       {
         symtab = (Elf64_Sym *)section->d_un.d_ptr;
@@ -107,10 +135,10 @@ namespace rfaas {
       {
         symentries = section->d_un.d_val;
       }
-		}
-		int size = strtab - (char *)symtab;
-		for (int k = 0; k < size / symentries; ++k)
-		{
+    }
+    int size = strtab - (char *)symtab;
+    for (int k = 0; k < size / symentries; ++k)
+    {
       auto sym = &symtab[k];
       // If sym is function
       if (ELF64_ST_TYPE(symtab[k].st_info) == STT_FUNC)
@@ -118,7 +146,7 @@ namespace rfaas {
         //str is name of each symbol
         _func_names.emplace_back(&strtab[sym->st_name]);
       }
-		}
+    }
     std::sort(_func_names.begin(), _func_names.end());
     dlclose(library_handle);
 
@@ -175,7 +203,7 @@ namespace rfaas {
         auto cq = _connections[0].conn->wait_events();
         _connections[0].conn->notify_events(true);
         _connections[0].conn->ack_events(cq, 1);
-        auto wc = _connections[0]._rcv_buffer.poll(false);
+        auto wc = _connections[0].conn->receive_wcs().poll(false);
         for(int i = 0; i < std::get<1>(wc); ++i) {
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
           int return_val = val & 0x0000FFFF;
@@ -187,11 +215,11 @@ namespace rfaas {
           // FIXME: handle error
           if(!--std::get<0>(it->second)) {
             std::get<1>(it->second).set_value(return_val);
-            // FIXME
-            //
-            _connections[0]._rcv_buffer._requests += _connections.size() - 1;
-            for(size_t i = 1; i < _connections.size(); ++i)
-              _connections[i]._rcv_buffer._requests--;
+
+            _connections[0].conn->receive_wcs().update_requests(_connections.size() - 1);
+            for(int i = 1; i < _connections.size(); ++i) {
+              _connections[0].conn->receive_wcs().update_requests(-1);
+            }
           }
         }
         // Poll completions from past sends
@@ -236,23 +264,13 @@ namespace rfaas {
     //spdlog::info("Background thread stops waiting for events");
   }
 
-  bool executor::allocate(std::string functions_path, int numcores, int max_input_size,
+  bool executor::allocate(std::string functions_path, int max_input_size,
       int hot_timeout, bool skip_manager, rdmalib::Benchmarker<5> * benchmarker)
   {
     rdmalib::Buffer<char> functions = load_library(functions_path);
-    if(!skip_manager) {
-      // FIXME: handle more than one manager
-      servers & instance = servers::instance();
-      auto selected_servers = instance.select(numcores);
 
-      _exec_manager.reset(
-        new manager_connection(
-          instance.server(selected_servers[0]).address,
-          instance.server(selected_servers[0]).port,
-          _rcv_buf_size,
-          _max_inlined_msg
-        )
-      );
+    if(!skip_manager) {
+
       // Measure connection time
       if(benchmarker)
         benchmarker->start();
@@ -264,39 +282,45 @@ namespace rfaas {
       if(!ret)
         return false;
 
-      _exec_manager->request() = (rdmalib::AllocationRequest) {
+      _exec_manager->request() = (rfaas::AllocationRequest) {
+        static_cast<int32_t>(_lease_id),
         static_cast<int16_t>(hot_timeout),
         // FIXME: timeout
         5,
-        static_cast<int16_t>(numcores),
         // FIXME: variable number of inputs
         1,
         max_input_size,
         functions.data_size(),
-        _port,
+        _state.listen_port(),
         ""
       };
-      strcpy(_exec_manager->request().listen_address, _address.c_str());
-      _exec_manager->submit();
+      strcpy(_exec_manager->request().listen_address, _device.ip_address.c_str());
+
+      if(!_exec_manager->submit()) {
+        return false;
+      }
       // Measure submission time
       if(benchmarker) {
         benchmarker->end(1);
         benchmarker->start();
       }
+
     }
 
-    SPDLOG_DEBUG("Allocating {} threads on a remote executor", numcores);
+    SPDLOG_DEBUG("Allocating {} threads on a remote executor", _numcores);
     // Now receive the connections from executors
     uint32_t obj_size = sizeof(rdmalib::BufferInformation);
 
+    // FIXME: use shared queue!
+
     // Accept connect requests, fill receive buffers and accept them.
     // When the connection is established, then send data.
-    this->_connections.reserve(numcores);
+    this->_connections.reserve(_numcores);
     int requested = 0, established = 0;
-    while(established < numcores) {
+    while(established < _numcores) {
 
       //while(conn_status != rdmalib::ConnectionStatus::REQUESTED)
-      auto [conn, conn_status] = _state.poll_events(true);
+      auto [conn, conn_status] = _state.poll_events();
       if(conn_status == rdmalib::ConnectionStatus::REQUESTED) {
         SPDLOG_DEBUG(
           "[Executor] Requested connection from executor {}, connection {}",
@@ -304,12 +328,12 @@ namespace rfaas {
         );
         this->_connections.emplace_back(
           conn,
-          _rcv_buf_size
+          _device.default_receive_buffer_size
         );
         this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, requested*obj_size), requested);
-        // FIXME: this should be in a function
         // FIXME: here it won't work if rcv_bufer_size < numcores
-        this->_connections.back()._rcv_buffer.connect(this->_connections.back().conn.get());
+        this->_connections.back().conn->receive_wcs().refill();
+
         _state.accept(this->_connections.back().conn.get());
         ++requested;
       } else if(conn_status == rdmalib::ConnectionStatus::ESTABLISHED) {
@@ -318,7 +342,7 @@ namespace rfaas {
           established + 1, fmt::ptr(conn)
         );
         conn->post_send(functions);
-        SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", established + 1, numcores);
+        SPDLOG_DEBUG("Connected thread {}/{} and submitted function code.", established + 1, _numcores);
         ++established;
       }
       // FIXME: fix handling of disconnection
@@ -335,7 +359,7 @@ namespace rfaas {
 
     // Now receive buffer information
     int received = 0;
-    while(received < numcores) {
+    while(received < _numcores) {
       auto wcs = this->_connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true); 
       for(int i = 0; i < std::get<1>(wcs); ++i) {
         int id = std::get<0>(wcs)[i].wr_id;
@@ -363,7 +387,7 @@ namespace rfaas {
         this
       }
     );
-    while(received < numcores) {
+    while(received < _numcores) {
       auto wcs = this->_connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
       received += std::get<1>(wcs);
     }

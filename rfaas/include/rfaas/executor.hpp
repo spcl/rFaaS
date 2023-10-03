@@ -9,7 +9,6 @@
 
 #include <rdmalib/benchmarker.hpp>
 #include <rdmalib/connection.hpp>
-#include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/rdmalib.hpp>
 
@@ -44,23 +43,23 @@ namespace rfaas {
   struct executor_state {
     std::unique_ptr<rdmalib::Connection> conn;
     rdmalib::RemoteBuffer remote_input;
-    rdmalib::RecvBuffer _rcv_buffer;
+    //rdmalib::RecvBuffer _rcv_buffer;
     executor_state(rdmalib::Connection*, int rcv_buf_size);
   };
 
   struct executor {
     static constexpr int MAX_REMOTE_WORKERS = 64;
-    // FIXME: 
     rdmalib::RDMAPassive _state;
-    rdmalib::RecvBuffer _rcv_buffer;
     rdmalib::Buffer<rdmalib::BufferInformation> _execs_buf;
-    std::string _address;
-    int _port;
-    int _rcv_buf_size;
+
+    device_data _device;
+
+    int _numcores;
+    int _memory;
     int _executions;
     int _invoc_id;
+    int _lease_id;
     // FIXME: global settings
-    size_t _max_inlined_msg;
     std::vector<executor_state> _connections;
     std::unique_ptr<manager_connection> _exec_manager;
     std::vector<std::string> _func_names;
@@ -73,12 +72,16 @@ namespace rfaas {
     std::unique_ptr<std::thread> _background_thread;
     int events;
 
-    executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg);
-    executor(device_data & dev);
+    // Currently, we use the same device for listening and connecting to the manager.
+    executor(const std::string& address, int port, int numcores, int memory, int lease_id, device_data & dev);
     ~executor();
 
+    executor(executor&& obj);
+
+    bool connect(const std::string & ip, int port);
+
     // Skipping managers is useful for benchmarking
-    bool allocate(std::string functions_path, int numcores, int max_input_size, int hot_timeout,
+    bool allocate(std::string functions_path, int max_input_size, int hot_timeout,
         bool skip_manager = false, rdmalib::Benchmarker<5> * benchmarker = nullptr);
     void deallocate();
     rdmalib::Buffer<char> load_library(std::string path);
@@ -115,7 +118,7 @@ namespace rfaas {
           std::move(sge),
           _connections[0].remote_input,
           submission_id,
-          size <= _max_inlined_msg,
+          size <= _device.max_inline_data,
           true
         );
       } else {
@@ -123,11 +126,12 @@ namespace rfaas {
           in,
           _connections[0].remote_input,
           submission_id,
-          in.bytes() <= _max_inlined_msg,
+          in.bytes() <= _device.max_inline_data,
           true
         );
       }
-      _connections[0]._rcv_buffer.refill();
+      //_connections[0]._rcv_buffer.refill();
+      _connections[0].conn->receive_wcs().refill();
       return std::get<1>(_futures[invoc_id]).get_future();
     }
 
@@ -158,13 +162,14 @@ namespace rfaas {
           in[i],
           _connections[i].remote_input,
           submission_id,
-          in[i].bytes() <= _max_inlined_msg,
+          in[i].bytes() <= _device.max_inline_data,
           true
         );
       }
 
       for(int i = 0; i < numcores; ++i) {
-        _connections[i]._rcv_buffer.refill();
+        //_connections[i]._rcv_buffer.refill();
+        _connections[i].conn->receive_wcs().refill();
       }
       return std::get<1>(_futures[invoc_id]).get_future();
     }
@@ -173,7 +178,8 @@ namespace rfaas {
     {
       _connections[0].conn->poll_wc(rdmalib::QueueType::SEND, true);
 
-      auto wc = _connections[0]._rcv_buffer.poll(true);
+      //auto wc = _connections[0]._rcv_buffer.poll(true);
+      auto wc = _connections[0].conn->receive_wcs().poll(true);
       uint32_t val = ntohl(std::get<0>(wc)[0].imm_data);
       int return_val = val & 0x0000FFFF;
       int finished_invoc_id = val >> 16;
@@ -218,16 +224,18 @@ namespace rfaas {
         in,
         _connections[0].remote_input,
         (invoc_id << 16) | func_idx,
-        in.bytes() <= _max_inlined_msg
+        in.bytes() <= _device.max_inline_data
       );
       _active_polling = true;
-      _connections[0]._rcv_buffer.refill();
+      //_connections[0]._rcv_buffer.refill();
+      _connections[0].conn->receive_wcs().refill();
 
       bool found_result = false;
       int return_value = 0;
       int out_size = 0;
       while(!found_result) {
-        auto wc = _connections[0]._rcv_buffer.poll(true);
+        //auto wc = _connections[0]._rcv_buffer.poll(true);
+        auto wc = _connections[0].conn->receive_wcs().poll(true);
         for(int i = 0; i < std::get<1>(wc); ++i) {
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
           int return_val = val & 0x0000FFFF;
@@ -249,7 +257,8 @@ namespace rfaas {
         }
         if(found_result) {
           _active_polling = false;
-          auto wc = _connections[0]._rcv_buffer.poll(false);
+          //auto wc = _connections[0]._rcv_buffer.poll(false);
+          auto wc = _connections[0].conn->receive_wcs().poll(false);
           // Catch very unlikely interleaving
           // Event arrives after we poll while the background thread is skipping
           // because we still hold the atomic
@@ -303,12 +312,13 @@ namespace rfaas {
           in[i],
           _connections[i].remote_input,
           (_invoc_id++ << 16) | func_idx,
-          in[i].bytes() <= _max_inlined_msg
+          in[i].bytes() <= _device.max_inline_data
         );
       }
 
       for(int i = 0; i < numcores; ++i) {
-        _connections[i]._rcv_buffer.refill();
+        //_connections[i]._rcv_buffer.refill();
+        _connections[i].conn->receive_wcs().refill();
       }
       int expected = numcores;
       while(expected) {
@@ -320,7 +330,8 @@ namespace rfaas {
       bool correct = true;
       _active_polling = true;
       while(expected) {
-        auto wc = _connections[0]._rcv_buffer.poll(true);
+        //auto wc = _connections[0]._rcv_buffer.poll(true);
+        auto wc = _connections[0].conn->receive_wcs().poll(true);
         expected -= std::get<1>(wc);
         for(int i = 0; i < std::get<1>(wc); ++i) {
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
@@ -339,9 +350,12 @@ namespace rfaas {
       }
       _active_polling = false;
 
-      _connections[0]._rcv_buffer._requests += numcores - 1;
+      // We polled from connection number 0, time to update.
+      //_connections[0]._rcv_buffer._requests += numcores - 1;
+      _connections[0].conn->receive_wcs().update_requests(numcores - 1);
       for(int i = 1; i < numcores; ++i)
-        _connections[i]._rcv_buffer._requests--;
+        //_connections[i]._rcv_buffer._requests--;
+        _connections[0].conn->receive_wcs().update_requests(-1);
       return correct;
     }
   };
