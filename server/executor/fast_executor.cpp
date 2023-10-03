@@ -213,7 +213,6 @@ namespace server {
     send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
 
-    this->conn->receive_wcs().initialize(rcv);
     spdlog::info("Thread {} Established connection to client!", id);
 
     // Send to the client information about thread buffer
@@ -230,6 +229,7 @@ namespace server {
     this->conn->poll_wc(rdmalib::QueueType::RECV, true, 1);
     _functions.process_library();
 
+    this->conn->receive_wcs().refill();
     spdlog::info("Thread {} begins work with timeout {}", id, timeout);
 
     // FIXME: catch interrupt handler here
