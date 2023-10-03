@@ -57,6 +57,7 @@ namespace rdmalib {
     return _instance;
   }
 
+  #ifdef USE_GNI_AUTH
   void Configuration::configure_cookie(uint32_t credential)
   {
     Configuration& inst = _get_instance();
@@ -82,6 +83,8 @@ namespace rdmalib {
   {
     return (_is_configured ? _credential: std::optional<uint32_t>{});
   }
+
+  #endif
 
   bool Configuration::is_configured() const
   {

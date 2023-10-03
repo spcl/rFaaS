@@ -36,8 +36,8 @@ namespace rdmalib {
     void configure_cookie(uint32_t cray_cookie);
     std::optional<uint64_t> cookie() const;
     std::optional<uint32_t> credential() const;
-    bool is_configured() const;
     #endif
+    bool is_configured() const;
 
   private:
 
@@ -45,9 +45,11 @@ namespace rdmalib {
     ~Configuration();
 
     std::once_flag _access_flag;
+    #ifdef USE_GNI_AUTH
     drc_info_handle_t _credential_info;
     uint64_t _cookie;
     uint32_t _credential;
+    #endif
     bool _is_configured;
 
     static Configuration& _get_instance();

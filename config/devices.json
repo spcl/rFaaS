@@ -1,9 +1,9 @@
 {
   "devices": [
     {
-      "name": "",
-      "ip_address": "",
-      "port": 0,
+      "name": "rxe_eth0",
+      "ip_address": "172.31.82.200",
+      "port": 10000,
       "max_inline_data": 0,
       "default_receive_buffer_size": 32
     }
