@@ -3,7 +3,6 @@
 #define __RDMALIB_UTIL_HPP__
 
 #include <cstring>
-#include <rdma/fi_errno.h>
 #include <spdlog/spdlog.h>
 
 namespace rdmalib { namespace impl {
