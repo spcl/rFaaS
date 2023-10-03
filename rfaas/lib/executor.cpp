@@ -434,4 +434,15 @@ namespace rfaas {
     return true;
   }
 
+  int executor::next_invocation_id()
+  {
+    // We support up to 64K concurrent invocations because we use 16 bits
+    // to transmit function ID.
+    constexpr int MAX_INVOCATION_ID = 65535;
+    int invoc_id = this->_invoc_id++;
+    if(invoc_id > MAX_INVOCATION_ID) {
+      this->_invoc_id = invoc_id = 0;
+    }
+    return invoc_id;
+  }
 }

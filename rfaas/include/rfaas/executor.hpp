@@ -84,6 +84,7 @@ namespace rfaas {
     void deallocate();
     rdmalib::Buffer<char> load_library(std::string path);
     void poll_queue();
+    int next_invocation_id();
 
     template<typename T, typename U>
     std::future<int> async(std::string fname, const rdmalib::Buffer<T> & in, rdmalib::Buffer<U> & out, int64_t size = -1)
@@ -105,7 +106,7 @@ namespace rfaas {
       *reinterpret_cast<uint32_t*>(data + 8) = out.rkey();
       #endif
 
-      int invoc_id = this->_invoc_id++;
+      int invoc_id = next_invocation_id();
       //_futures[invoc_id] = std::move(std::promise<int>{});
       _futures[invoc_id] = std::make_tuple(1, std::promise<int>{});
       uint32_t submission_id = (invoc_id << 16) | (1 << 15) | func_idx;
@@ -170,7 +171,7 @@ namespace rfaas {
       }
       int func_idx = std::distance(_func_names.begin(), it);
 
-      int invoc_id = this->_invoc_id++;
+      int invoc_id = next_invocation_id();
       //_futures[invoc_id] = std::move(std::promise<int>{});
       int numcores = _connections.size();
       _futures[invoc_id] = std::make_tuple(numcores, std::promise<int>{});
@@ -267,7 +268,7 @@ namespace rfaas {
       *reinterpret_cast<uint32_t*>(data + 8) = out.rkey();
       #endif
 
-      int invoc_id = this->_invoc_id++;
+      int invoc_id = next_invocation_id();
       SPDLOG_DEBUG(
         "Invoke function {} with invocation id {}, submission id {}",
         func_idx, invoc_id, (invoc_id << 16) | func_idx
@@ -331,6 +332,10 @@ namespace rfaas {
             auto it = _futures.find(finished_invoc_id);
             //spdlog::info("Poll Future for id {}", finished_invoc_id);
             // if it == end -> we have a bug, should never appear
+            if(it == _futures.end()) {
+              spdlog::error("Incorrect polled future with id {}", finished_invoc_id);
+              abort();
+            }
             //(*it).second.set_value(return_val);
             if(!--std::get<0>(it->second))
               std::get<1>(it->second).set_value(return_val);
@@ -400,6 +405,7 @@ namespace rfaas {
         *reinterpret_cast<uint32_t*>(data + 8) = out[i].rkey();
         #endif
 
+        int invoc_id = next_invocation_id();
         SPDLOG_DEBUG("Invoke function {} with invocation id {}", func_idx, _invoc_id);
         #ifdef USE_LIBFABRIC
         _connections[i].conn->post_write<T>(
@@ -407,13 +413,13 @@ namespace rfaas {
           in[i].bytes(),
           0,
           _connections[i].remote_input,
-          (_invoc_id++ << 16) | func_idx
+          (invoc_id << 16) | func_idx
         );
         #else
         _connections[i].conn->post_write(
           in[i],
           _connections[i].remote_input,
-          (_invoc_id++ << 16) | func_idx,
+          (invoc_id << 16) | func_idx,
           in[i].bytes() <= _max_inlined_msg
         );
         #endif

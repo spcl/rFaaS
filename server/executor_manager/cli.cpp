@@ -47,9 +47,14 @@ int main(int argc, char ** argv)
   sigemptyset(&sigIntHandler.sa_mask);
   sigIntHandler.sa_flags = 0;
   sigaction(SIGINT, &sigIntHandler, NULL);
+  sigaction(SIGKILL, &sigIntHandler, NULL);
 
   // Read device details
   std::ifstream in_dev{opts.device_database};
+  if(in_dev.fail()) {
+    spdlog::error("Could not open file " + opts.device_database);
+    return 1;
+  }
   rfaas::devices::deserialize(in_dev);
 
   #ifdef USE_GNI_AUTH
@@ -60,6 +65,10 @@ int main(int argc, char ** argv)
 
   // Read executor manager settings
   std::ifstream in_cfg{opts.json_config};
+  if(in_cfg.fail()) {
+    spdlog::error("Could not open file " + opts.json_config);
+    return 1;
+  }
   rfaas::executor_manager::Settings settings = rfaas::executor_manager::Settings::deserialize(in_cfg);
 
   rfaas::executor_manager::Manager mgr{settings, opts.skip_rm};
