@@ -51,11 +51,6 @@ namespace rdmalib {
     DISCONNECTED
   };
 
-  enum class QueueType{
-    SEND,
-    RECV
-  };
-
   template<int Key = 8, int UserData = 8, int Secret = 16>
   struct PrivateData {
 

@@ -2,13 +2,16 @@
 #include <chrono>
 #include <thread>
 
+#ifndef USE_LIBFABRIC
 #include <infiniband/verbs.h>
+#endif
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/queue.hpp>
 
 namespace rdmalib {
 
+#ifndef USE_LIBFABRIC
   void RecvWorkCompletions::initialize_batched_recv(const rdmalib::impl::Buffer & buf, size_t offset)
   {
     for(int i = 0; i < _rbatch; i++){
@@ -141,5 +144,5 @@ namespace rdmalib {
     }
     return false;
   }
-
+#endif
 }

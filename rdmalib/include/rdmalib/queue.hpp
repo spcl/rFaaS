@@ -9,13 +9,16 @@
 #include <spdlog/spdlog.h>
 #include <vector>
 
+#ifndef USE_LIBFABRIC
 #include <infiniband/verbs.h>
-
 #include <rdma/rdma_cma.h>
+#endif
+
 #include <rdmalib/buffer.hpp>
 
 namespace rdmalib {
 
+#ifndef USE_LIBFABRIC
 struct SendWorkCompletions {
 
   ibv_qp *qp() const { return _queue_pair; }
@@ -132,6 +135,7 @@ private:
   std::array<ibv_wc, _wc_size> _rcv_work_completions;
   std::array<ScatterGatherElement, _wc_size> _rwc_sges;
 };
+#endif
 
 } // namespace rdmalib
 
