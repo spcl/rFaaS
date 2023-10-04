@@ -397,7 +397,7 @@ namespace rdmalib {
     ////spdlog::info("{}", ibv_get_device_name(dev_list[1]));
     ////conn->verbs = ibv_open_device(dev_list[1]);
     //impl::expect_zero(rdma_create_qp(conn, conn->pd, &_cfg.attr));
-    //_conn._id = conn;
+    //_conn._id = conn_;
     ////impl::expect_zero(rdma_create_ep(&_conn._id, _addr.addrinfo, nullptr, nullptr));
     ////impl::expect_zero(rdma_create_qp(_conn._id, _pd, &_cfg.attr));
     //struct rdma_cm_event *event;
@@ -662,7 +662,7 @@ namespace rdmalib {
     // _ops->get_val(&_pd->fid, GNI_CONN_TABLE_MAX_SIZE, &val);
     // std::cout << "MAXIMUM VALUE: " << val << std::endl;
     #else
-        // Start listening
+    // Start listening
     impl::expect_nonzero(this->_ec = rdma_create_event_channel());
     impl::expect_zero(rdma_create_id(this->_ec, &this->_listen_id, NULL, RDMA_PS_TCP));
     impl::expect_zero(rdma_bind_addr(this->_listen_id, this->_addr.addrinfo->ai_src_addr));
@@ -1029,7 +1029,7 @@ namespace rdmalib {
     //cq_attr.size = info->rx_attr->size;
     impl::expect_zero(fi_cq_open(_pd, &cq_attr, &cq, nullptr));
 
-    fid_cq* send_cq;
+    fid_cq* send_cq = nullptr;
     if(share_send_queue) {
 
       memset(&cq_attr, 0, sizeof(cq_attr));
