@@ -51,8 +51,8 @@ int main(int argc, char ** argv)
 
   // Read device details
   std::ifstream in_dev{opts.device_database};
-  if(in_dev.fail()) {
-    spdlog::error("Could not open file " + opts.device_database);
+  if(!in_dev.is_open()) {
+    spdlog::error(fmt::format("Couldn't open devices file: {}", opts.device_database));
     return 1;
   }
   rfaas::devices::deserialize(in_dev);
@@ -65,8 +65,8 @@ int main(int argc, char ** argv)
 
   // Read executor manager settings
   std::ifstream in_cfg{opts.json_config};
-  if(in_cfg.fail()) {
-    spdlog::error("Could not open file " + opts.json_config);
+  if(!in_cfg.is_open()) {
+    spdlog::error(fmt::format("Couldn't open executor manager config file: {}", opts.json_config));
     return 1;
   }
   rfaas::executor_manager::Settings settings = rfaas::executor_manager::Settings::deserialize(in_cfg);

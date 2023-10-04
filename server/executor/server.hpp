@@ -10,7 +10,6 @@
 #include <rdmalib/server.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/connection.hpp>
-#include <rdmalib/recv_buffer.hpp>
 
 #include "fast_executor.hpp"
 
@@ -122,7 +121,6 @@ namespace server {
     //Executors _exec;
     FastExecutors _fast_exec;
     rdmalib::Connection* _conn;
-    rdmalib::RecvBuffer _wc_buffer;
     bool _inline_data;
 
     Server(

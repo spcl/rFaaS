@@ -17,6 +17,11 @@ namespace rfaas {
     return it != _data.end() ? &*it : nullptr;
   }
 
+  device_data *devices::front() noexcept
+  {
+    return !_data.empty() ? &_data.front() : nullptr;
+  }
+
   devices & devices::instance()
   {
     return *_instance.get();
@@ -34,26 +39,28 @@ namespace rfaas {
 //    std::cout << "test " << ar.getNodeName() << std::endl;
 //  }
 //
-//    void prologue(cereal::JSONInputArchive& ar, const device_data&) { std::cout << "test " << ar.getNodeName() << std::endl; }
-//    void epilogue(cereal::JSONInputArchive& ar, const devices&) {
-//    std::cout << "test2 " << ar.getNodeName() << std::endl;
+//    void prologue(cereal::JSONInputArchive& ar, const device_data&) {
+//    std::cout << "test " << ar.getNodeName() << std::endl; } void
+//    epilogue(cereal::JSONInputArchive& ar, const devices&) { std::cout <<
+//    "test2 " << ar.getNodeName() << std::endl;
 //  }
 //
-//    void prologue(cereal::JSONInputArchive& ar, const devices&) { std::cout << "test " << ar.getNodeName() << std::endl; }
+//    void prologue(cereal::JSONInputArchive& ar, const devices&) { std::cout <<
+//    "test " << ar.getNodeName() << std::endl; }
 //
-}
+} // namespace rfaas
 
-    //void epilogue(cereal::JSONInputArchive& ar, const rfaas::device_data&) {
-    //  std::cout << ar.getNodeName() << std::endl;
-    //}
-    //void prologue(cereal::JSONInputArchive& ar, const rfaas::device_data&) {
-    //  std::cout << ar.getNodeName() << std::endl;
-    //}
-
+// void epilogue(cereal::JSONInputArchive& ar, const rfaas::device_data&) {
+//   std::cout << ar.getNodeName() << std::endl;
+// }
+// void prologue(cereal::JSONInputArchive& ar, const rfaas::device_data&) {
+//   std::cout << ar.getNodeName() << std::endl;
+// }
 
 namespace cereal {
 
-    //void epilogue(cereal::JSONInputArchive&, const rfaas::device_data&) {}
-    //void prologue(cereal::JSONInputArchive& ar, const rfaas::device_data&) { std::cout << ar.getNodeName() << std::endl; }
+// void epilogue(cereal::JSONInputArchive&, const rfaas::device_data&) {}
+// void prologue(cereal::JSONInputArchive& ar, const rfaas::device_data&) {
+// std::cout << ar.getNodeName() << std::endl; }
 
 }

@@ -21,7 +21,7 @@ namespace parallel_invocations {
       ("name", "Function name", cxxopts::value<std::string>())
       ("functions", "Functions library", cxxopts::value<std::string>())
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
-      ("cores", "Number of cores", cxxopts::value<int>()->default_value("1"))
+      ("cores", "Number of cores", cxxopts::value<int>()->default_value("0"))
       ("h,help", "Print usage", cxxopts::value<bool>()->default_value("false"))
     ;
     auto parsed_options = options.parse(argc, argv);

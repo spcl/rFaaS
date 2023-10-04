@@ -14,15 +14,17 @@ namespace rfaas {
 
   server_data::server_data():
     port(-1),
-    cores(-1)
+    cores(-1),
+    memory(-1)
   {}
 
-  server_data::server_data(const std::string & ip, int32_t port, int16_t cores):
+  server_data::server_data(const std::string & node, const std::string & ip, int32_t port, int16_t cores, int32_t memory):
     port(port),
-    cores(cores)
-  {
-    strncpy(address, ip.c_str(), 16);
-  }
+    cores(cores),
+    memory(memory),
+    address(ip),
+    node(node)
+  {}
 
   servers::servers(int positions)
   {
@@ -40,12 +42,9 @@ namespace rfaas {
     return _data[idx];
   }
 
-  std::vector<int> servers::select(int cores)
+  size_t servers::size() const
   {
-    // FIXME: random walk
-    // FIXME: take size of server in account
-    current_index %= _data.size();
-    return { current_index++ };
+    return _data.size();
   }
 
   servers & servers::instance()

@@ -18,7 +18,7 @@ namespace rfaas {
     std::string name;
     std::string ip_address;
     int port;
-    int16_t max_inline_data;
+    uint16_t max_inline_data;
     int16_t default_receive_buffer_size;
     int32_t authentication_cookie;
 
@@ -63,6 +63,7 @@ namespace rfaas {
     platform_configuration _configuration;
 
     device_data * device (std::string name) noexcept;
+    device_data * front () noexcept;
     static devices & instance();
     static void deserialize(std::istream & in);
   private:

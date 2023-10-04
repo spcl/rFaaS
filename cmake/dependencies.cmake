@@ -11,15 +11,13 @@ if(NOT cxxopts_FOUND)
     GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
     CMAKE_ARGS -DCXXOPTS_BUILD_EXAMPLES=Off -DCXXOPTS_BUILD_TESTS=Off
   )
-  FetchContent_Populate(cxxopts)
   FetchContent_MakeAvailable(cxxopts)
-  add_subdirectory(${cxxopts_SOURCE_DIR} ${cxxopts_BINARY_DIR})
 endif()
 
 ###
 # spdlog
 ###
-find_package(spdlog QUIET)
+find_package(spdlog 1.8...<1.10 QUIET)
 if(NOT spdlog_FOUND)
   message(STATUS "Downloading and building spdlog dependency")
   FetchContent_Declare(spdlog
@@ -27,17 +25,16 @@ if(NOT spdlog_FOUND)
     # default branch is v1.x - for some reason, cmake switches to master
     GIT_TAG v1.8.0
   )
-  FetchContent_Populate(spdlog)
   FetchContent_MakeAvailable(spdlog)
-  add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
 else()
+  message(STATUS "Using installed spdlog version")
   add_custom_target(spdlog)
 endif()
 
 ###
 # cereal
 ###
-find_package(cereal QUIET)
+find_package(cereal 1.3.0 EXACT QUIET)
 if(NOT cereal_FOUND)
   message(STATUS "Downloading and building cereal dependency")
   FetchContent_Declare(cereal
@@ -50,9 +47,7 @@ if(NOT cereal_FOUND)
   set(SKIP_PERFORMANCE_COMPARISON ON CACHE INTERNAL "")
   set(SKIP_PORTABILITY_TEST ON CACHE INTERNAL "")
   set(JUST_INSTALL_CEREAL ON CACHE INTERNAL "")
-  FetchContent_Populate(cereal)
   FetchContent_MakeAvailable(cereal)
-  add_subdirectory(${cereal_SOURCE_DIR} ${cereal_BINARY_DIR})
 endif()
 
 ###

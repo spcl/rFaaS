@@ -9,36 +9,46 @@
 #include <rdmalib/connection.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/buffer.hpp>
-#include <rdmalib/recv_buffer.hpp>
 
 #include "accounting.hpp"
 #include "executor_process.hpp"
 
-namespace rdmalib {
+namespace rfaas {
   struct AllocationRequest;
 }
 
 namespace rfaas::executor_manager {
 
+  struct ResourceManagerConnection;
+
   struct Client
   {
     static constexpr int RECV_BUF_SIZE = 8;
     rdmalib::Connection* connection;
-    rdmalib::Buffer<rdmalib::AllocationRequest> allocation_requests;
-    rdmalib::RecvBuffer rcv_buffer;
+    rdmalib::Buffer<rfaas::AllocationRequest> allocation_requests;
     std::unique_ptr<ActiveExecutor> executor;
     rdmalib::Buffer<Accounting> accounting;
     uint32_t allocation_time;
     bool _active;
+    int _id;
 
     #ifdef USE_LIBFABRIC
     Client(rdmalib::Connection* conn, fid_domain* pd);
+    Client(int id, rdmalib::Connection* conn, fid_domain* pd, bool active);
     #else
-    Client(rdmalib::Connection* conn, ibv_pd* pd);
+    Client(int id, rdmalib::Connection* conn, ibv_pd* pd, bool active);
     #endif
+    Client(Client &&);
+    Client& operator=(Client &&);
+    ~Client();
     void reload_queue();
-    void disable(int);
+    void disable(ResourceManagerConnection* res_mgr_connection);
     bool active();
+
+    int id() const
+    {
+      return _id;
+    }
   };
 
 }

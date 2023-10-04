@@ -41,7 +41,7 @@ namespace rdmalib { namespace impl {
   {
     _size = obj._size;
     _bytes = obj._bytes;
-    _bytes = obj._byte_size;
+    _byte_size = obj._byte_size;
     _header = obj._header;
     _ptr = obj._ptr;
     _mr = obj._mr;

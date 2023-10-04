@@ -2,8 +2,6 @@
 #ifndef __RDMALIB_CONNECTION_HPP__
 #define __RDMALIB_CONNECTION_HPP__
 
-#include <rdma/fabric.h>
-#include <rdma/fi_eq.h>
 #include <array>
 #include <cstdint>
 #include <initializer_list>
@@ -13,12 +11,16 @@
 #ifdef USE_LIBFABRIC
 #include <rdma/fi_endpoint.h>
 #include <rdma/fi_rma.h>
-#include <spdlog/spdlog.h>
+#include <rdma/fabric.h>
+#include <rdma/fi_eq.h>
 #else
 #include <infiniband/verbs.h>
-
 #include <rdma/rdma_cma.h>
 #endif
+
+#include <spdlog/spdlog.h>
+
+#include <rdmalib/queue.hpp>
 #include <rdmalib/buffer.hpp>
 
 namespace rdmalib {
@@ -49,6 +51,69 @@ namespace rdmalib {
     DISCONNECTED
   };
 
+  enum class QueueType{
+    SEND,
+    RECV
+  };
+
+  template<int Key = 8, int UserData = 8, int Secret = 16>
+  struct PrivateData {
+
+    PrivateData(uint32_t private_data = 0):
+      _private_data(private_data)
+    {}
+
+    uint32_t secret() const
+    {
+      // Extract last Key bits, then shift to lower bits.
+      uint32_t pattern = (static_cast<uint32_t>(1) << Secret) - 1;
+      return (this->_private_data & pattern);
+    }
+
+    void secret(uint32_t value)
+    {
+      // Extract first Key bits, then store at higher bits.
+      uint32_t pattern = (static_cast<uint32_t>(1) << Secret) - 1;
+      _private_data |= (value & pattern);
+    }
+
+    uint32_t key() const
+    {
+      // Extract last Key bits, then shift to lower bits.
+      uint32_t pattern = ((static_cast<uint32_t>(1) << Key) - 1) << (UserData + Secret);
+      return (this->_private_data & pattern) >> (UserData + Secret);
+    }
+
+    void key(uint32_t value)
+    {
+      // Extract first Key bits, then store at higher bits.
+      uint32_t pattern = (static_cast<uint32_t>(1) << Key) - 1;
+      _private_data |= (value & pattern) << (UserData + Secret);
+    }
+
+    uint32_t user_data() const
+    {
+      // Extract last Key bits, then shift to lower bits.
+      uint32_t pattern = ((static_cast<uint32_t>(1) << UserData) - 1) << (Secret);
+      return (this->_private_data & pattern) >> (Secret);
+    }
+
+    void user_data(uint32_t value)
+    {
+      // Extract first Key bits, then store at higher bits.
+      uint32_t pattern = (static_cast<uint32_t>(1) << UserData) - 1;
+      _private_data |= (value & pattern) << (Secret);
+    }
+
+    uint32_t data() const
+    {
+      return _private_data;
+    }
+
+  private:
+    uint32_t _private_data;
+  };
+
   // State of a communication:
   // a) communication ID
   // b) Queue Pair
@@ -69,26 +134,25 @@ namespace rdmalib {
     int32_t _private_data;
     bool _passive;
     ConnectionStatus _status;
-    static const int _wc_size = 32; 
+
     // FIXME: associate this with RecvBuffer
     #ifdef USE_LIBFABRIC
+    static const int _wc_size = 32; 
     std::array<fi_cq_data_entry, _wc_size> _swc; // fast fix for overlapping polling
     std::array<fi_cq_data_entry, _wc_size> _rwc;
     fi_cq_err_entry _ewc;
-    #else
-    std::array<ibv_wc, _wc_size> _swc; // fast fix for overlapping polling
-    std::array<ibv_wc, _wc_size> _rwc;
-    #endif
     std::array<ScatterGatherElement, _wc_size> _rwc_sges;
+    #else
+    SendWorkCompletions _send_wcs;
+    RecvWorkCompletions _rcv_wcs;
+    #endif
     int _send_flags;
 
-    static const int _rbatch = 32; // 32 for faster division in the code
     #ifndef USE_LIBFABRIC
-    struct ibv_recv_wr _batch_wrs[_rbatch]; // preallocated and prefilled batched recv.
     #endif
 
   public:
-    Connection(bool passive = false);
+    Connection(int rcv_buf_size, bool passive = false);
     ~Connection();
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;
@@ -96,6 +160,10 @@ namespace rdmalib {
 
     void initialize_batched_recv(const rdmalib::impl::Buffer & sge, size_t offset);
     #ifndef USE_LIBFABRIC
+    RecvWorkCompletions& receive_wcs();
+    SendWorkCompletions& send_wcs();
+
+    int rcv_buf_size() const;
     void inlining(bool enable);
     #endif
     #ifdef USE_LIBFABRIC
@@ -127,10 +195,8 @@ namespace rdmalib {
     #else
     std::tuple<ibv_wc*, int> poll_wc(QueueType, bool blocking = true, int count = -1);
     #endif
-    int32_t post_send(const ScatterGatherElement & elem, int32_t id = -1, bool force_inline = false);
+    int32_t post_send(const ScatterGatherElement & elem, int32_t id = -1, bool force_inline = false, std::optional<uint32_t> immediate = std::nullopt);
     int32_t post_recv(ScatterGatherElement && elem, int32_t id = -1, int32_t count = 1);
-
-    int32_t post_batched_empty_recv(int32_t count = 1);
 
     int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, bool force_inline = false);
     // Solicited makes sense only for RDMA write with immediate

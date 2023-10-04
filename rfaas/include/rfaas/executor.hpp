@@ -9,7 +9,6 @@
 
 #include <rdmalib/benchmarker.hpp>
 #include <rdmalib/connection.hpp>
-#include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/buffer.hpp>
 #include <rdmalib/rdmalib.hpp>
 
@@ -44,23 +43,23 @@ namespace rfaas {
   struct executor_state {
     std::unique_ptr<rdmalib::Connection> conn;
     rdmalib::RemoteBuffer remote_input;
-    rdmalib::RecvBuffer _rcv_buffer;
+    //rdmalib::RecvBuffer _rcv_buffer;
     executor_state(rdmalib::Connection*, int rcv_buf_size);
   };
 
   struct executor {
     static constexpr int MAX_REMOTE_WORKERS = 64;
-    // FIXME: 
     rdmalib::RDMAPassive _state;
-    rdmalib::RecvBuffer _rcv_buffer;
     rdmalib::Buffer<rdmalib::BufferInformation> _execs_buf;
-    std::string _address;
-    int _port;
-    int _rcv_buf_size;
+
+    device_data _device;
+
+    int _numcores;
+    int _memory;
     int _executions;
     int _invoc_id;
+    int _lease_id;
     // FIXME: global settings
-    size_t _max_inlined_msg;
     std::vector<executor_state> _connections;
     std::unique_ptr<manager_connection> _exec_manager;
     std::vector<std::string> _func_names;
@@ -74,12 +73,16 @@ namespace rfaas {
     std::unique_ptr<std::thread> _background_thread;
     int events;
 
-    executor(std::string address, int port, int rcv_buf_size, int max_inlined_msg);
-    executor(device_data & dev);
+    // Currently, we use the same device for listening and connecting to the manager.
+    executor(const std::string& address, int port, int numcores, int memory, int lease_id, device_data & dev);
     ~executor();
 
+    executor(executor&& obj);
+
+    bool connect(const std::string & ip, int port);
+
     // Skipping managers is useful for benchmarking
-    bool allocate(std::string functions_path, int numcores, int max_input_size, int hot_timeout,
+    bool allocate(std::string functions_path, int max_input_size, int hot_timeout,
         bool skip_manager = false, rdmalib::Benchmarker<5> * benchmarker = nullptr);
     void deallocate();
     rdmalib::Buffer<char> load_library(std::string path);
@@ -132,7 +135,7 @@ namespace rfaas {
           std::move(sge),
           _connections[0].remote_input,
           submission_id,
-          size <= _max_inlined_msg,
+          size <= _device.max_inline_data,
           true
         );
         #endif
@@ -150,14 +153,15 @@ namespace rfaas {
           in,
           _connections[0].remote_input,
           submission_id,
-          in.bytes() <= _max_inlined_msg,
+          in.bytes() <= _device.max_inline_data,
           true
         );
         #endif
       }
       #ifndef USE_LIBFABRIC
-      _connections[0]._rcv_buffer.refill();
+      _connections[0].conn->receive_wcs().refill();
       #endif
+
       return std::get<1>(_futures[invoc_id]).get_future();
     }
 
@@ -201,7 +205,7 @@ namespace rfaas {
           in[i],
           _connections[i].remote_input,
           submission_id,
-          in[i].bytes() <= _max_inlined_msg,
+          in[i].bytes() <= _device.max_inline_data,
           true
         );
         #endif
@@ -209,7 +213,8 @@ namespace rfaas {
 
       #ifndef USE_LIBFABRIC
       for(int i = 0; i < numcores; ++i) {
-        _connections[i]._rcv_buffer.refill();
+        //_connections[i]._rcv_buffer.refill();
+        _connections[i].conn->receive_wcs().refill();
       }
       #endif
       return std::get<1>(_futures[invoc_id]).get_future();
@@ -222,7 +227,7 @@ namespace rfaas {
       #ifdef USE_LIBFABRIC
       auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true, -1, true);
       #else
-      auto wc = _connections[0]._rcv_buffer.poll(true);
+      auto wc = _connections[0].conn->receive_wcs().poll(true);
       #endif
       #ifdef USE_LIBFABRIC
       uint32_t val = std::get<0>(wc)[0].data;
@@ -287,13 +292,13 @@ namespace rfaas {
         in,
         _connections[0].remote_input,
         (invoc_id << 16) | func_idx,
-        in.bytes() <= _max_inlined_msg
+        in.bytes() <= _device.max_inline_data
       );
       #endif
       _active_polling = true;
       //_perf.point(2);
       #ifndef USE_LIBFABRIC
-      _connections[0]._rcv_buffer.refill();
+      _connections[0].conn->receive_wcs().refill();
       #endif
       //_perf.point(3);
 
@@ -304,8 +309,9 @@ namespace rfaas {
         #ifdef USE_LIBFABRIC
         auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true, -1, true);
         #else
-        auto wc = _connections[0]._rcv_buffer.poll(true);
+        auto wc = _connections[0].conn->receive_wcs().poll(true);
         #endif
+
         for(int i = 0; i < std::get<1>(wc); ++i) {
           #ifdef USE_LIBFABRIC
           //_perf.point(4);
@@ -345,7 +351,7 @@ namespace rfaas {
           //_perf.point(5);
           _active_polling = false;
           #ifndef USE_LIBFABRIC
-          auto wc = _connections[0]._rcv_buffer.poll(false);
+          auto wc = _connections[0].conn->receive_wcs().poll(false);
           // Catch very unlikely interleaving
           // Event arrives after we poll while the background thread is skipping
           // because we still hold the atomic
@@ -419,15 +425,16 @@ namespace rfaas {
         _connections[i].conn->post_write(
           in[i],
           _connections[i].remote_input,
-          (invoc_id << 16) | func_idx,
-          in[i].bytes() <= _max_inlined_msg
+          (_invoc_id << 16) | func_idx,
+          in[i].bytes() <= _device.max_inline_data
         );
         #endif
       }
 
       #ifndef USE_LIBFABRIC
       for(int i = 0; i < numcores; ++i) {
-        _connections[i]._rcv_buffer.refill();
+        //_connections[i]._rcv_buffer.refill();
+        _connections[i].conn->receive_wcs().refill();
       }
       #endif
       int expected = numcores;
@@ -443,7 +450,7 @@ namespace rfaas {
         #ifdef USE_LIBFABRIC
         auto wc = _connections[0].conn->poll_wc(rdmalib::QueueType::RECV, true, -1, true);
         #else
-        auto wc = _connections[0]._rcv_buffer.poll(true);
+        auto wc = _connections[0].conn->receive_wcs().poll(true);
         #endif
         SPDLOG_DEBUG("Found data");
         expected -= std::get<1>(wc);
@@ -468,9 +475,12 @@ namespace rfaas {
       }
       _active_polling = false;
 
-      _connections[0]._rcv_buffer._requests += numcores - 1;
+      // We polled from connection number 0, time to update.
+      //_connections[0]._rcv_buffer._requests += numcores - 1;
+      _connections[0].conn->receive_wcs().update_requests(numcores - 1);
       for(int i = 1; i < numcores; ++i)
-        _connections[i]._rcv_buffer._requests--;
+        //_connections[i]._rcv_buffer._requests--;
+        _connections[0].conn->receive_wcs().update_requests(-1);
       return correct;
     }
   };

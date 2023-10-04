@@ -11,14 +11,14 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/common.h>
 
-#include <rdmalib/allocation.hpp>
 #include <rdmalib/benchmarker.hpp>
-#include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/util.hpp>
 #include "rdmalib/buffer.hpp"
 #include "rdmalib/connection.hpp"
 #include "rdmalib/functions.hpp"
 #include "rdmalib/rdmalib.hpp"
+
+#include <rfaas/allocation.hpp>
 
 #include "server.hpp"
 #include "fast_executor.hpp"
@@ -101,8 +101,9 @@ namespace server {
       #ifdef USE_LIBFABRIC
       auto wcs = conn->poll_wc(rdmalib::QueueType::RECV, false, -1, true);
       #else
-      auto wcs = wc_buffer.poll();
+      auto wcs = this->conn->receive_wcs().poll();
       #endif
+
       if(std::get<1>(wcs)) {
         for(int i = 0; i < std::get<1>(wcs); ++i) {
           //_perf.point();
@@ -150,7 +151,7 @@ namespace server {
           //_perf.point(7);
         }
         #ifndef USE_LIBFABRIC
-        wc_buffer.refill();
+        this->conn->receive_wcs().refill();
         #endif
         //_perf.point(8);
       }
@@ -189,8 +190,9 @@ namespace server {
       #ifdef USE_LIBFABRIC
       auto wcs = conn->poll_wc(rdmalib::QueueType::RECV, false, -1, true);
       #else
-      auto wcs = wc_buffer.poll();
+      auto wcs = this->conn->receive_wcs().poll();
       #endif
+
       if(std::get<1>(wcs)) {
         for(int i = 0; i < std::get<1>(wcs); ++i) {
 
@@ -228,8 +230,9 @@ namespace server {
           repetitions += 1;
         }
         #ifndef USE_LIBFABRIC
-        wc_buffer.refill();
+        this->conn->receive_wcs().refill();
         #endif
+
         if(_polling_state != PollingState::WARM_ALWAYS) {
           SPDLOG_DEBUG("Switching to hot polling after invocation!");
           _polling_state = PollingState::HOT;
@@ -254,7 +257,7 @@ namespace server {
 
   void Thread::thread_work(int timeout)
   {
-    rdmalib::RDMAActive mgr_connection(_mgr_conn.addr, _mgr_conn.port, wc_buffer._rcv_buf_size, max_inline_data);
+    rdmalib::RDMAActive mgr_connection(_mgr_conn.addr, _mgr_conn.port, _recv_buffer_size, max_inline_data);
     mgr_connection.allocate();
     this->_mgr_connection = &mgr_connection.connection();
     #ifdef USE_LIBFABRIC
@@ -266,8 +269,7 @@ namespace server {
       return;
     spdlog::info("Thread {} Established connection to the manager!", id);
 
-    // FIXME: why rdmaactive needs rcv_buf_size?
-    rdmalib::RDMAActive active(addr, port, wc_buffer._rcv_buf_size, max_inline_data);
+    rdmalib::RDMAActive active(addr, port, _recv_buffer_size, max_inline_data);
     rdmalib::Buffer<char> func_buffer(_functions.memory(), _functions.size());
 
     active.allocate();
@@ -307,6 +309,9 @@ namespace server {
     rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     this->wc_buffer.connect(this->conn);
     #endif
+=======
+
+>>>>>>> origin/master
     spdlog::info("Thread {} Established connection to client!", id);
 
     // Send to the client information about thread buffer
@@ -327,6 +332,7 @@ namespace server {
     this->conn->poll_wc(rdmalib::QueueType::RECV, true, 1);
     _functions.process_library();
 
+    this->conn->receive_wcs().refill();
     spdlog::info("Thread {} begins work with timeout {}", id, timeout);
 
     // FIXME: catch interrupt handler here

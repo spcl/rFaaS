@@ -1,5 +1,5 @@
 
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.19)
 include(FetchContent)
 project(serverless-rdma)
 set (CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -24,23 +24,7 @@ string(APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO " -g -DSPDLOG_ACTIVE_LEVEL=SPDLOG_L
 string(APPEND CMAKE_CXX_FLAGS_DEBUG " -DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG ")
 string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra ")
 
-###
-# Mandatory: devices configuration file.
-###
-
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/configuration)
-
-set(DEVICES_CONFIG "" CACHE STRING "Specification of RDMA devices in JSON file")
-set(TESTING_CONFIG "" CACHE STRING "Specification of testing infrastructure in JSON file.")
-if( NOT DEVICES_CONFIG STREQUAL "")
-  message(STATUS "Copying device configuration ${DEVICES_CONFIG} to ${CMAKE_BINARY_DIR}/configuration")
-  file(COPY ${DEVICES_CONFIG} DESTINATION ${CMAKE_BINARY_DIR}/configuration)
-endif()
-if( NOT TESTING_CONFIG STREQUAL "")
-  set(RFAAS_WITH_TESTING ON)
-  message(STATUS "Copying testing configuration ${TESTING_CONFIG} to ${CMAKE_BINARY_DIR}/configuration")
-  file(COPY ${TESTING_CONFIG} DESTINATION ${CMAKE_BINARY_DIR}/configuration)
-endif()
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/configuration)
 
 option(WITH_EXAMPLES "Enable building extended function examples (requires additional dependencies)." Off)
 if(${WITH_EXAMPLES})
@@ -49,15 +33,17 @@ else()
   set(RFAAS_WITH_EXAMPLES OFF)
 endif()
 
-option(WITH_TESTING "Enable building of rFaaS tests." Off)
-if(${WITH_TESTING})
-  if( NOT TESTING_CONFIG STREQUAL "" AND NOT DEVICES_CONFIG STREQUAL "")
-    set(RFAAS_WITH_TESTING ON)
-    message(STATUS "Enabling testing using configuration provided with ${TESTING_CONFIG}")
-  else()
-    set(RFAAS_WITH_TESTING OFF)
-    message(WARNING "Testing is disabled, as either device or testing configuration are not provided!")
+set(WITH_TESTING "" CACHE STRING "Enable building of rFaaS tests, using the testing specification provided in JSON file.")
+if( NOT WITH_TESTING STREQUAL "" )
+  set(TESTING_CONFIG ${WITH_TESTING})
+  set(RFAAS_WITH_TESTING ON)
+
+  if(NOT EXISTS ${TESTING_CONFIG})
+    message(FATAL_ERROR "The provided file does not exist: ${TESTING_CONFIG}!")
   endif()
+
+  file(COPY ${TESTING_CONFIG} DESTINATION ${CMAKE_BINARY_DIR}/tests/configuration)
+  message(STATUS "Enabling testing using configuration provided with ${TESTING_CONFIG}")
 else()
   set(RFAAS_WITH_TESTING OFF)
 endif()
@@ -114,9 +100,13 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 ###
-# Networking
+# PkgConfig 
 ###
 find_package(PkgConfig REQUIRED)
+if (NOT PkgConfig_FOUND)
+    message(FATAL_ERROR "PkgConfig library not found")
+endif (NOT PkgConfig_FOUND)
+
 if (${WITH_LIBFABRIC})
   ###
   # libfabric
@@ -221,6 +211,8 @@ add_executable(executor_manager
 )
 add_executable(resource_manager
   server/resource_manager/cli.cpp
+  server/resource_manager/client.cpp
+  server/resource_manager/executor.cpp
   server/resource_manager/opts.cpp
   server/resource_manager/db.cpp
   server/resource_manager/http.cpp

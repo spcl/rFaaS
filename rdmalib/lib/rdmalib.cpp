@@ -1,5 +1,4 @@
 
-#include "rdmalib/connection.hpp"
 #include <cassert>
 #include <cstdint>
 // inet_ntoa
@@ -20,15 +19,21 @@
 #include <rdma/fi_cm.h>
 #include <rdma/fi_eq.h>
 #include <rdma/fi_errno.h>
+
 #ifdef USE_GNI_AUTH
 extern "C" {
 #include "rdmacred.h"
 }
 #endif
+#else
+#include <infiniband/verbs.h>
 #endif
+
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/bundled/format.h>
 
+#include <rdmalib/connection.hpp>
+#include <rdmalib/queue.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/util.hpp>
 #include <stdexcept>
@@ -96,6 +101,8 @@ namespace rdmalib {
   // FIXME: Add credential support
   Address::Address(const std::string & ip, int port, bool passive)
   {
+    impl::expect_false(ip.empty(), false, "Expected non-empty IP address!");
+
     #ifdef USE_LIBFABRIC
     // Set the hints and addrinfo to clear structures
     hints = fi_allocinfo();
@@ -136,8 +143,9 @@ namespace rdmalib {
     if(passive)
       hints.ai_flags = RAI_PASSIVE;
 
-    impl::expect_zero(rdma_getaddrinfo(ip.c_str(), std::to_string(port).c_str(), &hints, &addrinfo));
+    impl::expect_zero(rdma_getaddrinfo(const_cast<char *>(ip.c_str()), const_cast<char *>(std::to_string(port).c_str()), &hints, &addrinfo));
     #endif
+
     this->_port = port;
     this->_ip = ip;
   }
@@ -192,7 +200,12 @@ namespace rdmalib {
     this->_port = port;
   }
 
-  Address::Address() {}
+  Address::Address()
+  {
+    memset(&hints, 0, sizeof(hints));
+    addrinfo = nullptr;
+    this->_port = -1;
+  }
 
   Address::~Address()
   {
@@ -209,11 +222,55 @@ namespace rdmalib {
     #endif
   }
 
+  Address::Address(Address && obj):
+    addrinfo(obj.addrinfo),
+    hints(obj.hints),
+    _port(obj._port)
+  {
+    obj.addrinfo = nullptr;
+  }
+
+  Address& Address::operator=(Address && obj)
+  {
+    hints = obj.hints;
+    _port = obj._port;
+    addrinfo = obj.addrinfo;
+
+    obj.addrinfo = nullptr;
+
+    return *this;
+  }
+
+  Address::~Address()
+  {
+    if(addrinfo)
+      rdma_freeaddrinfo(addrinfo);
+  }
+
+  void Address::set_port(uint32_t port)
+  {
+    this->_port = port;
+  }
+
+  uint32_t Address::port() const
+  {
+    return _port;
+  }
+
+  RDMAActive::RDMAActive():
+    _conn(nullptr),
+    _ec(nullptr),
+    _pd(nullptr),
+    _is_connected(false)
+  {}
+
   RDMAActive::RDMAActive(const std::string & ip, int port, int recv_buf, int max_inline_data):
     _conn(nullptr),
     _addr(ip, port, false),
     _ec(nullptr),
-    _pd(nullptr)
+    _pd(nullptr),
+    _recv_buf(recv_buf),
+    _is_connected(false)
   {
     #ifdef USE_LIBFABRIC
     // Create a domain (need to do that now so that we can register memory for the domain)
@@ -264,7 +321,18 @@ namespace rdmalib {
     SPDLOG_DEBUG("Create RDMAActive");
   }
 
-  RDMAActive::RDMAActive() {}
+  RDMAActive& RDMAActive::operator=(RDMAActive && obj)
+  {
+    _conn = std::move(obj._conn);
+    _addr = std::move(obj._addr);
+    _ec = std::move(obj._ec);
+    _pd = std::move(obj._pd);
+    _cfg = std::move(obj._cfg);
+    _recv_buf = std::move(obj._recv_buf);
+    _is_connected = std::move(obj._is_connected);
+
+    return *this;
+  }
 
   RDMAActive::~RDMAActive()
   {
@@ -293,6 +361,7 @@ namespace rdmalib {
       // Create and enable the endpoint together with all the accompanying queues
       _conn->initialize(_addr.fabric, _pd, _addr.addrinfo, _ec, _write_counter, _rcv_channel, _trx_channel);
       #else
+      _conn = std::unique_ptr<Connection>(new Connection(this->_recv_buf));
       rdma_cm_id* id;
       impl::expect_zero(rdma_create_ep(&id, _addr.addrinfo, nullptr, nullptr));
       impl::expect_zero(rdma_create_qp(id, _pd, &_cfg.attr));
@@ -403,6 +472,8 @@ namespace rdmalib {
     }
     #endif
 
+    _is_connected = true;
+
     //struct ibv_qp_attr attr;
     //struct ibv_qp_init_attr init_attr;
     //impl::expect_zero(ibv_query_qp(_conn->_qp, &attr, IBV_QP_DEST_QPN, &init_attr ));
@@ -425,6 +496,8 @@ namespace rdmalib {
     _conn.reset();
     _pd = nullptr;
     #endif
+
+    _is_connected = false;
   }
 
   #ifdef USE_LIBFABRIC
@@ -444,9 +517,9 @@ namespace rdmalib {
     return *this->_conn;
   }
 
-  bool RDMAActive::is_connected()
+  bool RDMAActive::is_connected() const
   {
-    return this->_conn.get();
+    return _is_connected;
   }
 
   RDMAPassive::RDMAPassive(const std::string & ip, int port, int recv_buf, bool initialize, int max_inline_data):
@@ -455,7 +528,8 @@ namespace rdmalib {
     #ifndef USE_LIBFABRIC
     _listen_id(nullptr),
     #endif
-    _pd(nullptr)
+    _pd(nullptr),
+    _recv_buf(recv_buf)
   {
     #ifdef USE_LIBFABRIC
     impl::expect_zero(fi_domain(_addr.fabric, _addr.addrinfo, &_pd, nullptr));
@@ -491,9 +565,52 @@ namespace rdmalib {
     if (_ec)
       impl::expect_zero(fi_close(&_ec->fid));
     #else
-    rdma_destroy_id(this->_listen_id);
-    rdma_destroy_event_channel(this->_ec);
+
+    if(this->_listen_id) {
+      rdma_destroy_id(this->_listen_id);
+    }
+
+    if(this->_ec) {
+      rdma_destroy_event_channel(this->_ec);
+    }
     #endif
+
+    for(auto & [key, value] : _shared_recv_completions) {
+      ibv_destroy_cq(std::get<1>(value));
+      ibv_destroy_comp_channel(std::get<0>(value));
+    }
+  }
+
+  RDMAPassive::RDMAPassive(RDMAPassive && obj):
+    _cfg(std::move(obj._cfg)),
+    _addr(std::move(obj._addr)),
+    _ec(std::move(obj._ec)),
+    _listen_id(std::move(obj._listen_id)),
+    _pd(std::move(obj._pd)),
+    _recv_buf(obj._recv_buf),
+    _active_connections(std::move(obj._active_connections)),
+    _shared_recv_completions(std::move(obj._shared_recv_completions))
+  {
+    obj._ec = nullptr;
+    obj._listen_id = nullptr;
+    obj._pd = nullptr;
+  }
+
+  RDMAPassive& RDMAPassive::operator=(RDMAPassive && obj)
+  {
+    _cfg = std::move(obj._cfg);
+    _addr = std::move(obj._addr);
+    _ec = std::move(obj._ec);
+    _listen_id = std::move(obj._listen_id);
+    _pd = std::move(obj._pd);
+    _active_connections = std::move(obj._active_connections);
+    _shared_recv_completions = std::move(obj._shared_recv_completions);
+
+    obj._ec = nullptr;
+    obj._listen_id = nullptr;
+    obj._pd = nullptr;
+
+    return *this;
   }
 
   void RDMAPassive::allocate()
@@ -539,8 +656,10 @@ namespace rdmalib {
     impl::expect_zero(rdma_create_id(this->_ec, &this->_listen_id, NULL, RDMA_PS_TCP));
     impl::expect_zero(rdma_bind_addr(this->_listen_id, this->_addr.addrinfo->ai_src_addr));
     impl::expect_zero(rdma_listen(this->_listen_id, 10));
-    this->_addr._port = ntohs(rdma_get_src_port(this->_listen_id));
+
+    _addr.set_port(ntohs(rdma_get_src_port(this->_listen_id)));
     this->_pd = _listen_id->pd;
+
     spdlog::info(
       "Listening on device {}, port {}",
       ibv_get_device_name(this->_listen_id->verbs->device), this->_addr._port
@@ -563,6 +682,11 @@ namespace rdmalib {
     return this->_pd;
   }
   #endif
+
+  uint32_t RDMAPassive::listen_port() const
+  {
+    return this->_addr.port();
+  }
 
   #ifndef USE_LIBFABRIC
   void RDMAPassive::set_nonblocking_poll()
@@ -600,7 +724,7 @@ namespace rdmalib {
     #endif
   }
 
-  std::tuple<Connection*, ConnectionStatus> RDMAPassive::poll_events(bool share_cqs)
+  std::tuple<Connection*, ConnectionStatus> RDMAPassive::poll_events(/*bool share_cqs*/)
   {
     #ifdef USE_LIBFABRIC
     uint32_t event;
@@ -690,6 +814,7 @@ namespace rdmalib {
     #else
     rdma_cm_event* event = nullptr;
 		Connection* connection = nullptr;
+	  RecvWorkCompletions* recv_wc = nullptr;
     ConnectionStatus status = ConnectionStatus::UNKNOWN;
 
     // Poll rdma cm events.
@@ -703,8 +828,10 @@ namespace rdmalib {
     );
 
     switch (event->event) { 
-      case RDMA_CM_EVENT_CONNECT_REQUEST:
-        connection = new Connection{true};
+      case RDMA_CM_EVENT_CONNECT_REQUEST: {
+
+        connection = new Connection{_recv_buf, true};
+
         if(event->param.conn.private_data_len != 0) {
           uint32_t data = *reinterpret_cast<const uint32_t*>(event->param.conn.private_data);
           connection->set_private_data(data);
@@ -720,9 +847,34 @@ namespace rdmalib {
           fmt::ptr(connection->id()), fmt::ptr(_pd), fmt::ptr(this->_listen_id->pd)
         );
 
-        // Make sure to allocate new completion queue when they're not reused.
-        if(!share_cqs)
-          _cfg.attr.send_cq = _cfg.attr.recv_cq = nullptr;
+        uint8_t key = PrivateData{connection->private_data()}.key();
+        auto it = _shared_recv_completions.find(key);
+
+        if(it == _shared_recv_completions.end()) {
+
+          it = _shared_recv_completions.find(0);
+          if(it == _shared_recv_completions.end()) {
+
+            SPDLOG_DEBUG("Allocate new queue, no sharing for key {}", key);
+            // Make sure to allocate new completion queue when they're not reused.
+            _cfg.attr.send_cq = _cfg.attr.recv_cq = nullptr;
+
+          } else {
+
+            SPDLOG_DEBUG("Allocate default shared queue for key {}", key);
+            _cfg.attr.send_cq = std::get<2>((*it).second);;
+            _cfg.attr.recv_cq = std::get<1>((*it).second);
+
+          }
+
+        } else {
+
+          SPDLOG_DEBUG("Allocate existing shared queue for key {}", key);
+          _cfg.attr.send_cq = std::get<2>((*it).second);
+          _cfg.attr.recv_cq = std::get<1>((*it).second);
+
+        }
+
         SPDLOG_DEBUG(
           "[RDMAPassive] Using CQ for creating a QP: send {} recv {}",
           fmt::ptr(_cfg.attr.send_cq),fmt::ptr(_cfg.attr.recv_cq)
@@ -732,15 +884,23 @@ namespace rdmalib {
         impl::expect_zero(rdma_create_qp(event->id, _pd, &_cfg.attr));
         connection->initialize(event->id);
         SPDLOG_DEBUG(
-          "[RDMAPassive] Created connection id {} qpnum {} qp {} send {} recv {}",
+          "[RDMAPassive] Created connection id {} qpnum {} qp {} send {} recv {}, completion channel {}",
           fmt::ptr(connection->id()), connection->qp()->qp_num, fmt::ptr(connection->qp()),
-          fmt::ptr(connection->qp()->send_cq), fmt::ptr(connection->qp()->recv_cq)
+          fmt::ptr(connection->qp()->send_cq), fmt::ptr(connection->qp()->recv_cq),
+          fmt::ptr(connection->completion_channel())
         );
+
+        if(it != _shared_recv_completions.end()) {
+
+          if(!std::get<1>((*it).second)) {
+            std::get<1>((*it).second) = connection->qp()->recv_cq;
+          }
+        }
 
         status = ConnectionStatus::REQUESTED;
         _active_connections.insert(connection);
         break;
-      case RDMA_CM_EVENT_ESTABLISHED:
+      } case RDMA_CM_EVENT_ESTABLISHED:
         SPDLOG_DEBUG(
           "[RDMAPassive] Connection is established for id {}, and connection {}",
           fmt::ptr(event->id), fmt::ptr(event->id->context)
@@ -783,6 +943,32 @@ namespace rdmalib {
     return std::make_tuple(connection, status);
   }
 
+  void RDMAPassive::register_shared_queue(uint16_t key, bool share_send_queue)
+  {
+    ibv_comp_channel* channel = ibv_create_comp_channel(_pd->context);
+    ibv_cq* cq = ibv_create_cq(_pd->context, _cfg.attr.cap.max_recv_wr, nullptr, channel, 0);
+    ibv_cq* send_cq = nullptr;
+    if(share_send_queue) {
+      send_cq = ibv_create_cq(_pd->context, _cfg.attr.cap.max_send_wr, nullptr, channel, 0);
+    }
+
+    _shared_recv_completions[key] = std::make_tuple(channel, cq, send_cq);
+    SPDLOG_DEBUG("[RDMAPassive] Register CQ {} for key {}, channel {}", fmt::ptr(cq), key, fmt::ptr(cq->channel));
+  }
+
+  std::tuple<ibv_comp_channel*, ibv_cq*, ibv_cq*>* RDMAPassive::shared_queue(uint16_t key)
+  {
+    auto it = _shared_recv_completions.find(key);
+    return it != _shared_recv_completions.end() ? &it->second : nullptr;
+  }
+
+  void RDMAPassive::reject(Connection* connection) {
+    if(rdma_reject(connection->id(), nullptr, 0)) {
+      spdlog::error("Conection rejection unsuccesful, reason {} {}", errno, strerror(errno));
+    }
+    SPDLOG_DEBUG("[RDMAPassive] Connection rejected at QP {}", fmt::ptr(connection->qp()));
+  }
+
   void RDMAPassive::accept(Connection* connection) {
     #ifdef USE_LIBFABRIC
     if(fi_accept(connection->qp(), nullptr, 0)) {
@@ -792,7 +978,6 @@ namespace rdmalib {
     #else
     if(rdma_accept(connection->id(), &_cfg.conn_param)) {
       spdlog::error("Conection accept unsuccesful, reason {} {}", errno, strerror(errno));
-      connection = nullptr;
     }
     #endif
     SPDLOG_DEBUG("[RDMAPassive] Connection accepted at QP {}", fmt::ptr(connection->qp()));

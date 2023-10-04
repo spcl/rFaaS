@@ -2,23 +2,26 @@
 #include <asm-generic/errno-base.h>
 #include <cstddef>
 #include <cstdint>
-#include <rdma/fi_cm.h>
-#include <rdma/fi_domain.h>
-#include <rdma/fi_errno.h>
-#include <rdma/fi_rma.h>
 #include <chrono>
+#include <thread>
+
 #ifdef USE_LIBFABRIC
 #include <rdma/fabric.h>
 #include <rdma/fi_endpoint.h>
 #include <rdma/fi_eq.h>
+#include <rdma/fi_cm.h>
+#include <rdma/fi_domain.h>
+#include <rdma/fi_errno.h>
+#include <rdma/fi_rma.h>
 #include "rdmalib/buffer.hpp"
 #include <arpa/inet.h>
 #include <rdma/fi_atomic.h>
+#else
+#include <infiniband/verbs.h>
 #endif
-#include <spdlog/spdlog.h>
-#include <thread>
 
 #include <rdmalib/connection.hpp>
+#include <rdmalib/queue.hpp>
 #include <rdmalib/util.hpp>
 
 namespace rdmalib {
@@ -31,7 +34,7 @@ namespace rdmalib {
   }
   #endif
 
-  Connection::Connection(bool passive):
+  Connection::Connection(int rcv_buf_size, bool passive):
     _qp(nullptr),
     #ifdef USE_LIBFABRIC
     _rcv_channel(nullptr),
@@ -44,7 +47,13 @@ namespace rdmalib {
     _req_count(0),
     _private_data(0),
     _passive(passive),
+    #ifndef USE_LIBFABRIC
+    _status(ConnectionStatus::UNKNOWN),
+    _send_wcs(nullptr),
+    _rcv_wcs(rcv_buf_size, nullptr)
+    #else
     _status(ConnectionStatus::UNKNOWN)
+    #endif
   {
     #ifndef USE_LIBFABRIC
     inlining(false);
@@ -53,13 +62,6 @@ namespace rdmalib {
     #ifdef USE_LIBFABRIC
     SPDLOG_DEBUG("Allocate a connection {}", fmt::ptr(this));
     #else
-    for(int i=0; i < _rbatch; i++){
-      _batch_wrs[i].wr_id = i;
-      _batch_wrs[i].sg_list = 0;
-      _batch_wrs[i].num_sge = 0;
-      _batch_wrs[i].next=&(_batch_wrs[i+1]);
-    }
-    _batch_wrs[_rbatch-1].next = NULL;
     SPDLOG_DEBUG("Allocate a connection with id {}", fmt::ptr(_id));
     #endif
   }
@@ -83,6 +85,8 @@ namespace rdmalib {
     #else
     _id(obj._id),
     _channel(obj._channel),
+    _send_wcs(std::move(obj._send_wcs)),
+    _rcv_wcs(std::move(obj._rcv_wcs)),
     #endif
     _req_count(obj._req_count),
     _private_data(obj._private_data),
@@ -95,30 +99,24 @@ namespace rdmalib {
     #endif
     obj._qp = nullptr;
     obj._req_count = 0;
-
-    #ifndef USE_LIBFABRIC
-    for(int i=0; i < _rbatch; i++){
-      _batch_wrs[i].wr_id = i;
-      _batch_wrs[i].sg_list = 0;
-      _batch_wrs[i].num_sge = 0;
-      _batch_wrs[i].next=&(_batch_wrs[i+1]);
-    }
-    _batch_wrs[_rbatch-1].next = NULL;
-    #endif
   }
 
-  void Connection::initialize_batched_recv(const rdmalib::impl::Buffer & buf, size_t offset)
+#ifndef USE_LIBFABRIC
+  RecvWorkCompletions& Connection::receive_wcs()
   {
-    for(int i = 0; i < _rbatch; i++){
-      _rwc_sges[i] = buf.sge(offset, i*offset);
-      //for(auto & sg : _rwc_sges[i]._sges)
-      //sg.addr += i*offset;
-      #ifndef USE_LIBFABRIC
-      _batch_wrs[i].sg_list = _rwc_sges[i].array();
-      _batch_wrs[i].num_sge = _rwc_sges[i].size();
-      #endif
-    }
+    return _rcv_wcs;
   }
+
+  SendWorkCompletions& Connection::send_wcs()
+  {
+    return _send_wcs;
+  }
+
+  int Connection::rcv_buf_size() const
+  {
+    return _rcv_wcs.rcv_buf_size();
+  }
+#endif
 
   #ifdef USE_LIBFABRIC
   void Connection::initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel)
@@ -145,8 +143,15 @@ namespace rdmalib {
   void Connection::initialize(rdma_cm_id* id)
   {
     this->_id = id;
-    this->_channel = _id->recv_cq_channel;
     this->_qp = this->_id->qp;
+    this->_channel = _id->recv_cq_channel;
+    if(!this->_channel) {
+      this->_channel = this->_qp->recv_cq->channel;
+    }
+
+    this->_send_wcs.set_qp(id->qp);
+    this->_rcv_wcs.set_qp(id->qp);
+
     SPDLOG_DEBUG("Initialize a connection with id {}", fmt::ptr(_id));
   }
   #endif
@@ -208,8 +213,7 @@ namespace rdmalib {
       else {
         SPDLOG_DEBUG("Connection passive close destroy qp {}", fmt::ptr(_id->qp));
         rdma_destroy_qp(_id);
-        SPDLOG_DEBUG("Connection passive close destroy id {}", fmt::ptr(_id));
-        rdma_destroy_id(_id);
+        impl::expect_zero(rdma_destroy_id(_id));
       }
       _id = nullptr;
       _status = ConnectionStatus::DISCONNECTED;
@@ -277,7 +281,7 @@ namespace rdmalib {
     this->_private_data = private_data;
   }
 
-  int32_t Connection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline)
+  int32_t Connection::post_send(const ScatterGatherElement & elems, int32_t id, bool force_inline, std::optional<uint32_t> immediate)
   {
     #ifdef USE_LIBFABRIC
     // FIXME: extend with multiple sges
@@ -301,8 +305,11 @@ namespace rdmalib {
     wr.wr_id = id == -1 ? _req_count++ : id;
     wr.next = nullptr;
     wr.sg_list = elems.array();
+    if(immediate.has_value()) {
+      wr.imm_data = htonl(immediate.value());
+    }
     wr.num_sge = elems.size();
-    wr.opcode = IBV_WR_SEND;
+    wr.opcode = immediate.has_value() ? IBV_WR_SEND_WITH_IMM : IBV_WR_SEND;
     wr.send_flags = force_inline ? IBV_SEND_SIGNALED | IBV_SEND_INLINE : _send_flags;
     SPDLOG_DEBUG("Post send to local Local QPN {}",_qp->qp_num);
     int ret = ibv_post_send(_qp, &wr, &bad);
@@ -317,99 +324,6 @@ namespace rdmalib {
       wr.num_sge, wr.sg_list[0].addr, wr.sg_list[0].length, wr.wr_id, wr.send_flags
     );
     return _req_count - 1;
-    #endif
-  }
-
-  int32_t Connection::post_batched_empty_recv(int count)
-  {
-    #ifdef USE_LIBFABRIC
-    int loops = count / _rbatch;
-    int reminder = count % _rbatch;
-    SPDLOG_DEBUG("Batch {} {} to local QPN on connection {} fid {}", loops, reminder, fmt::ptr(this), fmt::ptr(&_qp->fid));
-
-    int ret = 0;
-    for(int i = 0; i < loops; ++i) {
-      for(int j = 0; j < _rbatch; ++j) {
-        auto begin = _rwc_sges[j];
-        for (size_t k = 0; k < begin.size(); ++k) {
-          if(begin.array()[k].iov_len > 0) {
-            SPDLOG_DEBUG("Batched receive on connection {} num_sge {} sge[0].ptr {} sge[0].length {}", fmt::ptr(this), begin.size(), begin.array()[k].iov_base, begin.array()[k].iov_len);
-          } else
-            SPDLOG_DEBUG("Batched receive on connection {} num_sge {}", fmt::ptr(this), begin.size());
-        }
-        ret = fi_recv(_qp, begin.array()->iov_base, begin.array()->iov_len, begin.lkeys()[0], NULL, reinterpret_cast<void *>(j));
-        if(ret)
-          break;
-      }
-      if(ret)
-        break;
-    }
-
-    if(ret == 0 && reminder > 0){
-      for(int j = 0; j < reminder; ++j) {
-        auto begin = _rwc_sges[j];
-        for (size_t k = 0; k < begin.size(); ++k) {
-          if(begin.array()[k].iov_len > 0) {
-            SPDLOG_DEBUG("Batched receive on connection {} num_sge {} sge[0].ptr {} sge[0].length {}", fmt::ptr(this), begin.size(), begin.array()[k].iov_base, begin.array()[k].iov_len);
-          } else
-            SPDLOG_DEBUG("Batched receive on connection {} num_sge {}", fmt::ptr(this), begin.size());
-        }
-        ret = fi_recv(_qp, begin.array()->iov_base, begin.array()->iov_len, begin.lkeys()[0], NULL, reinterpret_cast<void *>(j));
-        if(ret)
-          break;
-      }
-    }
-
-    if(ret) {
-      spdlog::error("Batched Post empty recv unsuccessful on connection {} reason {} {}", fmt::ptr(this), ret, fi_strerror(std::abs(ret)));
-      return -1;
-    }
-
-    SPDLOG_DEBUG("Batched Post empty recv successfull on connection {}", fmt::ptr(this));
-    return count;
-    #else
-    struct ibv_recv_wr* bad = nullptr;
-    int loops = count / _rbatch;
-    int reminder = count % _rbatch;
-    SPDLOG_DEBUG("Batch {} {} to local QPN {}", loops, reminder, _qp->qp_num);
-
-    int ret = 0;
-    for(int i = 0; i < loops; ++i) {
-      auto begin = &_batch_wrs[0];
-      while(begin) {
-        if(begin->num_sge > 0) {
-          SPDLOG_DEBUG("Batched receive num_sge {} sge[0].ptr {} sge[0].length {}", begin->num_sge, begin->sg_list[0].addr, begin->sg_list[0].length);
-        } else
-          SPDLOG_DEBUG("Batched receive num_sge {}", begin->num_sge);
-        begin = begin->next;
-      }
-      ret = ibv_post_recv(_qp, &_batch_wrs[0], &bad);
-      if(ret)
-        break;
-    }
-
-    if(ret == 0 && reminder > 0){
-      _batch_wrs[reminder-1].next=NULL;
-      auto begin = &_batch_wrs[0];
-      while(begin) {
-        if(begin->num_sge > 0) {
-          SPDLOG_DEBUG("Batched receive num_sge {} sge[0].ptr {} sge[0].length {}", begin->num_sge, begin->sg_list[0].addr, begin->sg_list[0].length);
-        } else {
-          SPDLOG_DEBUG("Batched receive num_sge {}", begin->num_sge);
-	      }
-        begin = begin->next;
-      }
-      ret = ibv_post_recv(_qp, _batch_wrs, &bad);
-      _batch_wrs[reminder-1].next= &(_batch_wrs[reminder]);
-    }
-
-    if(ret) {
-      spdlog::error("Batched Post empty recv  unsuccesful, reason {} {}", ret, strerror(ret));
-      return -1;
-    }
-
-    SPDLOG_DEBUG("Batched Post empty recv succesfull");
-    return count;
     #endif
   }
 
@@ -698,13 +612,13 @@ namespace rdmalib {
   std::tuple<ibv_wc*, int> Connection::poll_wc(QueueType type, bool blocking, int count)
   {
     int ret = 0;
-    ibv_wc* wcs = (type == QueueType::RECV ? _rwc.data() : _swc.data());
+    ibv_wc* wcs = (type == QueueType::RECV ? _rcv_wcs.wcs() : _send_wcs.wcs());
+    size_t wc_size = (type == QueueType::RECV ? _rcv_wcs.wc_size() : _send_wcs.wc_size());
 
-    //spdlog::error("{} {} {}", fmt::ptr(_qp), fmt::ptr(_qp->recv_cq), fmt::ptr(wcs));
     do {
       ret = ibv_poll_cq(
         type == QueueType::RECV ? _qp->recv_cq : _qp->send_cq,
-        count == -1 ? _wc_size : count,
+        count == -1 ? wc_size : count,
         wcs
       );
     } while(blocking && ret == 0);
