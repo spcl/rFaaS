@@ -96,7 +96,8 @@ namespace rfaas {
     _exec_manager(std::move(obj._exec_manager)),
     _func_names(std::move(obj._func_names)),
     _futures(std::move(obj._futures)),
-    _background_thread(std::move(obj._background_thread))
+    _background_thread(std::move(obj._background_thread)),
+    _perf(1000)
   {
     _end_requested = obj._end_requested.load();
     obj._end_requested.store(false);

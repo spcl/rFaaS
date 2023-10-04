@@ -138,9 +138,9 @@ namespace rdmalib {
     fi_cq_err_entry _ewc;
     std::array<ScatterGatherElement, _wc_size> _rwc_sges;
     #else
+    #endif
     SendWorkCompletions _send_wcs;
     RecvWorkCompletions _rcv_wcs;
-    #endif
     int _send_flags;
 
     #ifndef USE_LIBFABRIC
@@ -154,9 +154,9 @@ namespace rdmalib {
     Connection(Connection&&);
 
     void initialize_batched_recv(const rdmalib::impl::Buffer & sge, size_t offset);
-    #ifndef USE_LIBFABRIC
     RecvWorkCompletions& receive_wcs();
     SendWorkCompletions& send_wcs();
+    #ifndef USE_LIBFABRIC
 
     int rcv_buf_size() const;
     void inlining(bool enable);
@@ -172,6 +172,7 @@ namespace rdmalib {
     fid* id() const;
     fid_ep* qp() const;
     fid_wait* wait_set() const;
+    fid_cntr* wait_counter() const;
     fid_cq* receive_completion_channel() const;
     fid_cq* transmit_completion_channel() const;
     #else

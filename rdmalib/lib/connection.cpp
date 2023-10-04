@@ -47,13 +47,9 @@ namespace rdmalib {
     _req_count(0),
     _private_data(0),
     _passive(passive),
-    #ifndef USE_LIBFABRIC
     _status(ConnectionStatus::UNKNOWN),
     _send_wcs(nullptr),
     _rcv_wcs(rcv_buf_size, nullptr)
-    #else
-    _status(ConnectionStatus::UNKNOWN)
-    #endif
   {
     #ifndef USE_LIBFABRIC
     inlining(false);
@@ -85,9 +81,9 @@ namespace rdmalib {
     #else
     _id(obj._id),
     _channel(obj._channel),
+    #endif
     _send_wcs(std::move(obj._send_wcs)),
     _rcv_wcs(std::move(obj._rcv_wcs)),
-    #endif
     _req_count(obj._req_count),
     _private_data(obj._private_data),
     _passive(obj._passive),
@@ -685,6 +681,10 @@ namespace rdmalib {
   int Connection::wait_events(int timeout)
   {
     return fi_cntr_wait(_write_counter, _counter+1, timeout);
+  }
+  fid_cntr* Connection::wait_counter() const
+  {
+    return _write_counter;
   }
   #else
   ibv_cq* Connection::wait_events()

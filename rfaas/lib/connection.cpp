@@ -23,7 +23,11 @@ namespace rfaas {
     _allocation_buffer(sizeof(LeaseStatus)*rcv_buf + sizeof(AllocationRequest))
   {
     _active.allocate();
+#ifndef USE_LIBFABRIC
     _poller.initialize(_active.connection().qp()->recv_cq);
+#else
+    _poller.initialize(_active.connection().receive_completion_channel(), _active.connection().wait_counter());
+#endif
   }
 
   bool manager_connection::connect()
@@ -83,11 +87,13 @@ namespace rfaas {
     if(count > 1) {
       spdlog::warn("Ignoring {} responses from executor manager", count - 1);
     }
+#ifndef USE_LIBFABRIC
     if(wcs[0].status != IBV_WC_SUCCESS) {
       spdlog::error("Couldn't receive the response from executor manager!");
       return nullptr;
     }
-    return response(wcs[0].wr_id);
+#endif
+    return response(_poller.id(wcs[0]));
   }
 
   bool manager_connection::submit()
@@ -148,8 +154,14 @@ namespace rfaas {
       spdlog::error("Couldn't connect to manager at {}:{}", _address, _port);
       return false;
     }
+
+#ifdef USE_LIBFABRIC
+    _send_buffer.register_memory(_active.pd(), FI_WRITE);
+    _receive_buffer.register_memory(_active.pd(), FI_WRITE | FI_REMOTE_WRITE);
+#else
     _send_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE); 
     _receive_buffer.register_memory(_active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE); 
+#endif
 
     // Initialize batch receive WCs
     _active.connection().receive_wcs().initialize(_receive_buffer);

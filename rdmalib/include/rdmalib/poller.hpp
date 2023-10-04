@@ -44,6 +44,24 @@ struct Poller {
   bool initialized() const { return _recv_cq; }
 
 #ifndef USE_LIBFABRIC
+  bool is_success(ibv_wc& wc) const
+  {
+    return wc == IBV_WC_SUCCESS;
+  }
+
+  int id(ibv_wc& wc) const
+  {
+    return wc.wr_id;
+  }
+#else
+
+  int id(fi_cq_data_entry& wc) const
+  {
+    return reinterpret_cast<uint64_t>(wc.op_context);
+  }
+#endif
+
+#ifndef USE_LIBFABRIC
   std::tuple<ibv_wc *, int> poll(bool blocking = false, int count = -1);
 #else
   std::tuple<fi_cq_data_entry*, int> poll(bool blocking = false, int count = -1, bool update = false);
