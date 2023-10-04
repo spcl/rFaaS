@@ -218,7 +218,8 @@ namespace rdmalib {
     // if (addrinfo)
     //   fi_freeinfo(addrinfo); 
     #else
-    rdma_freeaddrinfo(addrinfo);
+    if(addrinfo)
+      rdma_freeaddrinfo(addrinfo);
     #endif
   }
 
@@ -239,12 +240,6 @@ namespace rdmalib {
     obj.addrinfo = nullptr;
 
     return *this;
-  }
-
-  Address::~Address()
-  {
-    if(addrinfo)
-      rdma_freeaddrinfo(addrinfo);
   }
 
   void Address::set_port(uint32_t port)
@@ -327,7 +322,9 @@ namespace rdmalib {
     _addr = std::move(obj._addr);
     _ec = std::move(obj._ec);
     _pd = std::move(obj._pd);
+    #ifndef USE_LIBFABRIC
     _cfg = std::move(obj._cfg);
+    #endif
     _recv_buf = std::move(obj._recv_buf);
     _is_connected = std::move(obj._is_connected);
 
@@ -350,7 +347,7 @@ namespace rdmalib {
   void RDMAActive::allocate()
   {
     if(!_conn) {
-      _conn = std::unique_ptr<Connection>(new Connection());
+      _conn = std::unique_ptr<Connection>(new Connection(this->_recv_buf));
       #ifdef USE_LIBFABRIC
       // Enable the event queue
       fi_eq_attr eq_attr;
@@ -564,6 +561,12 @@ namespace rdmalib {
       impl::expect_zero(fi_close(&_pep->fid));
     if (_ec)
       impl::expect_zero(fi_close(&_ec->fid));
+
+    for(auto & [key, value] : _shared_recv_completions) {
+      fi_close(&std::get<1>(value)->fid);
+      fi_close(&std::get<0>(value)->fid);
+    }
+
     #else
 
     if(this->_listen_id) {
@@ -573,41 +576,49 @@ namespace rdmalib {
     if(this->_ec) {
       rdma_destroy_event_channel(this->_ec);
     }
-    #endif
 
     for(auto & [key, value] : _shared_recv_completions) {
       ibv_destroy_cq(std::get<1>(value));
       ibv_destroy_comp_channel(std::get<0>(value));
     }
+    #endif
   }
 
   RDMAPassive::RDMAPassive(RDMAPassive && obj):
+    #ifndef USE_LIBFABRIC
     _cfg(std::move(obj._cfg)),
+    #endif
     _addr(std::move(obj._addr)),
     _ec(std::move(obj._ec)),
+    #ifndef USE_LIBFABRIC
     _listen_id(std::move(obj._listen_id)),
+    #endif
     _pd(std::move(obj._pd)),
     _recv_buf(obj._recv_buf),
     _active_connections(std::move(obj._active_connections)),
     _shared_recv_completions(std::move(obj._shared_recv_completions))
   {
     obj._ec = nullptr;
+    #ifndef USE_LIBFABRIC
     obj._listen_id = nullptr;
+    #endif
     obj._pd = nullptr;
   }
 
   RDMAPassive& RDMAPassive::operator=(RDMAPassive && obj)
   {
+    #ifndef USE_LIBFABRIC
     _cfg = std::move(obj._cfg);
+    _listen_id = std::move(obj._listen_id);
+    obj._listen_id = nullptr;
+    #endif
     _addr = std::move(obj._addr);
     _ec = std::move(obj._ec);
-    _listen_id = std::move(obj._listen_id);
     _pd = std::move(obj._pd);
     _active_connections = std::move(obj._active_connections);
     _shared_recv_completions = std::move(obj._shared_recv_completions);
 
     obj._ec = nullptr;
-    obj._listen_id = nullptr;
     obj._pd = nullptr;
 
     return *this;
@@ -749,7 +760,7 @@ namespace rdmalib {
     );
 
     switch (event) { 
-      case FI_CONNREQ:
+      case FI_CONNREQ: {
         connection = new Connection{true};
 
         SPDLOG_DEBUG("[RDMAPassive] Connection request with ret {}", ret);
@@ -776,11 +787,47 @@ namespace rdmalib {
         memcpy(entry->info->ep_attr->auth_key, &_addr.cookie, sizeof(_addr.cookie));
         entry->info->ep_attr->auth_key_size = sizeof(_addr.cookie);
         #endif
-        if (!share_cqs) {
-          connection->initialize(_addr.fabric, _pd, entry->info, _ec, _write_counter, _rcv_channel, _trx_channel);
+
+        //if (!share_cqs) {
+        //  connection->initialize(_addr.fabric, _pd, entry->info, _ec, _write_counter, _rcv_channel, _trx_channel);
+        //} else {
+        //  connection->initialize(_addr.fabric, _pd, entry->info, _ec);
+        //}
+
+        uint8_t key = PrivateData{connection->private_data()}.key();
+        auto it = _shared_recv_completions.find(key);
+
+        if(it == _shared_recv_completions.end()) {
+
+          it = _shared_recv_completions.find(0);
+          if(it == _shared_recv_completions.end()) {
+
+            SPDLOG_DEBUG("Allocate new queue, no sharing for key {}", key);
+            // Make sure to allocate new completion queue when they're not reused.
+            connection->initialize(_addr.fabric, _pd, entry->info, _ec);
+
+          } else {
+
+            SPDLOG_DEBUG("Allocate default shared queue for key {}", key);
+            connection->initialize(_addr.fabric, _pd, entry->info, _ec,
+              std::get<0>((*it).second),
+              std::get<1>((*it).second),
+              std::get<2>((*it).second)
+            );
+
+          }
+
         } else {
-          connection->initialize(_addr.fabric, _pd, entry->info, _ec);
+
+          SPDLOG_DEBUG("Allocate existing shared queue for key {}", key);
+          connection->initialize(_addr.fabric, _pd, entry->info, _ec,
+            std::get<0>((*it).second),
+            std::get<1>((*it).second),
+            std::get<2>((*it).second)
+          );
+
         }
+
         SPDLOG_DEBUG(
           "[RDMAPassive] Created connection fid {} qp {}",
           fmt::ptr(connection->id()), fmt::ptr(&connection->qp()->fid)
@@ -792,7 +839,7 @@ namespace rdmalib {
         status = ConnectionStatus::REQUESTED;
         _active_connections.insert(connection);
         break;
-      case FI_CONNECTED:
+      } case FI_CONNECTED: {
         SPDLOG_DEBUG(
           "[RDMAPassive] Connection is established for id {}, and connection {}",
           fmt::ptr(entry->fid), fmt::ptr(entry->fid->context)
@@ -800,7 +847,7 @@ namespace rdmalib {
         connection = reinterpret_cast<Connection*>(entry->fid->context);
         status = ConnectionStatus::ESTABLISHED;
         break;
-      case FI_SHUTDOWN:
+      } case FI_SHUTDOWN: {
         SPDLOG_DEBUG(
           "[RDMAPassive] Disconnect for id {}, and connection {}",
           fmt::ptr(entry->fid), fmt::ptr(entry->fid->context)
@@ -810,7 +857,7 @@ namespace rdmalib {
         status = ConnectionStatus::DISCONNECTED;
         _active_connections.erase(connection);
         break;
-      default:
+      } default:
         spdlog::error("[RDMAPassive] Not any interesting event");
         break;
     }
@@ -949,6 +996,7 @@ namespace rdmalib {
 
   void RDMAPassive::register_shared_queue(uint16_t key, bool share_send_queue)
   {
+#ifndef USE_LIBFABRIC
     ibv_comp_channel* channel = ibv_create_comp_channel(_pd->context);
     ibv_cq* cq = ibv_create_cq(_pd->context, _cfg.attr.cap.max_recv_wr, nullptr, channel, 0);
     ibv_cq* send_cq = nullptr;
@@ -958,19 +1006,69 @@ namespace rdmalib {
 
     _shared_recv_completions[key] = std::make_tuple(channel, cq, send_cq);
     SPDLOG_DEBUG("[RDMAPassive] Register CQ {} for key {}, channel {}", fmt::ptr(cq), key, fmt::ptr(cq->channel));
+#else
+
+    fid_cntr* counter;
+    fi_cntr_attr cntr_attr;
+    cntr_attr.events = FI_CNTR_EVENTS_COMP;
+    cntr_attr.wait_obj = FI_WAIT_UNSPEC;
+    cntr_attr.wait_set = nullptr;
+    cntr_attr.flags = 0;
+    impl::expect_zero(fi_cntr_open(_pd, &cntr_attr, &counter, nullptr));
+    impl::expect_zero(fi_cntr_set(counter, 0));      
+ 
+    fid_cq* cq;
+    fi_cq_attr cq_attr;
+    memset(&cq_attr, 0, sizeof(cq_attr));
+    cq_attr.format = FI_CQ_FORMAT_DATA;
+    cq_attr.wait_obj = FI_WAIT_NONE;
+    cq_attr.wait_cond = FI_CQ_COND_NONE;
+    cq_attr.wait_set = nullptr;
+    // FIXME: configure this somehow
+    cq_attr.size = 32;
+    //cq_attr.size = info->rx_attr->size;
+    impl::expect_zero(fi_cq_open(_pd, &cq_attr, &cq, nullptr));
+
+    fid_cq* send_cq;
+    if(share_send_queue) {
+
+      memset(&cq_attr, 0, sizeof(cq_attr));
+      cq_attr.format = FI_CQ_FORMAT_DATA;
+      cq_attr.wait_obj = FI_WAIT_NONE;
+      cq_attr.wait_cond = FI_CQ_COND_NONE;
+      cq_attr.wait_set = nullptr;
+      // FIXME: configure this somehow
+      cq_attr.size = 32;
+      //cq_attr.size = info->rx_attr->size;
+      impl::expect_zero(fi_cq_open(_pd, &cq_attr, &send_cq, nullptr));
+    }
+    _shared_recv_completions[key] = std::make_tuple(counter, cq, send_cq);
+    SPDLOG_DEBUG("[RDMAPassive] Register CQ {} for key {}, channel {}", fmt::ptr(cq), key, fmt::ptr(counter));
+#endif
   }
 
+#ifndef USE_LIBFABRIC
   std::tuple<ibv_comp_channel*, ibv_cq*, ibv_cq*>* RDMAPassive::shared_queue(uint16_t key)
+#else
+  std::tuple<fid_cntr*, fid_cq*, fid_cq*>* RDMAPassive::shared_queue(uint16_t key)
+#endif
   {
     auto it = _shared_recv_completions.find(key);
     return it != _shared_recv_completions.end() ? &it->second : nullptr;
   }
 
   void RDMAPassive::reject(Connection* connection) {
+    #ifdef USE_LIBFABRIC
+    if(fi_reject(_pep, connection->id(), nullptr, 0)) {
+      spdlog::error("Conection accept unsuccessful, reason {} {}", errno, strerror(errno));
+      connection = nullptr;
+    }
+    #else
     if(rdma_reject(connection->id(), nullptr, 0)) {
       spdlog::error("Conection rejection unsuccesful, reason {} {}", errno, strerror(errno));
     }
     SPDLOG_DEBUG("[RDMAPassive] Connection rejected at QP {}", fmt::ptr(connection->qp()));
+    #endif
   }
 
   void RDMAPassive::accept(Connection* connection) {

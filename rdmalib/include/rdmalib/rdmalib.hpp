@@ -144,7 +144,11 @@ namespace rdmalib {
     // Set of connections that have been
     std::unordered_set<Connection*> _active_connections;
 
+#ifndef USE_LIBFABRIC
     std::unordered_map<uint16_t, std::tuple<ibv_comp_channel*, ibv_cq*, ibv_cq*>> _shared_recv_completions;
+#else
+    std::unordered_map<uint16_t, std::tuple<fid_cntr*, fid_cq*, fid_cq*>> _shared_recv_completions; 
+#endif
 
     RDMAPassive(const std::string & ip, int port, int recv_buf = 1, bool initialize = true, int max_inline_data = 0);
     RDMAPassive(RDMAPassive && obj);
@@ -162,7 +166,11 @@ namespace rdmalib {
 
     // 0 is reserved value - it's a generic shared queue
     void register_shared_queue(uint16_t key, bool share_send_queue = false);
+#ifndef USE_LIBFABRIC
     std::tuple<ibv_comp_channel*, ibv_cq*, ibv_cq*>* shared_queue(uint16_t key);
+#else
+    std::tuple<fid_cntr*, fid_cq*, fid_cq*>* shared_queue(uint16_t key);
+#endif
 
     // Blocking poll for new rdmacm events.
     // Returns connection pointer and connection change status.
