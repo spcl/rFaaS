@@ -104,7 +104,7 @@ namespace rdmalib {
 #ifdef USE_LIBFABRIC
     int loops = count / _rbatch;
     int reminder = count % _rbatch;
-    SPDLOG_DEBUG("Batch {} {} to local QPN on connection {} fid {}", loops, reminder, fmt::ptr(this), fmt::ptr(&_qp->fid));
+    SPDLOG_DEBUG("Batch {} {} to local QPN on connection {} fid {}", loops, reminder, fmt::ptr(this), fmt::ptr(&_queue_pair->fid));
 
     int ret = 0;
     for(int i = 0; i < loops; ++i) {
@@ -116,7 +116,11 @@ namespace rdmalib {
           } else
             SPDLOG_DEBUG("Batched receive on connection {} num_sge {}", fmt::ptr(this), begin.size());
         }
-        ret = fi_recv(_queue_pair, begin.array()->iov_base, begin.array()->iov_len, begin.lkeys()[0], NULL, reinterpret_cast<void *>(j));
+
+        // FIXME: abstraction for this
+        uint64_t ctx = (static_cast<uint64_t>(_conn_id) << 32) | static_cast<uint32_t>(j);
+
+        ret = fi_recv(_queue_pair, begin.array()->iov_base, begin.array()->iov_len, begin.lkeys()[0], NULL, reinterpret_cast<void *>(ctx));
         if(ret)
           break;
       }
@@ -133,7 +137,9 @@ namespace rdmalib {
           } else
             SPDLOG_DEBUG("Batched receive on connection {} num_sge {}", fmt::ptr(this), begin.size());
         }
-        ret = fi_recv(_queue_pair, begin.array()->iov_base, begin.array()->iov_len, begin.lkeys()[0], NULL, reinterpret_cast<void *>(j));
+        // FIXME: abstraction for this
+        uint64_t ctx = (static_cast<uint64_t>(_conn_id) << 32) | static_cast<uint32_t>(j);
+        ret = fi_recv(_queue_pair, begin.array()->iov_base, begin.array()->iov_len, begin.lkeys()[0], NULL, reinterpret_cast<void *>(ctx));
         if(ret)
           break;
       }
@@ -195,8 +201,9 @@ namespace rdmalib {
 #ifndef USE_LIBFABRIC
   RecvWorkCompletions::RecvWorkCompletions(int rcv_buf_size, ibv_qp* queue_pair):
 #else
-  RecvWorkCompletions::RecvWorkCompletions(int rcv_buf_size, fid_ep* queue_pair):
+  RecvWorkCompletions::RecvWorkCompletions(uint32_t conn_id, int rcv_buf_size, fid_ep* queue_pair):
 #endif
+    _conn_id(conn_id),
     _queue_pair(queue_pair),
     _rcv_buf_size(rcv_buf_size),
     _refill_threshold(std::min(_rcv_buf_size, DEFAULT_REFILL_THRESHOLD)),

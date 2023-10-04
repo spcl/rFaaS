@@ -28,7 +28,11 @@ namespace rfaas::resource_manager {
     int client_id;
     std::chrono::high_resolution_clock::time_point _cur_allocation_start;
 
+#ifndef USE_LIBFABRIC
     Client(int client_id, rdmalib::Connection* conn, ibv_pd* pd);
+#else
+    Client(int client_id, rdmalib::Connection* conn, fid_domain* pd);
+#endif
     ~Client();
     Client(Client&&);
     Client& operator=(Client&&);

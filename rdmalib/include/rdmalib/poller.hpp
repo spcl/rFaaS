@@ -55,10 +55,16 @@ struct Poller {
   }
 #else
 
-  int id(fi_cq_data_entry& wc) const
+  static uint32_t id(fi_cq_data_entry& wc)
   {
-    return reinterpret_cast<uint64_t>(wc.op_context);
+    return reinterpret_cast<uint64_t>(wc.op_context) & 0xFFFFFFFF;
   }
+
+  static uint32_t connection_id(fi_cq_data_entry& wc)
+  {
+    return (reinterpret_cast<uint64_t>(wc.op_context) & 0xFFFFFFFF00000000) >> 32;
+  }
+
 #endif
 
 #ifndef USE_LIBFABRIC

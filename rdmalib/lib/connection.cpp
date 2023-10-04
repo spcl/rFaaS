@@ -25,6 +25,8 @@
 #include <rdmalib/util.hpp>
 
 namespace rdmalib {
+  
+  std::atomic<int> Connection::_id_counter(0);
 
   #ifndef USE_LIBFABRIC
   ConnectionConfiguration::ConnectionConfiguration()
@@ -46,10 +48,11 @@ namespace rdmalib {
     #endif
     _req_count(0),
     _private_data(0),
+    _conn_id(++_id_counter),
     _passive(passive),
     _status(ConnectionStatus::UNKNOWN),
     _send_wcs(nullptr),
-    _rcv_wcs(rcv_buf_size, nullptr)
+    _rcv_wcs(_conn_id, rcv_buf_size, nullptr)
   {
     #ifndef USE_LIBFABRIC
     inlining(false);
@@ -97,7 +100,6 @@ namespace rdmalib {
     obj._req_count = 0;
   }
 
-#ifndef USE_LIBFABRIC
   RecvWorkCompletions& Connection::receive_wcs()
   {
     return _rcv_wcs;
@@ -108,6 +110,7 @@ namespace rdmalib {
     return _send_wcs;
   }
 
+#ifndef USE_LIBFABRIC
   int Connection::rcv_buf_size() const
   {
     return _rcv_wcs.rcv_buf_size();
@@ -165,6 +168,11 @@ namespace rdmalib {
 
     // Enable the endpoint
     impl::expect_zero(fi_enable(_qp));
+
+    this->_send_wcs.set_qp(_qp);
+    this->_rcv_wcs.set_qp(_qp);
+    this->_rcv_wcs.set_cq(_rcv_channel);
+
     SPDLOG_DEBUG("Initialize connection {}", fmt::ptr(this));
   }
   #else
@@ -364,7 +372,8 @@ namespace rdmalib {
 
     int ret = 1;
     for(int i = 0; i < count; ++i) {
-      ret = fi_recvv(_qp, elem.array(), elem.lkeys(), count, temp, reinterpret_cast<void *>((uint64_t)id));
+      uint64_t ctx = (static_cast<uint64_t>(_conn_id) << 32) | static_cast<uint32_t>(id);
+      ret = fi_recvv(_qp, elem.array(), elem.lkeys(), count, temp, reinterpret_cast<void *>(ctx));
       if(ret)
         break;
     }

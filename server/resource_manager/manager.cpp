@@ -1,6 +1,4 @@
-
-
-
+#include <rdma/fi_eq.h>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
@@ -142,30 +140,34 @@ void Manager::listen_rdma() {
   spdlog::info("Background thread stops waiting for rdmacm events");
 }
 
-void Manager::_handle_message(ibv_wc& wc)
+#ifdef USE_LIBFABRIC
+void Manager::_handle_message(fi_cq_data_entry& wc, uint32_t msg_id, uint32_t conn_id)
+#else
+void Manager::_handle_message(ibv_wc& wc, uint32_t msg_id, uint32_t conn_id)
+#endif
 {
 
+#ifndef USE_LIBFABRIC
   if(wc.status != IBV_WC_SUCCESS) {
     spdlog::error("Failed work completion on client {}, error {}", wc.qp_num, wc.status);
     return;
   }
+#endif
 
-  uint64_t id = wc.wr_id;
-  uint32_t qp_num = wc.qp_num;
-  auto exec = _executors.get_executor(qp_num);
+  auto exec = _executors.get_executor(conn_id);
 
   if(!exec) {
-    spdlog::error("Polled work completion for QP {}, non-existing executor!", qp_num);
+    spdlog::error("Polled work completion for QP {}, non-existing executor!", conn_id);
     return;
   }
 
-  auto buf = &exec->_receive_buffer[id * Executor::MSG_SIZE];
+  auto buf = &exec->_receive_buffer[msg_id * Executor::MSG_SIZE];
 
   auto type = *reinterpret_cast<uint32_t*>(buf);
   if(type == common::id_to_int(common::MessageIDs::NODE_REGISTRATION)) {
 
     auto ptr = reinterpret_cast<common::NodeRegistration*>(buf);
-    _executors.register_executor(qp_num, ptr->node_name);
+    _executors.register_executor(conn_id, ptr->node_name);
 
   } else if(type == common::id_to_int(common::MessageIDs::LEASE_DEALLOCATION)) {
 
@@ -215,7 +217,11 @@ void Manager::_handle_executor_connection(std::shared_ptr<Executor> && exec)
 
 void Manager::_handle_executor_disconnection(rdmalib::Connection* conn)
 {
+#ifdef USE_LIBFABRIC
+  _executors.remove_executor(conn->conn_id());
+#else
   _executors.remove_executor(conn->qp()->qp_num);
+#endif
 }
 
 void Manager::process_executors()
@@ -248,7 +254,15 @@ void Manager::process_executors()
     auto wcs = recv_poller.poll(false);
     if(std::get<1>(wcs)) {
       for (int j = 0; j < std::get<1>(wcs); ++j) {
-        _handle_message(std::get<0>(wcs)[j]);
+#ifndef USE_LIBFABRIC
+        uint64_t id = wc.wr_id;
+        uint32_t qp_num = wc.qp_num;
+        _handle_message(std::get<0>(wcs)[j], id, qp_num);
+#else
+        uint32_t msg_id = recv_poller.id(std::get<0>(wcs)[j]);
+        uint32_t conn_id = recv_poller.connection_id(std::get<0>(wcs)[j]);
+        _handle_message(std::get<0>(wcs)[j], msg_id, conn_id);
+#endif
       }
     }
 
@@ -259,15 +273,24 @@ void Manager::process_executors()
 
 void Manager::_handle_client_connection(Client& client)
 {
+#ifndef USE_LIBFABRIC
   uint32_t qp_num = client.connection->qp()->qp_num;
+#else
+  uint32_t qp_num = client.connection->conn_id();
+#endif
   _clients.insert_or_assign(qp_num, std::move(client));
   spdlog::debug("[Manager] Connecting client {}", _client_id - 1);
 }
 
 void Manager::_handle_client_disconnection(rdmalib::Connection* conn)
 {
-  _executors.remove_executor(conn->qp()->qp_num);
-  auto it = _clients.find(conn->qp()->qp_num);
+#ifndef USE_LIBFABRIC
+  uint32_t qp_num = conn->qp()->qp_num;
+#else
+  uint32_t qp_num = conn->conn_id();
+#endif
+  _executors.remove_executor(qp_num);
+  auto it = _clients.find(qp_num);
   if (it != _clients.end()) {
     _clients.erase(it);
     spdlog::debug("[Manager] Disconnecting client {}",
@@ -277,31 +300,37 @@ void Manager::_handle_client_disconnection(rdmalib::Connection* conn)
   }
 }
 
-void Manager::_handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send)
+#ifndef USE_LIBFABRIC
+void Manager::_handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send, uint32_t msg_id, uint32_t conn_id)
+#else
+void Manager::_handle_client_message(fi_cq_data_entry& wc, std::vector<Client*>& poll_send, uint32_t msg_id, uint32_t conn_id)
+#endif
 {
 
+#ifndef USE_LIBFABRIC
   if(wc.status != IBV_WC_SUCCESS) {
     spdlog::error("Failed work completion on client {}, error {}", wc.qp_num, wc.status);
     return;
   }
+#endif
 
-  uint64_t id = wc.wr_id;
-  uint32_t qp_num = wc.qp_num;
+  //uint64_t id = wc.wr_id;
+  //uint32_t qp_num = wc.qp_num;
 
-  auto it = _clients.find(qp_num);
+  auto it = _clients.find(conn_id);
   if(it == _clients.end()) {
-    spdlog::warn("Polled work completion for QP {}, non-existing client!", qp_num);
+    spdlog::warn("Polled work completion for QP {}, non-existing client!", conn_id);
     return;
   }
 
   Client& client = (*it).second;
-  int16_t cores = client.allocation_requests.data()[id].cores;
-  int32_t memory = client.allocation_requests.data()[id].memory;
+  int16_t cores = client.allocation_requests.data()[msg_id].cores;
+  int32_t memory = client.allocation_requests.data()[msg_id].memory;
 
   if (cores > 0) {
     spdlog::info("Client requests executor with {} threads, it should have {} memory", 
-                client.allocation_requests.data()[id].cores,
-                client.allocation_requests.data()[id].memory
+                client.allocation_requests.data()[msg_id].cores,
+                client.allocation_requests.data()[msg_id].memory
     );
 
     auto allocated = _executor_data.open_lease(cores, memory, *client.response().data());
@@ -382,7 +411,15 @@ void Manager::process_clients()
     auto wcs = recv_poller.poll(false);
     if(std::get<1>(wcs)) {
       for (int j = 0; j < std::get<1>(wcs); ++j) {
-        _handle_client_message(std::get<0>(wcs)[j], poll_send);
+#ifndef USE_LIBFABRIC
+        uint64_t id = wc.wr_id;
+        uint32_t qp_num = wc.qp_num;
+        _handle_client_message(std::get<0>(wcs)[j], poll_send, id, qp_num);
+#else
+        uint32_t msg_id = recv_poller.id(std::get<0>(wcs)[j]);
+        uint32_t conn_id = recv_poller.connection_id(std::get<0>(wcs)[j]);
+        _handle_client_message(std::get<0>(wcs)[j], poll_send, msg_id, conn_id);
+#endif
       }
     }
 
@@ -410,6 +447,8 @@ void Manager::process_clients()
 
 void Manager::process_events_sleep()
 {
+// FIXME: reenable
+#ifndef USE_LIBFABRIC
   rdmalib::EventPoller event_poller;
 
   auto [client_channel, client_cq, _] = *_state.shared_queue(2);
@@ -523,6 +562,7 @@ void Manager::process_events_sleep()
 
   }
   spdlog::info("Background thread stops processing client events");
+#endif
 }
 
 void Manager::shutdown() {

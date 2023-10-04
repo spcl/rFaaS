@@ -74,17 +74,31 @@ namespace rfaas::resource_manager {
     _free_memory += lease.memory;
   }
 
+#ifdef USE_LIBFABRIC
+  Executors::Executors(fid_domain* pd):
+#else
   Executors::Executors(ibv_pd* pd):
+#endif
     _pd(pd)
   {
   }
 
+
+#ifdef USE_LIBFABRIC
+  void Executor::initialize_connection(fid_domain* pd, rdmalib::Connection* conn)
+#else
   void Executor::initialize_connection(ibv_pd* pd, rdmalib::Connection* conn)
+#endif
   {
     this->_connection = conn;
 
+#ifdef USE_LIBFABRIC
+    _receive_buffer.register_memory(pd, FI_WRITE | FI_REMOTE_WRITE);
+    _send_buffer.register_memory(pd, FI_WRITE);
+#else
     _receive_buffer.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     _send_buffer.register_memory(pd, IBV_ACCESS_LOCAL_WRITE);
+#endif
 
     this->_connection->receive_wcs().initialize(_receive_buffer, MSG_SIZE);
   }
@@ -113,7 +127,11 @@ namespace rfaas::resource_manager {
 
   void Executors::connect_executor(std::shared_ptr<Executor> && exec)
   {
+#ifndef USE_LIBFABRIC
     uint32_t qp_num = exec->_connection->qp()->qp_num;
+#else
+    uint32_t qp_num = exec->_connection->conn_id();
+#endif 
     _executors_by_conn[qp_num] = std::move(exec);
   }
 

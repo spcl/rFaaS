@@ -127,6 +127,7 @@ namespace rdmalib {
     #endif
     int32_t _req_count;
     int32_t _private_data;
+    uint32_t _conn_id;
     bool _passive;
     ConnectionStatus _status;
 
@@ -143,6 +144,9 @@ namespace rdmalib {
     RecvWorkCompletions _rcv_wcs;
     int _send_flags;
 
+    static std::atomic<int> _id_counter;
+    uint32_t _id_conn;
+
     #ifndef USE_LIBFABRIC
     #endif
 
@@ -156,6 +160,11 @@ namespace rdmalib {
     void initialize_batched_recv(const rdmalib::impl::Buffer & sge, size_t offset);
     RecvWorkCompletions& receive_wcs();
     SendWorkCompletions& send_wcs();
+    uint32_t conn_id() const
+    {
+      return _conn_id;
+    }
+
     #ifndef USE_LIBFABRIC
 
     int rcv_buf_size() const;

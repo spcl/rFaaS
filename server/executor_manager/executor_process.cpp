@@ -8,7 +8,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include <rdmalib/allocation.hpp>
+#include <rfaas/allocation.hpp>
 #include <rdmalib/rdmalib.hpp>
 
 #include "../common.hpp"

@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <rdma/fi_eq.h>
 #include <variant>
 #include <vector>
 #include <mutex>
@@ -96,14 +97,22 @@ namespace rfaas::resource_manager {
     void process_executors();
     void process_events_sleep();
   private:
-    void _handle_message(ibv_wc& wc);
+#ifdef USE_LIBFABRIC
+    void _handle_message(fi_cq_data_entry& wc, uint32_t msg_id, uint32_t conn_id);
+#else
+    void _handle_message(ibv_wc& wc, uint32_t msg_id, uint32_t conn_id);
+#endif
     std::tuple<Manager::Operation, exec_msg_t>* _check_queue(executor_queue_t& queue, bool sleep);
     std::tuple<Manager::Operation, client_msg_t>* _check_queue(client_queue_t& queue, bool sleep);
 
     void _handle_executor_disconnection(rdmalib::Connection* conn);
     void _handle_executor_connection(std::shared_ptr<Executor> && exec);
 
-    void _handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send);
+#ifdef USE_LIBFABRIC
+    void _handle_client_message(fi_cq_data_entry& wc, std::vector<Client*>& poll_send, uint32_t msg_id, uint32_t conn_id);
+#else
+    void _handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send, uint32_t msg_id, uint32_t conn_id);
+#endif
     void _handle_client_connection(Client & client);
     void _handle_client_disconnection(rdmalib::Connection* conn);
   };

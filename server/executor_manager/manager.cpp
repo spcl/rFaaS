@@ -1,6 +1,7 @@
 
 #include <chrono>
 #include <mutex>
+#include <rdma/fi_eq.h>
 #include <thread>
 #include <variant>
 
@@ -9,7 +10,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#ifndef USE_LIBFABRIC
 #include <infiniband/verbs.h>
+#endif
 #include <spdlog/spdlog.h>
 
 #include <rdmalib/connection.hpp>
@@ -68,11 +71,7 @@ namespace rfaas::executor_manager {
     _ids(0),
     _state(settings.device->ip_address, settings.rdma_device_port,
         settings.device->default_receive_buffer_size, true),
-    _res_mgr_connection(
-        settings.resource_manager_address,
-        settings.resource_manager_port,
-        settings.device->default_receive_buffer_size
-    ),
+    _res_mgr_connection(nullptr),
     _client_responses(1),
     _settings(settings),
     _skip_rm(skip_rm),
@@ -84,7 +83,6 @@ namespace rfaas::executor_manager {
         settings.resource_manager_port,
         settings.device->default_receive_buffer_size
       );
-      _res_mgr_connection.allocate();
     }
   }
 
@@ -110,7 +108,11 @@ namespace rfaas::executor_manager {
     }
 
     _state.register_shared_queue(0);
+  #ifndef USE_LIBFABRIC
     _client_responses.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
+  #else
+    _client_responses.register_memory(_state.pd(), FI_WRITE);
+  #endif
 
     spdlog::info(
       "Begin listening at {}:{} and processing events!",
@@ -133,7 +135,6 @@ namespace rfaas::executor_manager {
       rdma_poller.join();
 
     }
-
 
     listener.join();
   }
@@ -165,7 +166,7 @@ namespace rfaas::executor_manager {
 
         _client_queue.emplace(Operation::DISCONNECT, msg_t{conn});
 
-        clients_to_connect.erase(conn->qp()->qp_num);
+        clients_to_connect.erase(conn->conn_id());
         continue;
       }
       // When client connects, we need to fill the receive queue with work requests before
@@ -195,7 +196,11 @@ namespace rfaas::executor_manager {
 
         } else {
 
+#ifndef USE_LIBFABRIC
           uint32_t qp_num = conn->qp()->qp_num;
+#else
+          uint32_t qp_num = conn->conn_id(); 
+#endif
           SPDLOG_DEBUG("[Manager-RDMA] Accepted a new client {}", qp_num);
           Client client{qp_num, conn, _state.pd(), true};
           clients_to_connect.insert(qp_num);
@@ -217,23 +222,24 @@ namespace rfaas::executor_manager {
     spdlog::info("Background thread stops waiting for rdmacm events.");
   }
 
-  void Manager::_handle_res_mgr_message(ibv_wc& wc)
+#ifndef USE_LIBFABRIC
+  void Manager::_handle_res_mgr_message(ibv_wc& wc, uint32_t msg_id, uint32_t conn_id)
+#else
+  void Manager::_handle_res_mgr_message(fi_cq_data_entry& wc, uint32_t msg_id, uint32_t conn_id)
+#endif
   {
+#ifndef USE_LIBFABRIC
     if(wc.status != 0) {
       return;
     }
+#endif
 
-    #ifdef USE_LIBFABRIC
-    uint64_t id = reinterpret_cast<uint64_t>(wc.op_context);
-    #else
-    uint64_t id = wc.wr_id;
-    #endif
-    SPDLOG_DEBUG("Receive lease {}", _res_mgr_connection->_receive_buffer[id].lease_id);
+    SPDLOG_DEBUG("Receive lease {}", _res_mgr_connection->_receive_buffer[msg_id].lease_id);
 
     Lease lease {
-      _res_mgr_connection->_receive_buffer[id].lease_id,
-      _res_mgr_connection->_receive_buffer[id].cores,
-      _res_mgr_connection->_receive_buffer[id].memory
+      _res_mgr_connection->_receive_buffer[msg_id].lease_id,
+      _res_mgr_connection->_receive_buffer[msg_id].cores,
+      _res_mgr_connection->_receive_buffer[msg_id].memory
     };
     _leases.insert_threadsafe(std::move(lease));
 
@@ -248,7 +254,16 @@ namespace rfaas::executor_manager {
       if(std::get<1>(wcs)) {
 
         for(int j = 0; j < std::get<1>(wcs); ++j) {
-          _handle_res_mgr_message(std::get<0>(wcs)[j]);
+#ifndef USE_LIBFABRIC
+          uint64_t id = wc.wr_id;
+          uint32_t qp_num = wc.qp_num;
+          _handle_res_mgr_message(std::get<0>(wcs)[j], id, qp_num);
+#else
+          // FIXME: abstraction
+          uint32_t msg_id = rdmalib::Poller::id(std::get<0>(wcs)[j]);
+          uint32_t conn_id = rdmalib::Poller::connection_id(std::get<0>(wcs)[j]);
+          _handle_res_mgr_message(std::get<0>(wcs)[j], msg_id, conn_id);
+#endif
         }
       }
 
@@ -289,7 +304,7 @@ namespace rfaas::executor_manager {
       }
 
       rdmalib::PrivateData<0,0,32> data;
-      data.secret(client.connection->qp()->qp_num);
+      data.secret(client.connection->conn_id());
       uint64_t addr = client.accounting.address(); //+ sizeof(Accounting)*i;
 
       // FIXME: Docker
@@ -407,10 +422,17 @@ namespace rfaas::executor_manager {
     } else {
 
       Client& client = std::get<Client>(message);
+#ifdef USE_LIBFABRIC
+      _clients.emplace(std::piecewise_construct,
+                      std::forward_as_tuple(client.connection->conn_id()),
+                      std::forward_as_tuple(std::move(client))
+      );
+#else
       _clients.emplace(std::piecewise_construct,
                       std::forward_as_tuple(client.connection->qp()->qp_num),
                       std::forward_as_tuple(std::move(client))
       );
+#endif
       SPDLOG_DEBUG("[Manager-RDMA] Accepted a new client");
 
     }
@@ -418,7 +440,7 @@ namespace rfaas::executor_manager {
 
   void Manager::_handle_disconnections(rdmalib::Connection* conn)
   {
-    auto it = _clients.find(conn->qp()->qp_num);
+    auto it = _clients.find(conn->conn_id());
     if (it != _clients.end()) {
       spdlog::debug("[Manager] Disconnecting client");
 
@@ -432,29 +454,29 @@ namespace rfaas::executor_manager {
     }
   }
 
-  void Manager::_handle_client_message(ibv_wc& wc)
+#ifndef USE_LIBFABRIC
+  void Manager::_handle_client_message(ibv_wc& wc, uint32_t msg_id, uint32_t conn_id)
+#else
+  void Manager::_handle_client_message(fi_cq_data_entry& wc, uint32_t msg_id, uint32_t conn_id)
+#endif
   {
-    uint32_t qp_num = wc.qp_num;
-    auto it = _clients.find(qp_num);
+    auto it = _clients.find(conn_id);
     if(it != _clients.end()) {
 
+  #ifndef USE_LIBFABRIC
       if(wc.status != IBV_WC_SUCCESS) {
         spdlog::error("Failed work completion on client {}, error {}", qp_num, wc.status);
         return;
       }
+  #endif
 
       Client & client = (*it).second;
-      #ifdef USE_LIBFABRIC
-      uint64_t id = reinterpret_cast<uint64_t>(wc.op_context);
-      #else
-      uint64_t id = wc.wr_id;
-      #endif
-      if(!_process_client(client, id)) {
+      if(!_process_client(client, msg_id)) {
         _clients.erase(it);
       }
 
     } else {
-      spdlog::error("Polled work completion for QP {}, non-existing client!", qp_num);
+      spdlog::error("Polled work completion for QP {}, non-existing client!", conn_id);
     }
   }
 
@@ -485,7 +507,15 @@ namespace rfaas::executor_manager {
       for(int j = 0; j < std::get<1>(wcs); ++j) {
 
         auto wc = std::get<0>(wcs)[j];
-        _handle_client_message(wc);
+#ifndef USE_LIBFABRIC
+        uint64_t id = wc.wr_id;
+        uint32_t qp_num = wc.qp_num;
+        _handle_client_message(wc, id, qp_num);
+#else
+        uint32_t msg_id = recv_poller.id(std::get<0>(wcs)[j]);
+        uint32_t conn_id = recv_poller.connection_id(std::get<0>(wcs)[j]);
+        _handle_client_message(wc, msg_id, conn_id);
+#endif
 
       }
 
@@ -505,7 +535,9 @@ namespace rfaas::executor_manager {
 
   void Manager::_process_events_sleep()
   {
-    rdmalib::EventPoller event_poller;
+    // FIXME: reenable
+#ifndef USE_LIBFABRIC
+  rdmalib::EventPoller event_poller;
 
     auto [client_channel, client_cq, _] = *_state.shared_queue(0);
     rdmalib::Poller client_poller{client_cq};
@@ -610,6 +642,7 @@ namespace rfaas::executor_manager {
 
     }
     spdlog::info("Background thread stops processing client events");
+#endif
   }
 
 }

@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <rdma/fi_eq.h>
 #include <variant>
 #include <vector>
 #include <mutex>
@@ -50,8 +51,13 @@ namespace rfaas::executor_manager {
       _send_buffer(std::max(sizeof(common::LeaseDeallocation), sizeof(common::NodeRegistration)))
     {
       _connection.allocate();
+#ifndef USE_LIBFABRIC
       _send_buffer.register_memory(_connection.pd(), IBV_ACCESS_LOCAL_WRITE); 
       _receive_buffer.register_memory(_connection.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE); 
+#else
+      _send_buffer.register_memory(_connection.pd(), FI_WRITE); 
+      _receive_buffer.register_memory(_connection.pd(), FI_WRITE | FI_REMOTE_WRITE);  
+#endif
     }
 
     bool connect(const std::string& node_name, uint32_t resource_manager_secret)
@@ -84,9 +90,15 @@ namespace rfaas::executor_manager {
 
       _connection.connection().post_send(_send_buffer, 0);
       auto [wcs, count] = _connection.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
+#ifndef USE_LIBFABRIC
       if(count == 0 || wcs[0].status != IBV_WC_SUCCESS) {
         spdlog::error("Failed to notify resource manager of lease {} close down.", lease_id);
       }
+#else
+      if(count == 0) {
+        spdlog::error("Failed to notify resource manager of lease {} close down.", lease_id);
+      }
+#endif
     }
 
     rdmalib::Connection& connection()
@@ -168,8 +180,13 @@ namespace rfaas::executor_manager {
     void _handle_disconnections(rdmalib::Connection* conn);
     bool _process_client(Client & client, uint64_t wr_id);
     void _process_events_sleep();
-    void _handle_client_message(ibv_wc& wc);
-    void _handle_res_mgr_message(ibv_wc& wc);
+#ifndef USE_LIBFABRIC
+    void _handle_client_message(ibv_wc& wc, uint32_t msg_id, uint32_t conn_id);
+    void _handle_res_mgr_message(ibv_wc& wc, uint32_t msg_id, uint32_t conn_id);
+#else
+    void _handle_client_message(fi_cq_data_entry& wc, uint32_t msg_id, uint32_t conn_id);
+    void _handle_res_mgr_message(fi_cq_data_entry& wc, uint32_t msg_id, uint32_t conn_id);
+#endif
   };
 
 }

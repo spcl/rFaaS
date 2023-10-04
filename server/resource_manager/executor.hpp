@@ -50,7 +50,11 @@ namespace rfaas { namespace resource_manager {
     Executor(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory);
 
     void initialize_data(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory);
+#ifdef USE_LIBFABRIC
+    void initialize_connection(fid_domain* pd, rdmalib::Connection* conn);
+#else
     void initialize_connection(ibv_pd* pd, rdmalib::Connection* conn);
+#endif
     bool is_initialized() const;
 
     bool lease(int cores, int memory);
@@ -71,9 +75,15 @@ namespace rfaas { namespace resource_manager {
     std::unordered_map<uint32_t, std::shared_ptr<Executor>> _executors_by_conn;
     typedef std::unordered_map<std::string, std::shared_ptr<Executor>>::iterator iter_t;
 
+#ifdef USE_LIBFABRIC
+    fid_domain* _pd;
+
+    Executors(fid_domain* pd);
+#else
     ibv_pd* _pd;
 
     Executors(ibv_pd* pd);
+#endif
 
     std::tuple<std::weak_ptr<Executor>, bool> add_executor(const std::string& name, const std::string & ip, int32_t port, int16_t cores, int32_t memory);
     void connect_executor(std::shared_ptr<Executor> && exec);

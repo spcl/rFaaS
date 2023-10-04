@@ -167,7 +167,7 @@ namespace rdmalib {
       return _rcv_work_completions.data();
     }
 
-    RecvWorkCompletions(int rcv_buf_size, fid_ep* queue_pair = nullptr);
+    RecvWorkCompletions(uint32_t conn_id, int rcv_buf_size, fid_ep* queue_pair = nullptr);
 
     std::tuple<fi_cq_data_entry*, int> _poll(bool blocking = false, int count = -1, bool update = false);
 
@@ -220,6 +220,7 @@ namespace rdmalib {
     int _counter;
 #endif
 
+    uint32_t _conn_id;
     int _rcv_buf_size;
     int _refill_threshold;
     int _requests;

@@ -6,13 +6,21 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+#ifdef USE_LIBFABRIC
+#include <rdma/fi_cm.h>
+#endif
+
 #include <rfaas/allocation.hpp>
 
 #include "client.hpp"
 
 namespace rfaas::resource_manager {
 
+#ifdef USE_LIBFABRIC
+  Client::Client(int client_id, rdmalib::Connection* conn, fid_domain* pd):
+#else
   Client::Client(int client_id, rdmalib::Connection* conn, ibv_pd* pd):
+#endif
     connection(conn),
     _response(1),
     allocation_requests(RECV_BUF_SIZE),
@@ -20,8 +28,13 @@ namespace rfaas::resource_manager {
     client_id(client_id)
   {
     // Make the buffer accessible to clients
+#ifdef USE_LIBFABRIC
+    allocation_requests.register_memory(pd, FI_WRITE | FI_REMOTE_WRITE);
+    _response.register_memory(pd, FI_WRITE);
+#else
     allocation_requests.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     _response.register_memory(pd, IBV_ACCESS_LOCAL_WRITE);
+#endif
 
     // Initialize batch receive WCs
     connection->receive_wcs().initialize(allocation_requests);
@@ -69,7 +82,11 @@ namespace rfaas::resource_manager {
 
   void Client::disable()
   {
+#ifndef USE_LIBFABRIC
     rdma_disconnect(connection->id());
+#else
+    fi_shutdown(connection->qp(), 0);
+#endif
     connection->close();
     delete connection;
     connection = nullptr;
