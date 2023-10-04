@@ -151,6 +151,7 @@ namespace rdmalib {
       cq_attr.size = info->rx_attr->size;
       impl::expect_zero(fi_cq_open(pd, &cq_attr, &_trx_channel, nullptr));
     }
+
     impl::expect_zero(fi_ep_bind(_qp, &_trx_channel->fid, FI_TRANSMIT));
     if (rx_channel) {
       _rcv_channel = rx_channel; 
@@ -323,7 +324,20 @@ namespace rdmalib {
     // FIXME: extend with multiple sges
     id = id == -1 ? _req_count++ : id;
     SPDLOG_DEBUG("Post send to local Local QPN on connection {} fid {}", fmt::ptr(this), fmt::ptr(&_qp->fid));
-    int ret = fi_sendv(_qp, elems.array(), elems.lkeys(), elems.size(), NULL, reinterpret_cast<void *>((uint64_t)id));
+
+    int ret = 0;
+    if(immediate.has_value()) {
+
+      uint64_t data = immediate.value();
+      // TODO: do we need that?
+      // | (elems.array()[0].iov_len << 32);
+      uint64_t ctx = (static_cast<uint64_t>(_conn_id) << 32) | static_cast<uint32_t>(id);
+      ret = fi_senddata(_qp, elems.array()[0].iov_base, elems.array()[0].iov_len, elems.lkeys()[0], data, fi_addr_t{}, reinterpret_cast<void *>(ctx));
+
+    } else {
+      ret = fi_sendv(_qp, elems.array(), elems.lkeys(), elems.size(), NULL, reinterpret_cast<void *>((uint64_t)id));
+    }
+
     if(ret) {
       spdlog::error("Post send unsuccessful on connection {} reason {} message {} errno {} message {}, sges_count {}, wr_id {}",
         fmt::ptr(this), ret, fi_strerror(std::abs(ret)), errno, strerror(errno), elems.size(), id
@@ -428,7 +442,8 @@ namespace rdmalib {
     int32_t id = _req_count++;
     size_t count = elems.size();
     uint64_t data = immediate + (elems.array()[0].iov_len << 32);
-    int ret = fi_writedata(_qp, elems.array()[0].iov_base, elems.array()[0].iov_len, elems.lkeys()[0], data, temp, rbuf.addr, rbuf.rkey, reinterpret_cast<void *>((uint64_t)id));
+    uint64_t ctx = (static_cast<uint64_t>(_conn_id) << 32) | static_cast<uint32_t>(id);
+    int ret = fi_writedata(_qp, elems.array()[0].iov_base, elems.array()[0].iov_len, elems.lkeys()[0], data, temp, rbuf.addr, rbuf.rkey, reinterpret_cast<void *>(ctx));
     if(ret) {
       spdlog::error("Post write unsuccessful, reason {} {}, sges_count {}, wr_id {}, remote addr {}, remote rkey {}, imm data {}, connection {}",
         ret, strerror(ret), count, id,  rbuf.addr, rbuf.rkey, data, fmt::ptr(this)
