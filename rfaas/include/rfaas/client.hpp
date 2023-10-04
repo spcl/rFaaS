@@ -48,12 +48,20 @@ namespace rfaas {
         spdlog::warn("Received unexpected responses from resource manager, ignoring {} responses", response_count - 1);
       }
 
+#ifndef USE_LIBFABRIC
       int executors = ntohl(responses[0].imm_data);
+#else
+      int executors = ntohl(responses[0].data);
+#endif
       if(executors == 0) {
         return std::nullopt;
       }
 
+#ifndef USE_LIBFABRIC
       int response_id = responses[0].wr_id;
+#else
+      int response_id = rdmalib::Poller::id(responses[0]);
+#endif
       return rfaas::executor{
         std::string{_resource_mgr.response(response_id).address},
         _resource_mgr.response(response_id).port,
