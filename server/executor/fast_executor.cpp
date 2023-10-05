@@ -269,6 +269,7 @@ namespace server {
       return;
     spdlog::info("Thread {} Established connection to the manager!", id);
 
+    spdlog::info("Thread {} Establishes connection to client at {}:{}!", id, addr, port);
     rdmalib::RDMAActive active(addr, port, _recv_buffer_size, max_inline_data);
     rdmalib::Buffer<char> func_buffer(_functions.memory(), _functions.size());
 
@@ -307,11 +308,10 @@ namespace server {
     #else
     send.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
     rcv.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-    this->wc_buffer.connect(this->conn);
+    //this->wc_buffer.connect(this->conn);
+    this->conn->receive_wcs().refill();
     #endif
-=======
 
->>>>>>> origin/master
     spdlog::info("Thread {} Established connection to client!", id);
 
     // Send to the client information about thread buffer
@@ -332,7 +332,6 @@ namespace server {
     this->conn->poll_wc(rdmalib::QueueType::RECV, true, 1);
     _functions.process_library();
 
-    this->conn->receive_wcs().refill();
     spdlog::info("Thread {} begins work with timeout {}", id, timeout);
 
     // FIXME: catch interrupt handler here
