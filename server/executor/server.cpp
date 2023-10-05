@@ -21,11 +21,13 @@ namespace server {
     sigemptyset(&sigIntHandler.sa_mask);
     sigIntHandler.sa_flags = 0;
     //FIXME: disable signals to avoid potential interrupts
-    //sigaction(SIGINT, &sigIntHandler, nullptr);
+    sigaction(SIGINT, &sigIntHandler, nullptr);
+    sigaction(SIGTERM, &sigIntHandler, nullptr);
   }
 
-  void SignalHandler::handler(int)
+  void SignalHandler::handler(int signal)
   {
+    spdlog::error("Cloding {}", signal)
     SignalHandler::closing = true;
   }
 

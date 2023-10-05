@@ -85,6 +85,20 @@ namespace rfaas::executor_manager {
     connection->receive_wcs().refill();
   }
 
+  std::string exec(const char *cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    if (!pipe) {
+      throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+      result += buffer.data();
+    }
+    result.erase(std::remove(result.begin(), result.end(), '\n'), result.cend());
+    return result;
+  }
+
   void Client::disable(ResourceManagerConnection* res_mgr_connection)
   {
 
@@ -106,11 +120,22 @@ namespace rfaas::executor_manager {
     // First, we check if the child is still alive
     if(executor) {
       int status;
+
+      // FIXME: this should be enabled only for Sarus
+      std::string first_child = exec(fmt::format("pgrep -P {}", executor->id()).c_str());
+      std::string second_child = exec(fmt::format("pgrep -P {}", first_child).c_str());
+
+      int pid = std::stoi(second_child);
+      // int pid = executor->id();
+
+      int ret = kill(pid, SIGTERM);
       auto b = std::chrono::high_resolution_clock::now();
-      kill(executor->id(), SIGTERM);
-      waitpid(executor->id(), &status, WUNTRACED);
+      spdlog::info(
+        "[Client] Kill container {}, status {}", pid, ret
+      );
+      ret = waitpid(pid, &status, WUNTRACED);
       auto e = std::chrono::high_resolution_clock::now();
-      spdlog::info("Waited for child {} ms", std::chrono::duration_cast<std::chrono::milliseconds>(e-b).count());
+      spdlog::info("Waited for child {} ms, ret {}", std::chrono::duration_cast<std::chrono::milliseconds>(e-b).count(), ret);
       executor.reset();
     }
     spdlog::info(
@@ -130,6 +155,7 @@ namespace rfaas::executor_manager {
       );
 
     }
+    SPDLOG_DEBUG("Closed client");
 
     //acc.hot_polling_time = acc.execution_time = 0;
     // SEGFAULT?
