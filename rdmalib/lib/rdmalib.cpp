@@ -202,7 +202,7 @@ namespace rdmalib {
 
   Address::Address()
   {
-    memset(&hints, 0, sizeof(hints));
+    memset(&hints, 0, sizeof(*hints));
     addrinfo = nullptr;
     this->_port = -1;
   }
@@ -228,7 +228,17 @@ namespace rdmalib {
     hints(obj.hints),
     _port(obj._port)
   {
+    #ifdef USE_LIBFABRIC
+    fabric = obj.fabric;
+    _ip = obj._ip;
+    obj.fabric = nullptr;
+    #endif
+    #ifdef USE_GNI_AUTH
+    cookie = obj.cookie;
+    #endif
+
     obj.addrinfo = nullptr;
+    obj.hints = nullptr;
   }
 
   Address& Address::operator=(Address && obj)
@@ -236,6 +246,15 @@ namespace rdmalib {
     hints = obj.hints;
     _port = obj._port;
     addrinfo = obj.addrinfo;
+
+    #ifdef USE_LIBFABRIC
+    fabric = obj.fabric;
+    _ip = obj._ip;
+    obj.fabric = nullptr;
+    #endif
+    #ifdef USE_GNI_AUTH
+    cookie = obj.cookie;
+    #endif
 
     obj.addrinfo = nullptr;
 
@@ -528,6 +547,7 @@ namespace rdmalib {
     _pd(nullptr),
     _recv_buf(recv_buf)
   {
+    spdlog::info("passive port {}", port);
     #ifdef USE_LIBFABRIC
     impl::expect_zero(fi_domain(_addr.fabric, _addr.addrinfo, &_pd, nullptr));
     #else
@@ -592,6 +612,11 @@ namespace rdmalib {
     _ec(std::move(obj._ec)),
     #ifndef USE_LIBFABRIC
     _listen_id(std::move(obj._listen_id)),
+    #else
+    _pep(std::move(obj._pep)),
+    _rcv_channel(std::move(obj._rcv_channel)),
+    _trx_channel(std::move(obj._trx_channel)),
+    _write_counter(std::move(obj._write_counter)),
     #endif
     _pd(std::move(obj._pd)),
     _recv_buf(obj._recv_buf),
@@ -601,6 +626,11 @@ namespace rdmalib {
     obj._ec = nullptr;
     #ifndef USE_LIBFABRIC
     obj._listen_id = nullptr;
+    #else
+    obj._pep = nullptr;
+    obj._rcv_channel = nullptr;
+    obj._trx_channel = nullptr;
+    obj._write_counter = nullptr;
     #endif
     obj._pd = nullptr;
   }
@@ -611,6 +641,15 @@ namespace rdmalib {
     _cfg = std::move(obj._cfg);
     _listen_id = std::move(obj._listen_id);
     obj._listen_id = nullptr;
+    #else
+    _pep = std::move(obj._pep);
+    _rcv_channel = std::move(obj._rcv_channel);
+    _trx_channel = std::move(obj._trx_channel);
+    _write_counter = std::move(obj._write_counter);
+    obj._pep = nullptr;
+    obj._rcv_channel = nullptr;
+    obj._trx_channel = nullptr;
+    obj._write_counter = nullptr;
     #endif
     _addr = std::move(obj._addr);
     _ec = std::move(obj._ec);

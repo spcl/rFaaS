@@ -120,6 +120,7 @@ namespace rdmalib {
   #ifdef USE_LIBFABRIC
   void Connection::initialize(fid_fabric* fabric, fid_domain* pd, fi_info* info, fid_eq* ec, fid_cntr* write_cntr, fid_cq* rx_channel, fid_cq* tx_channel)
   {
+    SPDLOG_DEBUG("Initialize connection, pd {} info {} counter {} recv {} send {}", fmt::ptr(pd), fmt::ptr(info), fmt::ptr(write_cntr), fmt::ptr(rx_channel), fmt::ptr(tx_channel));
     // Create the endpoint and set its flags up so that we get completions on RDM
     impl::expect_zero(fi_endpoint(pd, info, &_qp, reinterpret_cast<void*>(this)));
 
