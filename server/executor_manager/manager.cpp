@@ -535,18 +535,129 @@ namespace rfaas::executor_manager {
 
   void Manager::_process_events_sleep()
   {
-    // FIXME: reenable
+    auto [client_wait, client_cq, _] = *_state.shared_queue(0);
+    rdmalib::Poller client_poller{client_cq};
+    rdmalib::Poller res_mgr{_res_mgr_connection->connection().receive_queue()};
+
+    std::vector<Client*> poll_send;
+    std::vector<rdmalib::Connection*> disconnections;
+
+    auto queue = [this,&disconnections]() {
+
+      while(true) {
+
+        auto ptr = _check_queue(false);
+        if(!ptr) {
+          break;
+        }
+
+        if(ptr) {
+          if (std::get<0>(*ptr) == Operation::CONNECT) {
+            _handle_connections(std::get<1>(*ptr));
+          } else {
+            disconnections.emplace_back(std::get<0>(std::get<1>(*ptr)));
+          }
+        }
+
+      }
+    };
+
+    //uint64_t client_counter = 0;
+    uint64_t client_counter = fi_cntr_read(client_wait);
+    uint64_t res_mgr_counter = fi_cntr_read(_res_mgr_connection->connection().wait_counter());
+
+    while (!_shutdown.load()) {
+ 
+
+      // FIXME: this is suboptimal - we should use two threads or a wait set
+      // FDs are not supported on uGNI
+      //int res_mgr_ret = fi_cntr_wait(_res_mgr_connection->connection().wait_counter(), res_mgr_counter+1, POLLING_TIMEOUT_MS);
+      int client_ret = fi_cntr_wait(client_wait, client_counter+1, POLLING_TIMEOUT_MS);
+      //spdlog::info("Polled {} {} {} {} {} {}", fmt::ptr(client_wait), fmt::ptr(_res_mgr_connection->connection().wait_counter()), client_count, client_ret, res_mgr_counter, res_mgr_ret);
+      //if(res_mgr_ret == -FI_ETIMEDOUT && client_ret == -FI_ETIMEDOUT) 
+      //  continue;
+
+      //if(res_mgr_ret == 0) {
+        auto wcs = res_mgr.poll(false);
+        if(std::get<1>(wcs)) {
+          for (int j = 0; j < std::get<1>(wcs); ++j) {
+              // FIXME: abstraction
+              uint32_t msg_id = rdmalib::Poller::id(std::get<0>(wcs)[j]);
+              uint32_t conn_id = rdmalib::Poller::connection_id(std::get<0>(wcs)[j]);
+              _handle_res_mgr_message(std::get<0>(wcs)[j], msg_id, conn_id);
+          }
+        }
+      //}
+
+      queue();
+      if(client_ret == 0) {
+
+        // First, handle new connections to correctly recognize clients.
+        // Then, poll new messages.
+        // Finally, handle disconnections.
+        //
+        // This way, we will correctly recognize messages arriving from new clients.
+        // Furthermore, we will process final messages from clients that are disconnecting.
+        // Example is the final message cancelling a lease.
+
+        auto wcs = client_poller.poll(false);
+        if(std::get<1>(wcs)) {
+          for (int j = 0; j < std::get<1>(wcs); ++j) {
+
+            auto wc = std::get<0>(wcs)[j];
+            uint32_t msg_id = rdmalib::Poller::id(std::get<0>(wcs)[j]);
+            uint32_t conn_id = rdmalib::Poller::connection_id(std::get<0>(wcs)[j]);
+            _handle_client_message(wc, msg_id, conn_id);
+          }
+        }
+        client_counter += std::get<1>(wcs);
+      }
+
+      //if (client_ret == -FI_ETIMEDOUT) {
+      //  queue();
+      //}
+
+      if(disconnections.size()) {
+
+        for (auto conn : disconnections) {
+          _handle_disconnections(conn);
+        }
+
+        disconnections.clear();
+      }
+
+      if (poll_send.size()) {
+        for (auto client : poll_send) {
+          client->connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
+        }
+        poll_send.clear();
+      }
+
+    }
+    spdlog::info("Background thread stops processing client events");
+
+  }
+
 #ifndef USE_LIBFABRIC
-  rdmalib::EventPoller event_poller;
+  void Manager::_process_events_sleep()
+  {
+    // FIXME: reenable
+    rdmalib::EventPoller event_poller;
 
     auto [client_channel, client_cq, _] = *_state.shared_queue(0);
     rdmalib::Poller client_poller{client_cq};
+#ifndef USE_LIBFABRIC
     client_poller.set_nonblocking();
     client_poller.notify_events(false);
+#endif
 
+#ifndef USE_LIBFABRIC
     rdmalib::Poller res_mgr{_res_mgr_connection->connection().qp()->recv_cq};
     res_mgr.set_nonblocking();
     res_mgr.notify_events(false);
+#else
+    rdmalib::Poller res_mgr{_res_mgr_connection->connection().receive_queue()};
+#endif
 
     event_poller.add_channel(client_poller, 0);
     event_poller.add_channel(res_mgr, 1);
@@ -592,27 +703,51 @@ namespace rfaas::executor_manager {
 
           queue();
 
+#ifndef USE_LIBFABRIC
           auto cq = client_poller.wait_events();
           client_poller.ack_events(cq, 1);
           client_poller.notify_events(false) ;
+#endif
 
           auto wcs = client_poller.poll(false);
           if(std::get<1>(wcs)) {
             for (int j = 0; j < std::get<1>(wcs); ++j) {
-              _handle_client_message(std::get<0>(wcs)[j]);
+
+              auto wc = std::get<0>(wcs)[j];
+              //_handle_client_message(std::get<0>(wcs)[j]);
+#ifndef USE_LIBFABRIC
+              uint64_t id = wc.wr_id;
+              uint32_t qp_num = wc.qp_num;
+              _handle_client_message(wc, id, qp_num);
+#else
+              uint32_t msg_id = rdmalib::Poller::id(std::get<0>(wcs)[j]);
+              uint32_t conn_id = rdmalib::Poller::connection_id(std::get<0>(wcs)[j]);
+              _handle_client_message(wc, msg_id, conn_id);
+#endif
             }
           }
 
         } else {
 
+#ifndef USE_LIBFABRIC
           auto cq = res_mgr.wait_events();
           res_mgr.ack_events(cq, 1);
           res_mgr.notify_events(false) ;
+#endif
 
           auto wcs = res_mgr.poll(false);
           if(std::get<1>(wcs)) {
             for (int j = 0; j < std::get<1>(wcs); ++j) {
-              _handle_res_mgr_message(std::get<0>(wcs)[j]);
+#ifndef USE_LIBFABRIC
+                uint64_t id = wc.wr_id;
+                uint32_t qp_num = wc.qp_num;
+                _handle_res_mgr_message(std::get<0>(wcs)[j], id, qp_num);
+#else
+                // FIXME: abstraction
+                uint32_t msg_id = rdmalib::Poller::id(std::get<0>(wcs)[j]);
+                uint32_t conn_id = rdmalib::Poller::connection_id(std::get<0>(wcs)[j]);
+                _handle_res_mgr_message(std::get<0>(wcs)[j], msg_id, conn_id);
+#endif
             }
           }
 
@@ -642,7 +777,8 @@ namespace rfaas::executor_manager {
 
     }
     spdlog::info("Background thread stops processing client events");
-#endif
+
   }
+#endif
 
 }
