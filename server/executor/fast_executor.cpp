@@ -244,7 +244,16 @@ namespace server {
       // arrived before we called notify_events
       if(repetitions < max_repetitions && !SignalHandler::closing) {
         #ifdef USE_LIBFABRIC
-        rdmalib::impl::expect_zero(conn->wait_events());
+        //rdmalib::impl::expect_zero(conn->wait_events());
+        // FIXME: config
+        while(true) {
+
+          int ret = conn->wait_events(100);
+          if(ret == 0)
+            break;
+          if(ret == -FI_ETIMEDOUT)
+            continue;
+        }
         #else
         auto cq = conn->wait_events();
         conn->ack_events(cq, 1);
