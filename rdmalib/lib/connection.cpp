@@ -136,7 +136,7 @@ namespace rdmalib {
       impl::expect_zero(fi_cntr_open(pd, &cntr_attr, &_write_counter, nullptr));
       impl::expect_zero(fi_cntr_set(_write_counter, 0));      
     }
-    impl::expect_zero(fi_ep_bind(_qp, &_write_counter->fid, FI_REMOTE_WRITE));
+    impl::expect_zero(fi_ep_bind(_qp, &_write_counter->fid, FI_REMOTE_WRITE | FI_RECV));
 
     // Bind with the completion queues and the event queue
     impl::expect_zero(fi_ep_bind(_qp, &ec->fid, 0));
