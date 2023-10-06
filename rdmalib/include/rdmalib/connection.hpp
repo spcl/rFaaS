@@ -180,6 +180,7 @@ namespace rdmalib {
     fid_domain* _domain = nullptr;
     fid* id() const;
     fid_ep* qp() const;
+    fid_cq* receive_queue() const { return _rcv_channel; }
     fid_wait* wait_set() const;
     fid_cntr* wait_counter() const;
     fid_cq* receive_completion_channel() const;
