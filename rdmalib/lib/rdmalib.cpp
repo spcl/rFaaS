@@ -684,6 +684,8 @@ namespace rdmalib {
     cntr_attr.flags = 0;
     impl::expect_zero(fi_cntr_open(_pd, &cntr_attr, &_write_counter, nullptr));
     impl::expect_zero(fi_cntr_set(_write_counter, 0));
+    // Not implemented on uGNI...
+    // impl::expect_zero(fi_pep_bind(_pep, &(_write_counter->fid), 0));
 
     // Create the completion queues
     fi_cq_attr cq_attr;
@@ -786,9 +788,9 @@ namespace rdmalib {
 
     // Poll rdma cm events.
     int ret;
-    do
+    do {
       ret = fi_eq_read(_ec, &event, entry, total_size, 0);
-    while (ret == -FI_EAGAIN);
+    } while (ret == -FI_EAGAIN);
     if(ret < 0) {
       spdlog::error("Event poll unsuccessful, return {} message {} errno {} message {}", ret, fi_strerror(ret), errno, strerror(errno));
       return std::make_tuple(nullptr, ConnectionStatus::UNKNOWN);
