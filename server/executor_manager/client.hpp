@@ -42,7 +42,7 @@ namespace rfaas::executor_manager {
     Client& operator=(Client &&);
     ~Client();
     void reload_queue();
-    void disable(ResourceManagerConnection* res_mgr_connection);
+    void disable(ResourceManagerConnection* res_mgr_connection, ExecutorSettings & exec);
     bool active();
 
     int id() const

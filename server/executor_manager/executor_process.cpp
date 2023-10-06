@@ -32,8 +32,8 @@ namespace rfaas::executor_manager {
     connections[pos] = connection;
   }
 
-  ProcessExecutor::ProcessExecutor(int cores, ProcessExecutor::time_t alloc_begin, pid_t pid):
-    ActiveExecutor(cores),
+  ProcessExecutor::ProcessExecutor(int cores, std::vector<int> & pinned_cores, ProcessExecutor::time_t alloc_begin, pid_t pid):
+    ActiveExecutor(cores, pinned_cores),
     _pid(pid)
   {
     _allocation_begin = alloc_begin;
@@ -75,7 +75,7 @@ namespace rfaas::executor_manager {
 
   ProcessExecutor* ProcessExecutor::spawn(
     const rfaas::AllocationRequest & request,
-    const ExecutorSettings & exec,
+    ExecutorSettings & exec,
     const executor::ManagerConnection & conn,
     const Lease & lease
   )
@@ -95,12 +95,27 @@ namespace rfaas::executor_manager {
     std::string executor_warmups = std::to_string(exec.warmup_iters);
     std::string executor_recv_buf = std::to_string(exec.recv_buffer_size);
     std::string executor_max_inline = std::to_string(exec.max_inline_data);
-    std::string executor_pin_threads;
-    if(exec.pin_threads >= 0)
-      executor_pin_threads = std::to_string(0);//counter++);
-    else
-      executor_pin_threads = std::to_string(exec.pin_threads);
     auto sandbox_type = exec.sandbox_type;
+
+    
+    std::string executor_pin_threads = "";
+    std::vector<int> pinned_cores{};
+    if(lease.cores <= exec.pin_threads.size()) {
+
+      auto it = exec.pin_threads.begin();
+      for(int i = 0; i < lease.cores; ++i) {
+
+        pinned_cores.push_back(*it);
+        ++it;
+        exec.pin_threads.erase(std::prev(it));
+
+        executor_pin_threads.append(std::to_string(pinned_cores[i]));
+        if(i < lease.cores - 1) {
+          executor_pin_threads.append(";");
+        }
+      }
+
+    }
 
     std::string mgr_port = std::to_string(conn.port);
     std::string mgr_secret = std::to_string(conn.secret);
@@ -276,7 +291,7 @@ namespace rfaas::executor_manager {
     // FIXME: pin threads! change!
     if(counter == 36)
       counter = 0;
-    return new ProcessExecutor{lease.cores, begin, mypid};
+    return new ProcessExecutor{lease.cores, pinned_cores, begin, mypid};
   }
 
 }

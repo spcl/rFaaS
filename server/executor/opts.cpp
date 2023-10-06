@@ -16,7 +16,7 @@ namespace server {
       ("polling-mgr", "Polling manager: server, thread, server-notify", cxxopts::value<std::string>()->default_value("server"))
       ("polling-type", "Polling type: wc (work completions), dram", cxxopts::value<std::string>()->default_value("wc"))
       ("warmup-iters", "Number of warm-up iterations", cxxopts::value<int>()->default_value("1"))
-      ("pin-threads", "Pin worker threads to CPU cores", cxxopts::value<int>()->default_value("-1"))
+      ("pin-threads", "Pin worker threads to CPU cores", cxxopts::value<std::string>()->default_value(""))
       ("max-inline-data", "Maximum size of inlined message", cxxopts::value<int>()->default_value("0"))
       ("x,requests", "Size of recv buffer", cxxopts::value<int>()->default_value("32"))
       ("func-size", "Size of functions library", cxxopts::value<int>())
@@ -50,7 +50,7 @@ namespace server {
     result.repetitions = parsed_options["repetitions"].as<int>();
     result.warmup_iters = parsed_options["warmup-iters"].as<int>();
     result.verbose = parsed_options["verbose"].as<bool>();
-    result.pin_threads = parsed_options["pin-threads"].as<int>();
+    result.pin_threads = parsed_options["pin-threads"].as<std::string>();
     result.max_inline_data = parsed_options["max-inline-data"].as<int>();
     result.func_size = parsed_options["func-size"].as<int>();
     result.timeout = parsed_options["timeout"].as<int>();

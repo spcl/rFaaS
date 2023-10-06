@@ -12,6 +12,7 @@
 #include <rfaas/connection.hpp>
 
 #include "client.hpp"
+#include "executor_manager/settings.hpp"
 #include "manager.hpp"
 
 namespace rfaas::executor_manager {
@@ -85,7 +86,8 @@ namespace rfaas::executor_manager {
     connection->receive_wcs().refill();
   }
 
-  std::string exec(const char *cmd) {
+  std::string exec_cmd(const char *cmd)
+  {
     std::array<char, 128> buffer;
     std::string result;
     std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
@@ -99,7 +101,7 @@ namespace rfaas::executor_manager {
     return result;
   }
 
-  void Client::disable(ResourceManagerConnection* res_mgr_connection)
+  void Client::disable(ResourceManagerConnection* res_mgr_connection, ExecutorSettings & exec)
   {
 
     if(executor) {
@@ -122,8 +124,8 @@ namespace rfaas::executor_manager {
       int status;
 
       // FIXME: this should be enabled only for Sarus
-      std::string first_child = exec(fmt::format("pgrep -P {}", executor->id()).c_str());
-      std::string second_child = exec(fmt::format("pgrep -P {}", first_child).c_str());
+      std::string first_child = exec_cmd(fmt::format("pgrep -P {}", executor->id()).c_str());
+      std::string second_child = exec_cmd(fmt::format("pgrep -P {}", first_child).c_str());
 
       int pid = std::stoi(second_child);
       // int pid = executor->id();
@@ -136,6 +138,11 @@ namespace rfaas::executor_manager {
       ret = waitpid(pid, &status, WUNTRACED);
       auto e = std::chrono::high_resolution_clock::now();
       spdlog::info("Waited for child {} ms, ret {}", std::chrono::duration_cast<std::chrono::milliseconds>(e-b).count(), ret);
+
+      for(int core : executor->pinned_cores) {
+        exec.pin_threads.insert(core); 
+      }
+
       executor.reset();
     }
     spdlog::info(

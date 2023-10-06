@@ -32,11 +32,13 @@ namespace rfaas::executor_manager {
     rdmalib::Connection** connections;
     int connections_len;
     int cores;
+    std::vector<int> pinned_cores{};
 
-    ActiveExecutor(int cores):
+    ActiveExecutor(int cores, std::vector<int> pinned_cores):
       connections(new rdmalib::Connection*[cores]),
       connections_len(0),
-      cores(cores)
+      cores(cores),
+      pinned_cores(pinned_cores)
     {}
 
     virtual ~ActiveExecutor();
@@ -49,7 +51,7 @@ namespace rfaas::executor_manager {
   {
     pid_t _pid;
 
-    ProcessExecutor(int cores, time_t alloc_begin, pid_t pid);
+    ProcessExecutor(int cores, std::vector<int>& pinned_cores, time_t alloc_begin, pid_t pid);
 
     // FIXME: kill active executor
     //~ProcessExecutor();
@@ -58,7 +60,7 @@ namespace rfaas::executor_manager {
     std::tuple<Status,int> check() const override;
     static ProcessExecutor* spawn(
       const rfaas::AllocationRequest & request,
-      const ExecutorSettings & exec,
+      ExecutorSettings & exec,
       const executor::ManagerConnection & conn,
       const Lease & lease
     );

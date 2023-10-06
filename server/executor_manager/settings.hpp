@@ -10,6 +10,7 @@
 
 #include <cereal/details/helpers.hpp>
 #include <cereal/types/vector.hpp>
+#include <cereal/types/set.hpp>
 #include <cereal/types/map.hpp>
 
 namespace rfaas::executor_manager {
@@ -66,7 +67,7 @@ namespace rfaas::executor_manager {
     int warmup_iters;
     int recv_buffer_size;
     int max_inline_data;
-    bool pin_threads;
+    std::set<int> pin_threads;
 
     template <class Archive>
     void load(Archive & ar )

@@ -1,5 +1,6 @@
 
 #include <chrono>
+#include <set>
 #include <stdexcept>
 #include <thread>
 #include <climits>
@@ -14,6 +15,24 @@
 #include "rdmalib/connection.hpp"
 #include "server.hpp"
 #include "fast_executor.hpp"
+
+std::vector<int> parse_thread_pinning(const std::string& input)
+{
+  std::vector<int> cores;
+  const std::string delimiter = ";";
+  std::string::size_type pos_begin = 0, pos_end = 0;
+
+  while((pos_begin = input.find_first_not_of(delimiter, pos_end)) != std::string::npos) {
+    pos_end = input.find_first_of(delimiter, pos_begin);
+    if(pos_end == std::string::npos) {
+      pos_end = input.length();
+    }
+
+    cores.push_back( std::stoi(input.substr(pos_begin, pos_end - pos_begin)));
+  }
+
+  return cores;
+}
 
 int main(int argc, char ** argv)
 {
@@ -51,6 +70,9 @@ int main(int argc, char ** argv)
   );
   #endif
 
+  // Parse thread pinning options
+  std::vector<int> pin_threads = parse_thread_pinning(opts.pin_threads);
+
   executor::ManagerConnection mgr{
     opts.mgr_address,
     opts.mgr_port,
@@ -65,7 +87,7 @@ int main(int argc, char ** argv)
     opts.msg_size,
     opts.recv_buffer_size,
     opts.max_inline_data,
-    opts.pin_threads,
+    pin_threads,
     mgr
   );
 

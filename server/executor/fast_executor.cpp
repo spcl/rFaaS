@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <rdma/fabric.h>
 #include <sys/time.h>
+#include <sys/sysinfo.h>
 #include <csignal>
 #include <signal.h>
 
@@ -85,7 +86,7 @@ namespace server {
     _accounting.send_updated_execution(_mgr_connection, _accounting_buf, _mgr_conn);
     //_perf.point(5);
     //int cpu = sched_getcpu();
-    //spdlog::info("Execution + sent took {} us on {} CPU", std::chrono::duration_cast<std::chrono::microseconds>(end-start).count(), cpu);
+    //spdlog::info("Execution + sent took {} us on {} CPU, {} {} ", std::chrono::duration_cast<std::chrono::microseconds>(end-start).count(), cpu, get_nprocs_conf(), get_nprocs());
     return end;
   }
 
@@ -371,7 +372,7 @@ namespace server {
       int msg_size,
       int recv_buf_size,
       int max_inline_data,
-      int pin_threads,
+      std::vector<int> pin_threads,
       const executor::ManagerConnection & mgr_conn
   ):
     _closing(false),
@@ -382,11 +383,12 @@ namespace server {
   {
     // Reserve place to ensure that no reallocations happen
     _threads_data.reserve(numcores);
-    for(int i = 0; i < numcores; ++i)
+    for(int i = 0; i < numcores; ++i) {
       _threads_data.emplace_back(
         client_addr, port, i, func_size, msg_size,
         recv_buf_size, max_inline_data, mgr_conn
       );
+    }
   }
 
   FastExecutors::~FastExecutors()
@@ -427,20 +429,23 @@ namespace server {
 
   void FastExecutors::allocate_threads(int timeout, int iterations)
   {
-    int pin_threads = _pin_threads;
     for(int i = 0; i < _numcores; ++i) {
+
       _threads_data[i].max_repetitions = iterations;
       _threads.emplace_back(
         &Thread::thread_work,
         &_threads_data[i],
         timeout
       );
+
       // FIXME: make sure that native handle is actually from pthreads
-      if(pin_threads != -1) {
-        spdlog::info("Pin thread to core {}", pin_threads);
+      if(i < _pin_threads.size()) {
+
+        int thread_pin = _pin_threads[i];
+        spdlog::info("Pin thread to core {}", thread_pin);
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
-        CPU_SET(pin_threads++, &cpuset);
+        CPU_SET(thread_pin, &cpuset);
         rdmalib::impl::expect_zero(pthread_setaffinity_np(
           _threads[i].native_handle(),
           sizeof(cpu_set_t), &cpuset

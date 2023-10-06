@@ -340,7 +340,7 @@ namespace rfaas::executor_manager {
 
       spdlog::info("Client {} disconnects", client.id());
       //client.disable(i, _accounting_data.data()[i]);
-      client.disable(_res_mgr_connection.get());
+      client.disable(_res_mgr_connection.get(), _settings.exec);
 
       return false;
     }
@@ -381,7 +381,7 @@ namespace rfaas::executor_manager {
         spdlog::info("Finished cleanup");
 
         // FIXME: notify client
-        client.disable(_res_mgr_connection.get());
+        client.disable(_res_mgr_connection.get(), _settings.exec);
         removals.push_back(it);
       }
 
@@ -446,7 +446,7 @@ namespace rfaas::executor_manager {
 
       Client& client = (*it).second;
       //client.disable(i, _accounting_data.data()[i]);
-      client.disable(_res_mgr_connection.get());
+      client.disable(_res_mgr_connection.get(), _settings.exec);
       _clients.erase(it);
 
     } else {

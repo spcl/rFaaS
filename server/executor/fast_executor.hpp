@@ -5,6 +5,7 @@
 #include "rdmalib/benchmarker.hpp"
 #include "rdmalib/rdmalib.hpp"
 #include <chrono>
+#include <set>
 #include <vector>
 #include <thread>
 #include <atomic>
@@ -167,7 +168,7 @@ namespace server {
     int _numcores;
     int _max_repetitions;
     int _warmup_iters;
-    int _pin_threads;
+    std::vector<int> _pin_threads;
     //const ManagerConnection & _mgr_conn;
 
     FastExecutors(
@@ -177,7 +178,7 @@ namespace server {
       int msg_size,
       int recv_buf_size,
       int max_inline_data,
-      int pin_threads,
+      std::vector<int> pin_threads,
       const executor::ManagerConnection & mgr_conn
     );
     ~FastExecutors();
