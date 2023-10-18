@@ -64,3 +64,33 @@ if(${RFAAS_WITH_TESTING})
   FetchContent_MakeAvailable(googletest)
 endif()
 
+###
+# readerwriterqueue
+###
+include(FetchContent)
+find_package(readerwriterqueue QUIET)
+if(NOT readerwriterqueue_FOUND)
+  message(STATUS "Downloading and building readerwriterqueue dependency")
+  FetchContent_Declare(
+    readerwriterqueue
+    GIT_REPOSITORY https://github.com/cameron314/readerwriterqueue
+    GIT_TAG master
+  )
+  FetchContent_MakeAvailable(readerwriterqueue)
+endif()
+
+###
+# pistache      
+### 
+include(FetchContent)
+find_package(PkgConfig)
+find_package(pistache)
+if(NOT pistache_FOUND)
+  message(STATUS "Downloading and building pistache dependency")
+  FetchContent_Declare(pistache
+    GIT_REPOSITORY https://github.com/pistacheio/pistache.git
+  )
+  FetchContent_MakeAvailable(pistache)
+else()
+  pkg_check_modules(Pistache REQUIRED IMPORTED_TARGET libpistache)
+endif()
