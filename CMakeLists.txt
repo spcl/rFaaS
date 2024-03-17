@@ -4,6 +4,18 @@ include(FetchContent)
 project(serverless-rdma)
 set (CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+FetchContent_Declare(
+  readerwriterqueue
+  GIT_REPOSITORY    https://github.com/cameron314/readerwriterqueue
+  GIT_TAG           master
+)
+FetchContent_Declare(
+  pistache
+  GIT_REPOSITORY https://github.com/pistacheio/pistache
+  GIT_TAG        master # It's better to use a specific release tag
+)
+FetchContent_MakeAvailable(readerwriterqueue pistache)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)

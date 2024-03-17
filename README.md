@@ -48,6 +48,7 @@ its `ugni` provider.
 - `libibverbs` with headers installed.
 - `librdmacm` with headers installed.
 - [pistache](https://github.com/pistacheio/pistache) - HTTP and REST framework.
+- [readerwriterqueue](https://github.com/cameron314/readerwriterqueue) - Lock-free queue or C++
 
 Furthermore, we fetch and build the following dependencies during CMake build - unless
 they are found already in the system.
