@@ -81,6 +81,15 @@ namespace rfaas::executor_manager {
         settings.device->default_receive_buffer_size
       );
     }
+
+    if(settings.exec.allow_oversubscription) {
+
+      _core_status = std::make_unique<CoreStatus>(
+        _state.pd(),
+        settings.exec.numcores
+      );
+
+    }
   }
 
   void Manager::shutdown()
@@ -184,6 +193,13 @@ namespace rfaas::executor_manager {
             SPDLOG_DEBUG("[Manager-RDMA] Accepted a new executor for client {}", qp_num);
             // This operation is thread-safe
             _state.accept(conn);
+
+            // TODO: implement logic for handling oversubscription on/off
+            // Notify that oversubcription is enabled
+            if(_settings.exec.allow_oversubscription) {
+              rdmalib::ScatterGatherElement sge;
+              conn->post_send(sge);
+            }
 
             _client_queue.emplace(Operation::CONNECT, msg_t{conn});
           }
@@ -294,7 +310,8 @@ namespace rfaas::executor_manager {
             _settings.rdma_device_port,
             data.data(), addr, client.accounting.rkey()
           },
-          lease.value()
+          lease.value(),
+          _settings.exec.allow_oversubscription ? _core_status.get() : nullptr
         )
       );
       auto end = std::chrono::high_resolution_clock::now();

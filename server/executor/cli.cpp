@@ -40,6 +40,13 @@ int main(int argc, char ** argv)
     opts.accounting_buffer_addr, opts.accounting_buffer_rkey
   );
 
+  if(opts.oversubscription_buffer_addr > 0) {
+    spdlog::info(
+      "Running warm invocations in the oversubscription mode, buffer is at {} with rkey {}",
+      opts.oversubscription_buffer_addr, opts.oversubscription_buffer_rkey
+    );
+  }
+
   executor::ManagerConnection mgr{
     opts.mgr_address,
     opts.mgr_port,
@@ -55,6 +62,8 @@ int main(int argc, char ** argv)
     opts.recv_buffer_size,
     opts.max_inline_data,
     opts.pin_threads,
+    opts.oversubscription_buffer_addr,
+    opts.oversubscription_buffer_rkey,
     mgr
   );
 

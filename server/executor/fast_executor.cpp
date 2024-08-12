@@ -140,6 +140,7 @@ namespace server {
             spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
             continue;
           }
+
           int info = ntohl(wc->imm_data);
           int func_id = info & invocation_mask;
           bool solicited = info & solicited_mask;
@@ -149,7 +150,29 @@ namespace server {
             id, invoc_id, func_id, repetitions
           );
 
+          if(_oversubscribe_buf.active()) {
+
+            if(!_oversubscribe_buf.get_allocation(id)) {
+
+              rdmalib::functions::Submission* header = reinterpret_cast<rdmalib::functions::Submission*>(rcv.ptr());
+              // Send back: the value of immediate write
+              // first 16 bytes - invocation id
+              // second 16 bytes - return value (0 on no error)
+              conn->post_write(
+                send.sge(0, 0),
+                {header->r_address, header->r_key},
+                (invoc_id << 16) | 1,
+                0 <= max_inline_data,
+                solicited
+              );
+            }
+          }
+
           work(invoc_id, func_id, solicited, wc->byte_len - rdmalib::functions::Submission::DATA_HEADER_SIZE);
+
+          if(_oversubscribe_buf.active()) {
+            _oversubscribe_buf.complete(id);
+          }
 
           //sum += server_processing_times.end();
           conn->poll_wc(rdmalib::QueueType::SEND, true);
@@ -169,6 +192,15 @@ namespace server {
         auto cq = conn->wait_events();
         conn->ack_events(cq, 1);
         conn->notify_events();
+
+        if(_oversubscribe_buf.enabled()) {
+          if(_oversubscribe_buf.check_enabled()) {
+            spdlog::error(
+              "Enabling/disabling oversubscription. Status {}",
+              _oversubscribe_buf.active()
+            );
+          }
+        }
       }
     }
     SPDLOG_DEBUG("Thread {} Stopped warm polling", id);
@@ -178,11 +210,18 @@ namespace server {
   {
     rdmalib::RDMAActive mgr_connection(_mgr_conn.addr, _mgr_conn.port, _recv_buffer_size, max_inline_data);
     mgr_connection.allocate();
+    mgr_connection.connection().receive_wcs().refill();
     this->_mgr_connection = &mgr_connection.connection();
     _accounting_buf.register_memory(mgr_connection.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
     if(!mgr_connection.connect(_mgr_conn.secret))
       return;
     spdlog::info("Thread {} Established connection to the manager!", id);
+
+    if(_oversubscribe_buf.enabled()) {
+      _oversubscribe_buf.initialize(mgr_connection);
+
+      spdlog::info("Thread {} Initializied oversubscription module!", id);
+    }
 
     rdmalib::RDMAActive active(addr, port, _recv_buffer_size, max_inline_data);
     rdmalib::Buffer<char> func_buffer(_functions.memory(), _functions.size());
@@ -259,6 +298,8 @@ namespace server {
       int recv_buf_size,
       int max_inline_data,
       int pin_threads,
+      uint64_t oversubscription_buffer_addr,
+      uint32_t oversubscription_buffer_rkey,
       const executor::ManagerConnection & mgr_conn
   ):
     _closing(false),
@@ -272,7 +313,10 @@ namespace server {
     for(int i = 0; i < numcores; ++i)
       _threads_data.emplace_back(
         client_addr, port, i, func_size, msg_size,
-        recv_buf_size, max_inline_data, mgr_conn
+        recv_buf_size, max_inline_data,
+        oversubscription_buffer_addr,
+        oversubscription_buffer_rkey,
+        mgr_conn
       );
   }
 

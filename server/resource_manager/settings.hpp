@@ -26,6 +26,8 @@ namespace rfaas::resource_manager {
     uint32_t rdma_secret;
     bool rdma_sleep;
 
+    bool allow_oversubscription;
+
     template <class Archive>
     void load(Archive & ar )
     {
@@ -34,6 +36,7 @@ namespace rfaas::resource_manager {
         cereal::make_nvp("rdma-threads", rdma_threads),
         cereal::make_nvp("rdma-secret", rdma_secret),
         cereal::make_nvp("rdma-sleep", rdma_sleep),
+        cereal::make_nvp("allow-oversubscription", allow_oversubscription),
         CEREAL_NVP(http_network_address), CEREAL_NVP(http_network_port)
       );
     }

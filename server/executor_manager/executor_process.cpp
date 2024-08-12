@@ -75,7 +75,8 @@ namespace rfaas::executor_manager {
     const rfaas::AllocationRequest & request,
     const ExecutorSettings & exec,
     const executor::ManagerConnection & conn,
-    const Lease & lease
+    const Lease & lease,
+    CoreStatus* status
   )
   {
     static int counter = 0;
@@ -98,6 +99,12 @@ namespace rfaas::executor_manager {
       executor_pin_threads = std::to_string(0);//counter++);
     else
       executor_pin_threads = std::to_string(exec.pin_threads);
+    std::string oversubcription_buf_addr = "0";
+    std::string oversubcription_buf_rkey = "0";
+    if(exec.allow_oversubscription) {
+      oversubcription_buf_addr = std::to_string(status->cores.address());
+      oversubcription_buf_rkey = std::to_string(status->cores.rkey());
+    }
     bool use_docker = exec.use_docker;
 
     std::string mgr_port = std::to_string(conn.port);
@@ -137,6 +144,8 @@ namespace rfaas::executor_manager {
           "--mgr-secret", mgr_secret.c_str(),
           "--mgr-buf-addr", mgr_buf_addr.c_str(),
           "--mgr-buf-rkey", mgr_buf_rkey.c_str(),
+          "--oversubscription-buf-addr", oversubcription_buf_addr.c_str(), 
+          "--oversubscription-buf-rkey", oversubcription_buf_rkey.c_str(),
           nullptr
         };
         int ret = execvp(argv[0], const_cast<char**>(&argv[0]));

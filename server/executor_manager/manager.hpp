@@ -115,6 +115,20 @@ namespace rfaas::executor_manager {
     std::mutex _mutex;
   };
 
+  struct CoreStatus
+  {
+    rdmalib::Buffer<int64_t> cores;
+
+    CoreStatus(ibv_pd* pd, int numcores):
+      cores(numcores)
+    {
+      memset(cores.data(), 0, sizeof(int64_t)*numcores);
+
+      cores.register_memory(pd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
+    }
+
+  };
+
   struct Manager
   {
     static constexpr int MAX_EXECUTORS_ACTIVE = 8;
@@ -140,6 +154,8 @@ namespace rfaas::executor_manager {
     int _ids;
 
     std::unique_ptr<ResourceManagerConnection> _res_mgr_connection;
+
+    std::unique_ptr<CoreStatus> _core_status;
 
     rdmalib::RDMAPassive _state;
     // We could use a circular buffer here if polling for send WCs becomes an issue.

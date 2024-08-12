@@ -46,15 +46,17 @@ namespace rfaas::resource_manager {
     return !node.empty() && _connection != nullptr;
   }
 
-  bool Executor::lease(int cores, int memory)
+  bool Executor::lease(int cores, int memory, bool allow_oversubscription)
   {
     // Not enough memory? skip
     if(_free_memory < memory) {
       return false;
     }
 
-    if(_free_cores < cores) {
+    if(_free_cores < cores && !allow_oversubscription) {
       return false;
+    } else if(_free_cores < cores && allow_oversubscription) {
+      SPDLOG_DEBUG("No resources left, but allowing oversubscription");
     }
 
     _free_cores -= cores;

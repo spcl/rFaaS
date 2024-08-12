@@ -104,6 +104,88 @@ namespace server {
     WARM_ALWAYS
   };
 
+  struct OversubscriptionBuffer {
+    uint64_t buffer_addr;
+    uint32_t buffer_rkey;
+    bool is_active = false;
+
+    rdmalib::Buffer<uint64_t> buffer;
+    rdmalib::Connection* mgr_connection = nullptr;
+
+    static constexpr int RECV_BUF_SIZE = 8;
+    rdmalib::Buffer<uint64_t> atomic_results;
+
+    bool enabled()
+    {
+      return buffer_addr != 0;
+    }
+
+    bool active()
+    {
+      return is_active && enabled();
+    }
+
+    bool check_enabled()
+    {
+      auto wcs = mgr_connection->receive_wcs().poll(false);
+
+      // Message -> oversubscription enabled or disabled
+      if(std::get<1>(wcs) > 0) {
+        is_active = !is_active;
+        mgr_connection->receive_wcs().refill();
+        return true;
+      }
+
+      return false;
+    }
+
+    void initialize(rdmalib::RDMAActive& mgr_connection)
+    {
+      this->mgr_connection = &mgr_connection.connection();
+      buffer = rdmalib::Buffer<uint64_t>(1);
+
+      buffer.register_memory(mgr_connection.pd(), IBV_ACCESS_LOCAL_WRITE);
+
+      mgr_connection.connection().receive_wcs().refill();
+    }
+
+    bool get_allocation(int core_num)
+    {
+      *buffer.data() = 255;
+
+      mgr_connection->post_cas(
+        buffer,
+        { buffer_addr + 8*core_num, buffer_rkey},
+        0,
+        1
+      ); 
+
+      mgr_connection->poll_wc(rdmalib::QueueType::SEND, true);
+
+      if(*buffer.data() == 0) {
+        SPDLOG_DEBUG("Acquiring exclusive access was succesful!");
+      } else {
+        SPDLOG_DEBUG("Acquiring exclusive access failed.");
+      }
+
+      return *buffer.data() == 0;
+    }
+
+    void complete(int core_num)
+    {
+      *buffer.data() = 255;
+      mgr_connection->post_cas(
+        buffer,
+        { buffer_addr + 8*core_num, buffer_rkey},
+        1,
+        0
+      );
+
+      mgr_connection->poll_wc(rdmalib::QueueType::SEND, true);
+    }
+
+  };
+
   // FIXME: is not movable or copyable at the moment
   struct Thread {
 
@@ -128,8 +210,12 @@ namespace server {
     constexpr static int HOT_POLLING_VERIFICATION_PERIOD = 10000;
     PollingState _polling_state;
 
+    OversubscriptionBuffer _oversubscribe_buf;
+
     Thread(std::string addr, int port, int id, int functions_size,
         int buf_size, int recv_buffer_size, int max_inline_data,
+        uint64_t oversubscription_buffer_addr,
+        uint32_t oversubscription_buffer_rkey,
         const executor::ManagerConnection & mgr_conn):
       _functions(functions_size),
       addr(addr),
@@ -146,7 +232,8 @@ namespace server {
       conn(nullptr),
       _mgr_conn(mgr_conn),
       _accounting({0,0,0,0}),
-      _accounting_buf(1)
+      _accounting_buf(1),
+      _oversubscribe_buf{oversubscription_buffer_addr, oversubscription_buffer_rkey}
     {
     }
 
@@ -175,6 +262,8 @@ namespace server {
       int recv_buf_size,
       int max_inline_data,
       int pin_threads,
+      uint64_t oversubscription_buffer_addr,
+      uint32_t oversubscription_buffer_rkey,
       const executor::ManagerConnection & mgr_conn
     );
     ~FastExecutors();

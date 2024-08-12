@@ -19,13 +19,17 @@ namespace rfaas::executor_manager {
     int recv_buffer_size;
     int max_inline_data;
     bool pin_threads;
+    int numcores;
+    bool allow_oversubscription;
 
     template <class Archive>
     void load(Archive & ar )
     {
       ar(
         CEREAL_NVP(use_docker), CEREAL_NVP(repetitions),
-        CEREAL_NVP(warmup_iters), CEREAL_NVP(pin_threads)
+        CEREAL_NVP(warmup_iters), CEREAL_NVP(pin_threads),
+        CEREAL_NVP(numcores),
+        cereal::make_nvp("allow-oversubscription", allow_oversubscription)
       );
     }
   };
@@ -39,6 +43,7 @@ namespace rfaas::executor_manager {
     rfaas::device_data* device;
     std::string node_name;
     bool rdma_sleep;
+    bool allow_oversubscribe;
 
     // resource manager connection
     std::string resource_manager_address;

@@ -45,6 +45,7 @@ namespace server {
     int repetitions;
     int warmup_iters;
     int pin_threads;
+    bool allow_oversubscription;
     int max_inline_data;
     int func_size;
     int timeout;
@@ -57,6 +58,9 @@ namespace server {
     int mgr_secret;
     uint64_t accounting_buffer_addr;
     uint32_t accounting_buffer_rkey;
+
+    uint64_t oversubscription_buffer_addr;
+    uint32_t oversubscription_buffer_rkey;
   };
 
   Options opts(int argc, char ** argv);

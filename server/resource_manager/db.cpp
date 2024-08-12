@@ -43,7 +43,7 @@ namespace rfaas { namespace resource_manager {
     return erased ? ResultCode::OK : ResultCode::EXECUTOR_DOESNT_EXIST;
   }
 
-  std::shared_ptr<Executor> ExecutorDB::open_lease(int numcores, int memory, rfaas::LeaseResponse& lease)
+  std::shared_ptr<Executor> ExecutorDB::open_lease(int numcores, int memory, rfaas::LeaseResponse& lease, bool allow_oversubscription)
   {
     // Obtain write access
     writer_lock_t lock(_mutex);
@@ -75,7 +75,7 @@ namespace rfaas { namespace resource_manager {
         continue;
       }
 
-      if(!shared_ptr->lease(numcores, memory)) {
+      if(!shared_ptr->lease(numcores, memory, allow_oversubscription)) {
         ++it;
         SPDLOG_DEBUG("Node {} cannot be used, not enough resources!", shared_ptr->node);
         continue;

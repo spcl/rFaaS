@@ -173,10 +173,17 @@ namespace rdmalib {
       );
       return -1;
     }
-    SPDLOG_DEBUG(
-      "Post send succesfull, sges_count {}, sge[0].addr {}, sge[0].size {}, wr_id {}, wr.send_flags {}",
-      wr.num_sge, wr.sg_list[0].addr, wr.sg_list[0].length, wr.wr_id, wr.send_flags
-    );
+    if(wr.num_sge > 0) {
+      SPDLOG_DEBUG(
+        "Post send succesfull, sges_count {}, sge[0].addr {}, sge[0].size {}, wr_id {}, wr.send_flags {}",
+        wr.num_sge, wr.sg_list[0].addr, wr.sg_list[0].length, wr.wr_id, wr.send_flags
+      );
+    } else {
+      SPDLOG_DEBUG(
+        "Post send succesfull, sges_count 0, wr_id {}, wr.send_flags {}",
+        wr.num_sge, wr.wr_id, wr.send_flags
+      );
+    }
     return _req_count - 1;
   }
 

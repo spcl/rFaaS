@@ -304,7 +304,7 @@ void Manager::_handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send
                 client.allocation_requests.data()[id].memory
     );
 
-    auto allocated = _executor_data.open_lease(cores, memory, *client.response().data());
+    auto allocated = _executor_data.open_lease(cores, memory, *client.response().data(), _settings.allow_oversubscription);
     if(allocated) {
       spdlog::info("[Manager] Client receives lease with id {}", client.response().data()->lease_id);
     } else {

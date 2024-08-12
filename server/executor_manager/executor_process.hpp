@@ -2,6 +2,7 @@
 #ifndef __SERVER_EXECUTOR_MANAGER_EXECUTOR_PROCESS_HPP__
 #define __SERVER_EXECUTOR_MANAGER_EXECUTOR_PROCESS_HPP__
 
+#include "common/messages.hpp"
 #include <memory>
 #include <chrono>
 
@@ -19,6 +20,7 @@ namespace rfaas::executor_manager {
 
   struct ExecutorSettings;
   struct Lease;
+  struct CoreStatus;
 
   struct ActiveExecutor {
 
@@ -60,7 +62,8 @@ namespace rfaas::executor_manager {
       const rfaas::AllocationRequest & request,
       const ExecutorSettings & exec,
       const executor::ManagerConnection & conn,
-      const Lease & lease
+      const Lease & lease,
+      CoreStatus* core_status = nullptr
     );
   };
 

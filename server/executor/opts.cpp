@@ -17,6 +17,7 @@ namespace server {
       ("polling-type", "Polling type: wc (work completions), dram", cxxopts::value<std::string>()->default_value("wc"))
       ("warmup-iters", "Number of warm-up iterations", cxxopts::value<int>()->default_value("1"))
       ("pin-threads", "Pin worker threads to CPU cores", cxxopts::value<int>()->default_value("-1"))
+      ("allow-oversubscription", "Check for oversubscription on warm invocations", cxxopts::value<bool>()->default_value("false"))
       ("max-inline-data", "Maximum size of inlined message", cxxopts::value<int>()->default_value("0"))
       ("x,requests", "Size of recv buffer", cxxopts::value<int>()->default_value("32"))
       ("func-size", "Size of functions library", cxxopts::value<int>())
@@ -30,6 +31,8 @@ namespace server {
       ("mgr-secret", "Use selected port", cxxopts::value<int>())
       ("mgr-buf-addr", "Use selected port", cxxopts::value<uint64_t>())
       ("mgr-buf-rkey", "Use selected port", cxxopts::value<uint32_t>())
+      ("oversubscription-buf-addr", "Use selected port", cxxopts::value<uint64_t>())
+      ("oversubscription-buf-rkey", "Use selected port", cxxopts::value<uint32_t>())
     ;
     auto parsed_options = options.parse(argc, argv);
 
@@ -53,6 +56,9 @@ namespace server {
     result.mgr_secret = parsed_options["mgr-secret"].as<int>();
     result.accounting_buffer_addr = parsed_options["mgr-buf-addr"].as<uint64_t>();
     result.accounting_buffer_rkey = parsed_options["mgr-buf-rkey"].as<uint32_t>();
+
+    result.oversubscription_buffer_addr = parsed_options["oversubscription-buf-addr"].as<uint64_t>();
+    result.oversubscription_buffer_rkey = parsed_options["oversubscription-buf-rkey"].as<uint32_t>();
 
     std::string polling_mgr = parsed_options["polling-mgr"].as<std::string>();
     if(polling_mgr == "server") {

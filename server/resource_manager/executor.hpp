@@ -53,7 +53,7 @@ namespace rfaas { namespace resource_manager {
     void initialize_connection(ibv_pd* pd, rdmalib::Connection* conn);
     bool is_initialized() const;
 
-    bool lease(int cores, int memory);
+    bool lease(int cores, int memory, bool allow_oversubscription = false);
     bool is_fully_leased() const;
     void cancel_lease(const Lease & lease);
 
