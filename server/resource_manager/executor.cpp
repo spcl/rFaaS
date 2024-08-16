@@ -1,5 +1,6 @@
 
 #include "executor.hpp"
+#include "common/messages.hpp"
 #include "rdmalib/connection.hpp"
 #include <utility>
 
@@ -126,6 +127,8 @@ namespace rfaas::resource_manager {
       return false;
     }
 
+    (*conn_it).second->_qp_num = qp_num;
+
     // Two situations
     // 
     // (1) The executor has already connected but doesn't have a name yet.
@@ -153,6 +156,7 @@ namespace rfaas::resource_manager {
   {
     SPDLOG_DEBUG("Merge two executors {}", fmt::ptr(exec->_connection));
     this->_connection = exec->_connection;
+    this->_qp_num = exec->_qp_num;
 
     this->_receive_buffer = std::move(exec->_receive_buffer);
     this->_send_buffer = std::move(exec->_send_buffer);
@@ -161,7 +165,32 @@ namespace rfaas::resource_manager {
 
   bool Executors::remove_executor(const std::string& name)
   {
-    throw std::runtime_error("Not implemented!");
+    auto exec_it = _executors_by_name.find(name);
+    if(exec_it == _executors_by_name.end()) {
+      return false;
+    } else {
+
+      auto* exec = (*exec_it).second.get();
+
+      if(!exec->is_initialized()) {
+        return true;
+      }
+
+      exec->_send_buffer[0].lease_id = common::id_to_int(common::LeaseID::TERMINATE);
+
+      exec->_connection->post_send(
+        exec->_send_buffer,
+        0,
+        // enforce inlining in future - pass device around
+        false,
+        1
+      );
+      exec->_connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
+
+      _executors_by_name.erase(exec_it);
+
+      return true;
+    }
   }
 
   bool Executors::remove_executor(uint32_t qp_num)

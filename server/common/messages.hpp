@@ -13,7 +13,16 @@ namespace rfaas { namespace common {
     LEASE_DEALLOCATION = 3
   };
 
+  enum class LeaseID: int32_t {
+    TERMINATE = -1
+  };
+
   constexpr auto id_to_int(MessageIDs id) noexcept
+  {
+    return static_cast<std::underlying_type_t<MessageIDs>>(id);
+  }
+
+  constexpr auto id_to_int(LeaseID id) noexcept
   {
     return static_cast<std::underlying_type_t<MessageIDs>>(id);
   }
@@ -32,7 +41,7 @@ namespace rfaas { namespace common {
     const uint32_t message_id = id_to_int(MessageIDs::LEASE_ALLOCATION);
     int memory;
     int cores;
-    uint32_t lease_id;
+    int32_t lease_id;
 
   };
 

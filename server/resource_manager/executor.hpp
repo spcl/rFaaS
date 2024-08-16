@@ -41,6 +41,8 @@ namespace rfaas { namespace resource_manager {
     int _free_cores;
     int _free_memory;
 
+    int _qp_num;
+
     static constexpr int RECV_BUF_SIZE = 32;
     static constexpr int MSG_SIZE = std::max(sizeof(common::NodeRegistration), sizeof(common::LeaseDeallocation));
     rdmalib::Buffer<uint8_t> _receive_buffer;

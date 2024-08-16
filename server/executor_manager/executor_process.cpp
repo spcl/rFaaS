@@ -9,6 +9,8 @@
 
 #include <rfaas/allocation.hpp>
 
+#include <sys/prctl.h>
+
 #include "manager.hpp"
 #include "executor_process.hpp"
 #include "settings.hpp"
@@ -112,6 +114,12 @@ namespace rfaas::executor_manager {
     if(mypid == 0) {
       mypid = getpid();
       auto out_file = ("executor_" + std::to_string(mypid));
+
+      // Die when parent exits
+      int ret = prctl(PR_SET_PDEATHSIG, SIGTERM);
+      if (ret == -1) {
+        abort();
+      }
 
       spdlog::info("Child fork begins work on PID {}, using Docker? {}", mypid, use_docker);
       int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);

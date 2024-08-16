@@ -21,6 +21,7 @@
 #include <rfaas/connection.hpp>
 
 #include "manager.hpp"
+#include "common/messages.hpp"
 
 namespace rfaas::executor_manager {
 
@@ -220,6 +221,11 @@ namespace rfaas::executor_manager {
 
     uint64_t id = wc.wr_id;
     SPDLOG_DEBUG("Receive lease {}", _res_mgr_connection->_receive_buffer[id].lease_id);
+
+    if(_res_mgr_connection->_receive_buffer[id].lease_id == common::id_to_int(common::LeaseID::TERMINATE)) {
+      spdlog::info("Received message to terminate!");
+      this->shutdown();
+    }
 
     Lease lease {
       _res_mgr_connection->_receive_buffer[id].lease_id,

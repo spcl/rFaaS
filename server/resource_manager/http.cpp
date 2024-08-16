@@ -53,18 +53,10 @@ namespace rfaas::resource_manager {
 
     } else if(req.resource() == "/remove") {
 
-      if(
-          !(document.HasMember("ip_address")  && document["ip_address"].IsString()) ||
-          !(document.HasMember("port")        && document["port"].IsInt()) ||
-          !(document.HasMember("cores")       && document["cores"].IsInt())
-      ) {
-        response.send(Pistache::Http::Code::Bad_Request, "Malformed Input");
-        return;
-      }
-
       // Return 400 if the request is malformed or incorret
       // If good, then return 200
       if(_database.remove(node_name.value()) == ExecutorDB::ResultCode::OK) {
+        spdlog::info("Removed executor {}", node_name.value());
         response.send(Pistache::Http::Code::Ok);
       } else {
         response.send(Pistache::Http::Code::Bad_Request);

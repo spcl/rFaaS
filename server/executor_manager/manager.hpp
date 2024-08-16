@@ -135,9 +135,6 @@ namespace rfaas::executor_manager {
     typedef std::variant<rdmalib::Connection*, Client> msg_t;
     moodycamel::BlockingReaderWriterQueue<std::tuple<Operation, msg_t>> _client_queue;
 
-    std::mutex clients;
-    std::unordered_map<uint32_t, Client> _clients;
-    int _ids;
 
     std::unique_ptr<ResourceManagerConnection> _res_mgr_connection;
 
@@ -149,6 +146,11 @@ namespace rfaas::executor_manager {
     bool _skip_rm;
     std::atomic<bool> _shutdown;
     Leases _leases;
+
+    // Destroy clients before we destroy the RDMA passive listener.
+    std::mutex clients;
+    std::unordered_map<uint32_t, Client> _clients;
+    int _ids;
 
     Manager(Settings &, bool skip_rm);
 

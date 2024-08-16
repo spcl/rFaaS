@@ -237,6 +237,12 @@ namespace rfaas {
         //auto wc = _connections[0]._rcv_buffer.poll(true);
         auto wc = _connections[0].conn->receive_wcs().poll(true);
         for(int i = 0; i < std::get<1>(wc); ++i) {
+
+          if(std::get<0>(wc)[i].status != IBV_WC_SUCCESS) {
+            spdlog::error("Invocations failed!");
+            return std::make_tuple(false, 0);
+          }
+
           uint32_t val = ntohl(std::get<0>(wc)[i].imm_data);
           int return_val = val & 0x0000FFFF;
           int finished_invoc_id = val >> 16;
