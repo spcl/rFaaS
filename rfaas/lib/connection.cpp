@@ -45,7 +45,7 @@ namespace rfaas {
     SPDLOG_DEBUG("Disconnecting from manager at {}:{}", _address, _port);
     // Send deallocation request only if we're connected
     if(_active.is_connected()) {
-      request() = (rfaas::AllocationRequest) {-1, 0, 0, 0, 0, 0, 0, ""};
+      request() = (rfaas::AllocationRequest) {-1, 0, 0, 0, 0, 0, 0, 0, ""};
       rdmalib::ScatterGatherElement sge;
       size_t obj_size = sizeof(rfaas::AllocationRequest);
       sge.add(_allocation_buffer, obj_size, sizeof(LeaseStatus)*_rcv_buf_size);
@@ -155,7 +155,7 @@ namespace rfaas {
 
     // Send deallocation request only if we're connected
     if(_active.is_connected()) {
-      request() = (rfaas::LeaseRequest) {-1, 0};
+      request() = (rfaas::LeaseRequest) {-1, 0, 0};
       rdmalib::ScatterGatherElement sge;
       size_t obj_size = sizeof(rfaas::LeaseRequest);
       sge.add(_send_buffer, obj_size, 0);

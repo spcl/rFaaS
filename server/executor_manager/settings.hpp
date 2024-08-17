@@ -19,13 +19,15 @@ namespace rfaas::executor_manager {
     int recv_buffer_size;
     int max_inline_data;
     bool pin_threads;
+    bool keep_warm;
 
     template <class Archive>
     void load(Archive & ar )
     {
       ar(
         CEREAL_NVP(use_docker), CEREAL_NVP(repetitions),
-        CEREAL_NVP(warmup_iters), CEREAL_NVP(pin_threads)
+        CEREAL_NVP(warmup_iters), CEREAL_NVP(pin_threads),
+        CEREAL_NVP(keep_warm)
       );
     }
   };

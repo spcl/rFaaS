@@ -137,6 +137,8 @@ namespace rfaas::executor_manager {
 
     std::mutex clients;
     std::unordered_map<uint32_t, Client> _clients;
+    // TODO: maybe use some client id here?
+    std::unordered_map<uint32_t, Client> _warm_clients;
     int _ids;
 
     std::unique_ptr<ResourceManagerConnection> _res_mgr_connection;

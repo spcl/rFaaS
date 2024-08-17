@@ -37,7 +37,7 @@ namespace rfaas {
   {
   }
 
-  executor::executor(const std::string& address, int port, int numcores, int memory, int lease_id, device_data & dev):
+  executor::executor(const std::string& address, int port, int numcores, int memory, int lease_id, int client_id, device_data & dev):
     _state(dev.ip_address, dev.port, dev.default_receive_buffer_size + 1),
     _execs_buf(MAX_REMOTE_WORKERS),
     _device(dev),
@@ -45,7 +45,8 @@ namespace rfaas {
     _memory(memory),
     _executions(0),
     _invoc_id(0),
-    _lease_id(lease_id)
+    _lease_id(lease_id),
+    _client_id(client_id)
   {
     _execs_buf.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
     events = 0;
@@ -79,6 +80,7 @@ namespace rfaas {
     _executions(std::move(obj._executions)),
     _invoc_id(std::move(obj._invoc_id)),
     _lease_id(std::move(obj._lease_id)),
+    _client_id(std::move(obj._client_id)),
     _connections(std::move(obj._connections)),
     _exec_manager(std::move(obj._exec_manager)),
     _func_names(std::move(obj._func_names)),
@@ -165,6 +167,14 @@ namespace rfaas {
       _exec_manager->disconnect();
       _exec_manager.reset(nullptr);
       _state._cfg.attr.send_cq = _state._cfg.attr.recv_cq = 0;
+
+      for(auto & exec : _connections) {
+        rdmalib::ScatterGatherElement sge;
+        exec.conn->post_send(sge, 0, false, -1);
+        exec.conn->poll_wc(rdmalib::QueueType::SEND, true, 1);
+        rdma_disconnect(exec.conn->id());
+        exec.conn->close();
+      }
 
       // Clear up old connections
       _connections.clear();
@@ -284,6 +294,7 @@ namespace rfaas {
 
       _exec_manager->request() = (rfaas::AllocationRequest) {
         static_cast<int32_t>(_lease_id),
+        static_cast<int32_t>(_client_id),
         static_cast<int16_t>(hot_timeout),
         // FIXME: timeout
         5,

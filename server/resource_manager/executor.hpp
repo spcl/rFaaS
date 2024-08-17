@@ -25,12 +25,14 @@ namespace rfaas { namespace resource_manager {
     int cores;
     int memory;
     bool total;
+    int32_t client_id;
     std::weak_ptr<Executor> node;
 
-    Lease(int cores, int memory, bool total, std::weak_ptr<Executor> && node):
+    Lease(int cores, int memory, bool total, std::weak_ptr<Executor> && node, int32_t client_id):
       cores(cores),
       memory(memory),
       total(total),
+      client_id(client_id),
       node(node)
     {}
   };
@@ -40,6 +42,8 @@ namespace rfaas { namespace resource_manager {
     rdmalib::Connection* _connection;
     int _free_cores;
     int _free_memory;
+
+    std::unordered_map<uint32_t, Lease> _warm_leases;
 
     static constexpr int RECV_BUF_SIZE = 32;
     static constexpr int MSG_SIZE = std::max(sizeof(common::NodeRegistration), sizeof(common::LeaseDeallocation));

@@ -10,7 +10,8 @@ namespace rfaas { namespace common {
   enum class MessageIDs: uint32_t {
     NODE_REGISTRATION = 1,
     LEASE_ALLOCATION = 2,
-    LEASE_DEALLOCATION = 3
+    LEASE_DEALLOCATION = 3,
+    NEW_CLIENT = 4
   };
 
   constexpr auto id_to_int(MessageIDs id) noexcept
@@ -44,6 +45,14 @@ namespace rfaas { namespace common {
     uint64_t hot_polling_time;
     uint64_t execution_time;
 
+  };
+
+  struct NewClient {
+
+    static constexpr int IP_ADDRESS_LENGTH = 32;
+    uint32_t message_id = id_to_int(MessageIDs::NEW_CLIENT);
+    char ip_address[IP_ADDRESS_LENGTH];
+    int32_t port;
   };
 
 }}

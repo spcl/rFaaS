@@ -11,6 +11,7 @@
 
 #include "manager.hpp"
 #include "executor_process.hpp"
+#include "rdmalib/rdmalib.hpp"
 #include "settings.hpp"
 #include "../common.hpp"
 
@@ -30,8 +31,8 @@ namespace rfaas::executor_manager {
     connections[pos] = connection;
   }
 
-  ProcessExecutor::ProcessExecutor(int cores, ProcessExecutor::time_t alloc_begin, pid_t pid):
-    ActiveExecutor(cores),
+  ProcessExecutor::ProcessExecutor(int cores, ProcessExecutor::time_t alloc_begin, pid_t pid, ibv_pd* pd):
+    ActiveExecutor(cores, pd),
     _pid(pid)
   {
     _allocation_begin = alloc_begin;
@@ -75,7 +76,8 @@ namespace rfaas::executor_manager {
     const rfaas::AllocationRequest & request,
     const ExecutorSettings & exec,
     const executor::ManagerConnection & conn,
-    const Lease & lease
+    const Lease & lease,
+    const rdmalib::RDMAPassive& listener
   )
   {
     static int counter = 0;
@@ -219,7 +221,7 @@ namespace rfaas::executor_manager {
     }
     if(counter == 36)
       counter = 0;
-    return new ProcessExecutor{lease.cores, begin, mypid};
+    return new ProcessExecutor{lease.cores, begin, mypid, listener.pd()};
   }
 
 }

@@ -15,9 +15,10 @@ namespace rfaas {
 
   struct client {
 
-    client(std::string address, int port, device_data & dev):
+    client(int32_t id, std::string address, int port, device_data & dev):
       _resource_mgr(address, port, dev.default_receive_buffer_size, dev.max_inline_data),
-      _device(dev)
+      _device(dev),
+      _client_id(id)
     {}
 
     bool connect()
@@ -38,7 +39,8 @@ namespace rfaas {
 
       _resource_mgr.request() = (rfaas::LeaseRequest) {
         cores,
-        memory
+        memory,
+        _client_id
       };
       _resource_mgr.submit();
 
@@ -60,6 +62,7 @@ namespace rfaas {
         cores,
         memory,
         _resource_mgr.response(response_id).lease_id,
+        _client_id,
         dev
       };
     }
@@ -72,13 +75,15 @@ namespace rfaas {
 
       server_data instance = nodes_data.server(0);
 
-      return std::make_optional<rfaas::executor>(instance.address, instance.port, cores, memory, -1, _device);
+      return std::make_optional<rfaas::executor>(instance.address, instance.port, cores, memory, -1, _client_id, _device);
     }
 
   private:
     resource_mgr_connection _resource_mgr;
 
     device_data _device;
+
+    int32_t _client_id;
   };
 
 }

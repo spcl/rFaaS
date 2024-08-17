@@ -32,7 +32,7 @@ Manager::Manager(Settings &settings):
     _shutdown(false),
     _device(*settings.device),
     _executors(_state.pd()),
-    _executor_data(_executors),
+    _executor_data(_executors, settings.keep_warm),
     _http_server(_executor_data, settings),
     _settings(settings),
     _secret(settings.rdma_secret)
@@ -297,6 +297,9 @@ void Manager::_handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send
   Client& client = (*it).second;
   int16_t cores = client.allocation_requests.data()[id].cores;
   int32_t memory = client.allocation_requests.data()[id].memory;
+  int32_t client_id = client.allocation_requests.data()[id].client_id;
+  // Better method of passing this data
+  client.client_id = client_id;
 
   if (cores > 0) {
     spdlog::info("Client requests executor with {} threads, it should have {} memory", 
@@ -304,7 +307,7 @@ void Manager::_handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send
                 client.allocation_requests.data()[id].memory
     );
 
-    auto allocated = _executor_data.open_lease(cores, memory, *client.response().data());
+    auto allocated = _executor_data.open_lease(client_id, cores, memory, *client.response().data());
     if(allocated) {
       spdlog::info("[Manager] Client receives lease with id {}", client.response().data()->lease_id);
     } else {

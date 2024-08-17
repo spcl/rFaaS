@@ -2,6 +2,7 @@
 #ifndef __SERVER_FASTEXECUTORS_HPP__
 #define __SERVER_FASTEXECUTORS_HPP__
 
+#include "common/messages.hpp"
 #include "rdmalib/rdmalib.hpp"
 #include <chrono>
 #include <vector>
@@ -124,6 +125,8 @@ namespace server {
     const executor::ManagerConnection & _mgr_conn;
     Accounting _accounting;
     rdmalib::Buffer<uint64_t> _accounting_buf;
+
+    rdmalib::Buffer<rfaas::common::NewClient> _exec_msg;
     // FIXME: Adjust to billing granularity
     constexpr static int HOT_POLLING_VERIFICATION_PERIOD = 10000;
     PollingState _polling_state;
@@ -146,7 +149,8 @@ namespace server {
       conn(nullptr),
       _mgr_conn(mgr_conn),
       _accounting({0,0,0,0}),
-      _accounting_buf(1)
+      _accounting_buf(1),
+      _exec_msg(_recv_buffer_size)
     {
     }
 
@@ -154,6 +158,7 @@ namespace server {
     void hot(uint32_t hot_timeout);
     void warm();
     void thread_work(int timeout);
+    void handle_client(rdmalib::RDMAActive& mgr_conn, int timeout);
   };
 
   struct FastExecutors {

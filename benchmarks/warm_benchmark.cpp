@@ -14,6 +14,7 @@
 #include <rfaas/resources.hpp>
 #include <rfaas/rfaas.hpp>
 
+#include "rfaas/allocation.hpp"
 #include "settings.hpp"
 #include "warm_benchmark.hpp"
 
@@ -38,6 +39,7 @@ int main(int argc, char **argv) {
   benchmark_cfg.close();
 
   rfaas::client instance(
+    1234,
     settings.resource_manager_address, settings.resource_manager_port,
     *settings.device
   );
@@ -84,6 +86,7 @@ int main(int argc, char **argv) {
   for (int i = 0; i < settings.benchmark.repetitions - 1;) {
     benchmarker.start();
     SPDLOG_DEBUG("Submit execution {}", i);
+
     auto ret = executor.execute(opts.fname, in, out);
     if (std::get<0>(ret)) {
       SPDLOG_DEBUG("Finished execution {} out of {}", i,

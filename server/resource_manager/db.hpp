@@ -41,6 +41,9 @@ namespace rfaas { namespace resource_manager {
     // Reader-writer lock
     std::shared_mutex _mutex;
 
+    bool _keep_warm;
+    std::unordered_map<uint32_t, Lease> _warm_leases;
+
   public:
     enum class ResultCode
     {
@@ -50,15 +53,16 @@ namespace rfaas { namespace resource_manager {
       MALFORMED_DATA = 3
     };
 
-    ExecutorDB(Executors& executors):
+    ExecutorDB(Executors& executors, bool keep_warm):
       _executors(executors),
-      _lease_count(0)
+      _lease_count(0),
+      _keep_warm(keep_warm)
     {}
 
     ResultCode add(const std::string& node_name, const std::string & ip_address, int port, int cores, int memory);
     ResultCode remove(const std::string& node_name);
 
-    std::shared_ptr<Executor> open_lease(int numcores, int memory, rfaas::LeaseResponse& lease);
+    std::shared_ptr<Executor> open_lease(int32_t client_id, int numcores, int memory, rfaas::LeaseResponse& lease);
 
     void close_lease(common::LeaseDeallocation & msg);
 

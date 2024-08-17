@@ -1,5 +1,6 @@
 
 #include <chrono>
+#include <cstring>
 #include <mutex>
 #include <thread>
 #include <variant>
@@ -192,7 +193,7 @@ namespace rfaas::executor_manager {
 
           uint32_t qp_num = conn->qp()->qp_num;
           SPDLOG_DEBUG("[Manager-RDMA] Accepted a new client {}", qp_num);
-          Client client{qp_num, conn, _state.pd(), true};
+          Client client{qp_num, conn, _state.pd(), true, _settings.exec.keep_warm};
           clients_to_connect.insert(qp_num);
 
           _state.accept(client.connection);
@@ -251,15 +252,16 @@ namespace rfaas::executor_manager {
   bool Manager::_process_client(Client & client, uint64_t wr_id)
   {
     int32_t lease_id = client.allocation_requests.data()[wr_id].lease_id;
+    int32_t client_id = client.allocation_requests.data()[wr_id].client_id;
     char * client_address = client.allocation_requests.data()[wr_id].listen_address;
     int client_port = client.allocation_requests.data()[wr_id].listen_port;
 
     if(lease_id >= 0) {
 
       spdlog::info(
-        "Client {} requests lease {}, it should connect to {}:{},"
+        "Client {} with id {}, requests lease {}, it should connect to {}:{},"
         "it should have buffer of size {}, func buffer {}, and hot timeout {}",
-        client.id(), lease_id,
+        client.id(), client_id, lease_id,
         client.allocation_requests.data()[wr_id].listen_address,
         client.allocation_requests.data()[wr_id].listen_port,
         client.allocation_requests.data()[wr_id].input_buf_size,
@@ -279,30 +281,61 @@ namespace rfaas::executor_manager {
         return true;
       }
 
+      // better registration method?
+      client._client_id = client.allocation_requests.data()[wr_id].client_id;
+      client._lease_id = lease_id;
+
       rdmalib::PrivateData<0,0,32> data;
       data.secret(client.connection->qp()->qp_num);
       uint64_t addr = client.accounting.address(); //+ sizeof(Accounting)*i;
 
-      // FIXME: Docker
-      auto now = std::chrono::high_resolution_clock::now();
-      client.executor.reset(
-        ProcessExecutor::spawn(
-          client.allocation_requests.data()[wr_id],
-          _settings.exec,
-          {
-            _settings.device->ip_address,
-            _settings.rdma_device_port,
-            data.data(), addr, client.accounting.rkey()
-          },
-          lease.value()
-        )
-      );
-      auto end = std::chrono::high_resolution_clock::now();
-      spdlog::info(
-        "Client {} at {}:{} has executor with {} ID and {} cores, time {} us",
-        client.id(), client_address, client_port, client.executor->id(), lease->cores,
-        std::chrono::duration_cast<std::chrono::microseconds>(end-now).count()
-      );
+      auto it = _warm_clients.find(client.allocation_requests.data()[wr_id].client_id);
+      if(it == _warm_clients.end()) {
+
+        auto now = std::chrono::high_resolution_clock::now();
+        // FIXME: Docker
+        client.executor.reset(
+          ProcessExecutor::spawn(
+            client.allocation_requests.data()[wr_id],
+            _settings.exec,
+            {
+              _settings.device->ip_address,
+              _settings.rdma_device_port,
+              data.data(), addr, client.accounting.rkey()
+            },
+            lease.value(),
+            _state
+          )
+        );
+        auto end = std::chrono::high_resolution_clock::now();
+        spdlog::info(
+          "Client {} with id {} at {}:{} has executor with {} ID and {} cores, time {} us",
+          client.id(), client._client_id, client_address, client_port, client.executor->id(), lease->cores,
+          std::chrono::duration_cast<std::chrono::microseconds>(end-now).count()
+        );
+
+        // For future notification of executors
+        std::strncpy(client.executor->_messages[0].ip_address, client.allocation_requests.data()[wr_id].listen_address, 16);
+        client.executor->_messages[0].port = client.allocation_requests.data()[wr_id].listen_port;
+
+      } else {
+
+        // A dedicated merge operation here would be better?
+        client.executor = std::move((*it).second.executor);
+        client.accounting = std::move((*it).second.accounting);
+        _warm_clients.erase(it);
+
+        // can other properties change? I don't think so
+        std::strncpy(client.executor->_messages[0].ip_address, client.allocation_requests.data()[wr_id].listen_address, 16);
+        client.executor->_messages[0].port = client.allocation_requests.data()[wr_id].listen_port;
+        client.executor->connections[0]->post_send(client.executor->_messages);
+
+        spdlog::info(
+          "Client {} with id {} at {}:{} has warm executor with {} ID and {} cores, time 0 us",
+          client.id(), client._client_id, client_address, client_port, client.executor->id(), lease->cores
+        );
+
+      }
 
       *_client_responses.data() = (LeaseStatus) {LeaseStatus::ALLOCATED};
       client.connection->post_send(_client_responses);
@@ -317,6 +350,9 @@ namespace rfaas::executor_manager {
       spdlog::info("Client {} disconnects", client.id());
       //client.disable(i, _accounting_data.data()[i]);
       client.disable(_res_mgr_connection.get());
+      if(_settings.exec.keep_warm) {
+        _warm_clients.emplace(std::make_pair(client._client_id, std::move(client)));
+      }
 
       return false;
     }
@@ -393,12 +429,18 @@ namespace rfaas::executor_manager {
 
       } else {
         (*it).second.executor->add_executor(conn);
+
+        // Initialize executor
+        // can other properties change? I don't think so
+        conn->post_send((*it).second.executor->_messages);
+
       }
 
     } else {
 
       Client& client = std::get<Client>(message);
-      _clients.emplace(std::piecewise_construct,
+      // TODO: send client ID and match
+      auto it = _clients.emplace(std::piecewise_construct,
                       std::forward_as_tuple(client.connection->qp()->qp_num),
                       std::forward_as_tuple(std::move(client))
       );

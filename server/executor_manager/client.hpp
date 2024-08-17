@@ -29,15 +29,20 @@ namespace rfaas::executor_manager {
     rdmalib::Buffer<Accounting> accounting;
     uint32_t allocation_time;
     bool _active;
+    bool _keep_warm;
     int _id;
+    int _client_id;
+    int _lease_id;
 
-    Client(int id, rdmalib::Connection* conn, ibv_pd* pd, bool active);
+    Client(int id, rdmalib::Connection* conn, ibv_pd* pd, bool active, bool keep_warm);
     Client(Client &&);
     Client& operator=(Client &&);
     ~Client();
     void reload_queue();
     void disable(ResourceManagerConnection* res_mgr_connection);
     bool active();
+
+    bool has_warm_container();
 
     int id() const
     {

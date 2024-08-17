@@ -43,10 +43,38 @@ namespace rfaas { namespace resource_manager {
     return erased ? ResultCode::OK : ResultCode::EXECUTOR_DOESNT_EXIST;
   }
 
-  std::shared_ptr<Executor> ExecutorDB::open_lease(int numcores, int memory, rfaas::LeaseResponse& lease)
+  std::shared_ptr<Executor> ExecutorDB::open_lease(int32_t client_id, int numcores, int memory, rfaas::LeaseResponse& lease)
   {
     // Obtain write access
     writer_lock_t lock(_mutex);
+
+    if(_keep_warm) {
+      auto warm_it = _warm_leases.find(client_id);
+      if(warm_it != _warm_leases.end()) {
+
+        spdlog::debug("Found a warm container from prior lease for client {}", client_id);
+
+        auto shared_ptr = (*warm_it).second.node.lock();
+        if(!shared_ptr) {
+          _warm_leases.erase(warm_it);
+          SPDLOG_DEBUG("Warm node cannot be used, no longer valid!");
+        } else {
+
+          lease.lease_id = _lease_count++;
+          lease.port = shared_ptr->port;
+          strncpy(lease.address, shared_ptr->address.c_str(), Executor::ADDRESS_LENGTH);
+          _leases.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(lease.lease_id),
+            std::forward_as_tuple(numcores, memory, (*warm_it).second.total, std::move((*warm_it).second.node), client_id)
+          );
+
+          _warm_leases.erase(warm_it);
+
+          return shared_ptr;
+        }
+      }
+    }
 
     if(!_free_nodes.size()) {
       SPDLOG_DEBUG("No available executors!");
@@ -93,7 +121,7 @@ namespace rfaas { namespace resource_manager {
       _leases.emplace(
         std::piecewise_construct,
         std::forward_as_tuple(lease.lease_id),
-        std::forward_as_tuple(numcores, memory, is_total, std::move(ptr))
+        std::forward_as_tuple(numcores, memory, is_total, std::move(ptr), client_id)
       );
 
       return shared_ptr;
@@ -121,11 +149,21 @@ namespace rfaas { namespace resource_manager {
 
     SPDLOG_DEBUG("Cancelled lease {}, allocation took {} us.", msg.lease_id, msg.allocation_time);
 
-    shared_ptr->cancel_lease((*it).second);
+    if(!_keep_warm) {
 
-    if((*it).second.total) {
-      _free_nodes.push_back(ptr);
+      shared_ptr->cancel_lease((*it).second);
+      if((*it).second.total) {
+        _free_nodes.push_back(ptr);
+      }
+
+    } else {
+
+      spdlog::debug("Storing warm container from lease {} for future use", (*it).first);
+      _warm_leases.emplace( std::make_pair((*it).second.client_id, std::move((*it).second)) );
+      _leases.erase(it);
+
     }
+
 
   }
 

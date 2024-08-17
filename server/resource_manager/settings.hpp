@@ -25,6 +25,7 @@ namespace rfaas::resource_manager {
     int rdma_threads;
     uint32_t rdma_secret;
     bool rdma_sleep;
+    bool keep_warm;
 
     template <class Archive>
     void load(Archive & ar )
@@ -34,6 +35,7 @@ namespace rfaas::resource_manager {
         cereal::make_nvp("rdma-threads", rdma_threads),
         cereal::make_nvp("rdma-secret", rdma_secret),
         cereal::make_nvp("rdma-sleep", rdma_sleep),
+        cereal::make_nvp("keep-warm", keep_warm),
         CEREAL_NVP(http_network_address), CEREAL_NVP(http_network_port)
       );
     }

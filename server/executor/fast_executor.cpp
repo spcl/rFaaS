@@ -74,9 +74,17 @@ namespace server {
           ibv_wc* wc = &std::get<0>(wcs)[i];
           if(wc->status) {
             spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
-            continue;
+            repetitions = max_repetitions;
+            break;
+            //continue;
           }
           int info = ntohl(wc->imm_data);
+          if(info == -1) {
+            spdlog::error("Connection closed!");
+            // FIXME: some nicer exit condition
+            repetitions = max_repetitions;
+            break;
+          }
           int func_id = info & invocation_mask;
           int invoc_id = info >> 16;
           bool solicited = info & solicited_mask;
@@ -141,6 +149,12 @@ namespace server {
             continue;
           }
           int info = ntohl(wc->imm_data);
+          if(info == -1) {
+            spdlog::error("Connection closed!");
+            // FIXME: some nicer exit condition
+            repetitions = max_repetitions;
+            break;
+          }
           int func_id = info & invocation_mask;
           bool solicited = info & solicited_mask;
           int invoc_id = info >> 16;
@@ -166,6 +180,7 @@ namespace server {
       // Do waiting after a single polling - avoid missing an events that
       // arrived before we called notify_events
       if(repetitions < max_repetitions) {
+        auto wcs = this->conn->receive_wcs().poll(false);
         auto cq = conn->wait_events();
         conn->ack_events(cq, 1);
         conn->notify_events();
@@ -174,15 +189,10 @@ namespace server {
     SPDLOG_DEBUG("Thread {} Stopped warm polling", id);
   }
 
-  void Thread::thread_work(int timeout)
+  void Thread::handle_client(rdmalib::RDMAActive& mgr_connection, int timeout)
   {
-    rdmalib::RDMAActive mgr_connection(_mgr_conn.addr, _mgr_conn.port, _recv_buffer_size, max_inline_data);
-    mgr_connection.allocate();
-    this->_mgr_connection = &mgr_connection.connection();
-    _accounting_buf.register_memory(mgr_connection.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
-    if(!mgr_connection.connect(_mgr_conn.secret))
-      return;
-    spdlog::info("Thread {} Established connection to the manager!", id);
+    // replace in future with something better
+    repetitions = 0;
 
     rdmalib::RDMAActive active(addr, port, _recv_buffer_size, max_inline_data);
     rdmalib::Buffer<char> func_buffer(_functions.memory(), _functions.size());
@@ -248,8 +258,54 @@ namespace server {
       "Thread {} finished work, spent {} ns hot polling and {} ns computation, {} executions.",
       id, _accounting.total_hot_polling_time , _accounting.total_execution_time, repetitions
     );
+  }
+
+  void Thread::thread_work(int timeout)
+  {
+    rdmalib::RDMAActive mgr_connection(_mgr_conn.addr, _mgr_conn.port, _recv_buffer_size, max_inline_data);
+    mgr_connection.allocate();
+    _exec_msg.register_memory(mgr_connection.pd(), IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE);
+    mgr_connection.connection().receive_wcs().initialize(_exec_msg);
+    mgr_connection.connection().receive_wcs().refill();
+    this->_mgr_connection = &mgr_connection.connection();
+
+    _accounting_buf.register_memory(mgr_connection.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
+    if(!mgr_connection.connect(_mgr_conn.secret))
+      return;
+    spdlog::info("Thread {} Established connection to the manager!", id);
+
     // FIXME: revert after manager starts to detect disconnection events
     //mgr_connection.disconnect();
+
+    //handle_client(mgr_connection, timeout);
+
+
+    // Wait for new allocation
+    while(true) {
+
+        this->_mgr_connection->notify_events();
+        auto wcs = this->_mgr_connection->poll_wc(rdmalib::QueueType::RECV, false);
+        if(std::get<1>(wcs) == 0) {
+          auto cq = this->_mgr_connection->wait_events();
+          this->_mgr_connection->ack_events(cq, 1);
+          this->_mgr_connection->notify_events();
+        }
+
+        wcs = this->_mgr_connection->poll_wc(rdmalib::QueueType::RECV, true);
+        // expect only one message
+        ibv_wc* wc = &std::get<0>(wcs)[0];
+        if(wc->status) {
+          spdlog::error("Failed work completion! Reason: {}", ibv_wc_status_str(wc->status));
+          break;
+        }
+
+        spdlog::info("Thread {} Begins connecting to the new client at {}:{}!", id, _exec_msg[wc->wr_id].ip_address, _exec_msg[wc->wr_id].port);
+
+        std::strncpy(addr.data(), this->_exec_msg[wc->wr_id].ip_address, 16);
+        port = _exec_msg[wc->wr_id].port;
+
+        handle_client(mgr_connection, timeout);
+    }
   }
 
   FastExecutors::FastExecutors(std::string client_addr, int port,
@@ -300,6 +356,7 @@ namespace server {
       if(thread.joinable())
         thread.join();
     SPDLOG_DEBUG("Finished wait on {} threads", _threads.size());
+    _threads.clear();
 
     for(auto & thread : _threads_data)
       spdlog::info("Thread {} Repetitions {} Avg time {} ms",
@@ -307,6 +364,7 @@ namespace server {
         thread.repetitions,
         static_cast<double>(thread._accounting.total_execution_time) / thread.repetitions / 1000.0
       );
+    _threads_data.clear();
     _closing = true;
   }
 

@@ -14,14 +14,15 @@
 
 namespace rfaas::executor_manager {
 
-  Client::Client(int id, rdmalib::Connection* conn, ibv_pd* pd, bool active): //, Accounting & _acc):
+  Client::Client(int id, rdmalib::Connection* conn, ibv_pd* pd, bool active, bool keep_warm): //, Accounting & _acc):
     connection(conn),
     allocation_requests(RECV_BUF_SIZE),
     accounting(1),
     //accounting(_acc),
     allocation_time(0),
     _active(active),
-    _id(id)
+    _id(id),
+    _keep_warm(keep_warm)
   {
     // Make the buffer accessible to clients
     memset(accounting.data(), 0, accounting.data_size());
@@ -39,7 +40,8 @@ namespace rfaas::executor_manager {
     executor(std::move(obj.executor)),
     accounting(std::move(obj.accounting)),
     allocation_time(std::move(obj.allocation_time)),
-    _active(std::move(obj._active))
+    _active(std::move(obj._active)),
+    _keep_warm(std::move(obj._keep_warm))
   {
     obj.connection = nullptr;
   }
@@ -52,6 +54,7 @@ namespace rfaas::executor_manager {
     accounting = std::move(obj.accounting);
     allocation_time = std::move(obj.allocation_time);
     _active = std::move(obj._active);
+    _keep_warm = std::move(obj._keep_warm);
 
     obj.connection = nullptr;
 
@@ -88,7 +91,7 @@ namespace rfaas::executor_manager {
       fmt::ptr(connection), fmt::ptr(connection->id())
     );
     // First, we check if the child is still alive
-    if(executor) {
+    if(!_keep_warm && executor) {
       int status;
       auto b = std::chrono::high_resolution_clock::now();
       kill(executor->id(), SIGTERM);
@@ -96,6 +99,8 @@ namespace rfaas::executor_manager {
       auto e = std::chrono::high_resolution_clock::now();
       spdlog::info("Waited for child {} ms", std::chrono::duration_cast<std::chrono::milliseconds>(e-b).count());
       executor.reset();
+    } else {
+      spdlog::info("Keep executor warm!");
     }
     spdlog::info(
       "Client {} exited, time allocated {} us, polling {} us, execution {} us",
@@ -107,7 +112,7 @@ namespace rfaas::executor_manager {
     if(res_mgr_connection) {
 
       res_mgr_connection->close_lease(
-        _id,
+        _lease_id,
         allocation_time,
         accounting.data()[0].execution_time,
         accounting.data()[0].hot_polling_time
@@ -130,5 +135,9 @@ namespace rfaas::executor_manager {
     return _active;
   }
 
+  bool Client::has_warm_container()
+  {
+    return executor != nullptr;
+  }
 }
 

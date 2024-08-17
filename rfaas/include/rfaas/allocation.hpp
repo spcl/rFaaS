@@ -11,6 +11,7 @@ namespace rfaas {
     // < 0: client_id with negative sign, deallocation & disconnect request
     int16_t cores;
     int32_t memory;
+    int32_t client_id;
   };
 
   struct LeasedNode {
@@ -31,6 +32,7 @@ namespace rfaas {
     // > 0: Lease identificator
     // < 0: client_id with negative sign, deallocation & disconnect request
     int32_t lease_id;
+    int32_t client_id;
     //uint32_t lease_id;
     int16_t hot_timeout;
     int16_t timeout;
