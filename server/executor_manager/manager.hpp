@@ -135,12 +135,6 @@ namespace rfaas::executor_manager {
     typedef std::variant<rdmalib::Connection*, Client> msg_t;
     moodycamel::BlockingReaderWriterQueue<std::tuple<Operation, msg_t>> _client_queue;
 
-    std::mutex clients;
-    std::unordered_map<uint32_t, Client> _clients;
-    // TODO: maybe use some client id here?
-    std::unordered_map<uint32_t, Client> _warm_clients;
-    int _ids;
-
     std::unique_ptr<ResourceManagerConnection> _res_mgr_connection;
 
     rdmalib::RDMAPassive _state;
@@ -151,6 +145,12 @@ namespace rfaas::executor_manager {
     bool _skip_rm;
     std::atomic<bool> _shutdown;
     Leases _leases;
+
+    std::mutex clients;
+    std::unordered_map<uint32_t, Client> _clients;
+    // TODO: maybe use some client id here?
+    std::unordered_map<uint32_t, Client> _warm_clients;
+    int _ids;
 
     Manager(Settings &, bool skip_rm);
 
