@@ -30,7 +30,7 @@ namespace rfaas {
       _resource_mgr.disconnect();
     }
 
-    std::optional<rfaas::executor> lease(int16_t cores, int32_t memory, device_data & dev)
+    std::optional<rfaas::executor> lease(int16_t cores, int32_t memory, device_data & dev, int16_t gpus = 0)
     { 
       if(!_resource_mgr.connected()) {
         return {};
@@ -38,6 +38,7 @@ namespace rfaas {
 
       _resource_mgr.request() = (rfaas::LeaseRequest) {
         cores,
+        gpus,
         memory
       };
       _resource_mgr.submit();

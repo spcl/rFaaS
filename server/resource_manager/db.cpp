@@ -14,16 +14,16 @@
 
 namespace rfaas { namespace resource_manager {
 
-  ExecutorDB::ResultCode ExecutorDB::add(const std::string & node_name, const std::string & ip_address, int port, int cores, int memory)
+  ExecutorDB::ResultCode ExecutorDB::add(const std::string & node_name, const std::string & ip_address, int port, int cores, int memory, int gpus)
   {
-    if(node_name.length() < rfaas::server_data::NODE_NAME_LENGTH) {
+    if(node_name.length() >= rfaas::server_data::NODE_NAME_LENGTH) {
       return ResultCode::MALFORMED_DATA;
     }
 
     // Obtain write access
     writer_lock_t lock(_mutex);
 
-    auto [ptr, success] = _executors.add_executor(node_name, ip_address, port, cores, memory);
+    auto [ptr, success] = _executors.add_executor(node_name, ip_address, port, cores, memory, gpus);
 
     if(!success) {
       return ResultCode::EXECUTOR_EXISTS;
@@ -43,7 +43,7 @@ namespace rfaas { namespace resource_manager {
     return erased ? ResultCode::OK : ResultCode::EXECUTOR_DOESNT_EXIST;
   }
 
-  std::shared_ptr<Executor> ExecutorDB::open_lease(int numcores, int memory, rfaas::LeaseResponse& lease)
+  std::shared_ptr<Executor> ExecutorDB::open_lease(int numcores, int memory, int gpus, rfaas::LeaseResponse& lease)
   {
     // Obtain write access
     writer_lock_t lock(_mutex);
@@ -75,7 +75,7 @@ namespace rfaas { namespace resource_manager {
         continue;
       }
 
-      if(!shared_ptr->lease(numcores, memory)) {
+      if(!shared_ptr->lease(numcores, memory, gpus)) {
         ++it;
         SPDLOG_DEBUG("Node {} cannot be used, not enough resources!", shared_ptr->node);
         continue;
@@ -93,7 +93,7 @@ namespace rfaas { namespace resource_manager {
       _leases.emplace(
         std::piecewise_construct,
         std::forward_as_tuple(lease.lease_id),
-        std::forward_as_tuple(numcores, memory, is_total, std::move(ptr))
+        std::forward_as_tuple(numcores, memory, gpus, is_total, std::move(ptr))
       );
 
       return shared_ptr;
@@ -147,7 +147,7 @@ namespace rfaas { namespace resource_manager {
 
     for(const auto & instance : servers._data) {
 
-      auto [weak_ptr, success] = _executors.add_executor(instance.node, instance.address, instance.port, instance.cores, instance.memory);
+      auto [weak_ptr, success] = _executors.add_executor(instance.node, instance.address, instance.port, instance.cores, instance.memory, instance.gpus);
 
       if(success) {
         _free_nodes.push_back(weak_ptr);
@@ -164,7 +164,7 @@ namespace rfaas { namespace resource_manager {
     rfaas::servers servers;
 
     for(const auto & [key, instance] : _executors) {
-      servers._data.emplace_back(instance->node, instance->address, instance->port, instance->cores, instance->memory);
+      servers._data.emplace_back(instance->node, instance->address, instance->port, instance->cores, instance->memory, instance->gpus);
     }
 
     std::ofstream out{path};

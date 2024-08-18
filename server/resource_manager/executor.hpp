@@ -24,12 +24,14 @@ namespace rfaas { namespace resource_manager {
   {
     int cores;
     int memory;
+    int gpus;
     bool total;
     std::weak_ptr<Executor> node;
 
-    Lease(int cores, int memory, bool total, std::weak_ptr<Executor> && node):
+    Lease(int cores, int memory, int gpus, bool total, std::weak_ptr<Executor> && node):
       cores(cores),
       memory(memory),
+      gpus(gpus),
       total(total),
       node(node)
     {}
@@ -40,6 +42,7 @@ namespace rfaas { namespace resource_manager {
     rdmalib::Connection* _connection;
     int _free_cores;
     int _free_memory;
+    int _free_gpus;
 
     static constexpr int RECV_BUF_SIZE = 32;
     static constexpr int MSG_SIZE = std::max(sizeof(common::NodeRegistration), sizeof(common::LeaseDeallocation));
@@ -47,13 +50,13 @@ namespace rfaas { namespace resource_manager {
     rdmalib::Buffer<common::LeaseAllocation> _send_buffer;
 
     Executor();
-    Executor(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory);
+    Executor(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory, int16_t gpus);
 
-    void initialize_data(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory);
+    void initialize_data(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory, int16_t gpus);
     void initialize_connection(ibv_pd* pd, rdmalib::Connection* conn);
     bool is_initialized() const;
 
-    bool lease(int cores, int memory);
+    bool lease(int cores, int memory, int gpus);
     bool is_fully_leased() const;
     void cancel_lease(const Lease & lease);
 
@@ -75,7 +78,7 @@ namespace rfaas { namespace resource_manager {
 
     Executors(ibv_pd* pd);
 
-    std::tuple<std::weak_ptr<Executor>, bool> add_executor(const std::string& name, const std::string & ip, int32_t port, int16_t cores, int32_t memory);
+    std::tuple<std::weak_ptr<Executor>, bool> add_executor(const std::string& name, const std::string & ip, int32_t port, int16_t cores, int32_t memory, int16_t gpus);
     void connect_executor(std::shared_ptr<Executor> && exec);
     bool register_executor(uint32_t qp_num, const std::string& name);
 

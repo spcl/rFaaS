@@ -13,25 +13,28 @@ namespace rfaas::resource_manager {
     _send_buffer(1)
   {}
 
-  Executor::Executor(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory):
+  Executor::Executor(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory, int16_t gpus):
     _connection(nullptr),
     _free_cores(0),
     _free_memory(0),
+    _free_gpus(0),
     _receive_buffer(RECV_BUF_SIZE * MSG_SIZE),
     _send_buffer(1)
   {
-    this->initialize_data(node_name, ip, port, cores, memory);
+    this->initialize_data(node_name, ip, port, cores, memory, gpus);
   }
 
-  void Executor::initialize_data(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory)
+  void Executor::initialize_data(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory, int16_t gpus)
   {
     this->node = node_name;
     this->address = ip;
     this->port = port;
     this->cores = cores;
+    this->gpus = gpus;
     this->memory = memory;
     this->_free_cores = cores;
     this->_free_memory = memory;
+    this->_free_gpus = gpus;
   }
 
   //void Executor::initialize_connection(rdmalib::Connection* conn)
@@ -46,7 +49,7 @@ namespace rfaas::resource_manager {
     return !node.empty() && _connection != nullptr;
   }
 
-  bool Executor::lease(int cores, int memory)
+  bool Executor::lease(int cores, int memory, int gpus)
   {
     // Not enough memory? skip
     if(_free_memory < memory) {
@@ -57,14 +60,20 @@ namespace rfaas::resource_manager {
       return false;
     }
 
+    if(_free_gpus < gpus) {
+      return false;
+    }
+
     _free_cores -= cores;
     _free_memory -= memory;
+    _free_gpus -= gpus;
 
     return true;
   }
 
   bool Executor::is_fully_leased() const
   {
+    // Do not include GPUs - these are optional
     return _free_cores == 0 || _free_memory == 0;
   }
 
@@ -72,6 +81,7 @@ namespace rfaas::resource_manager {
   {
     _free_cores += lease.cores;
     _free_memory += lease.memory;
+    _free_gpus += lease.gpus;
   }
 
   Executors::Executors(ibv_pd* pd):
@@ -89,9 +99,9 @@ namespace rfaas::resource_manager {
     this->_connection->receive_wcs().initialize(_receive_buffer, MSG_SIZE);
   }
 
-  std::tuple<std::weak_ptr<Executor>, bool> Executors::add_executor(const std::string& name, const std::string & ip, int32_t port, int16_t cores, int32_t memory)
+  std::tuple<std::weak_ptr<Executor>, bool> Executors::add_executor(const std::string& name, const std::string & ip, int32_t port, int16_t cores, int32_t memory, int16_t gpus)
   {
-    auto exec = std::make_shared<Executor>(name, ip, port, cores, memory);
+    auto exec = std::make_shared<Executor>(name, ip, port, cores, memory, gpus);
     auto [it, success] = _executors_by_name.insert(std::make_pair(name, exec));
 
     // Two possibilities: executor already exists or has been registered?
@@ -100,7 +110,7 @@ namespace rfaas::resource_manager {
       if((*it).second->is_initialized()) {
         return std::make_tuple(std::weak_ptr<Executor>{}, false);
       } else {
-        (*it).second->initialize_data(name, ip, port, cores, memory);
+        (*it).second->initialize_data(name, ip, port, cores, memory, gpus);
         return std::make_tuple(exec, true);
       }
 

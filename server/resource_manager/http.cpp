@@ -42,10 +42,14 @@ namespace rfaas::resource_manager {
       int port{document["port"].GetInt()};
       int cores{document["cores"].GetInt()};
       int memory{document["memory"].GetInt()};
+      int gpus = 0;
+      if(document.HasMember("gpus")) {
+        gpus = document["gpus"].GetInt();
+      }
 
       // Return 400 if the request is malformed or incorret
       // If good, then return 200
-      if(_database.add(node_name.value(), ip_address, port, cores, memory) == ExecutorDB::ResultCode::OK) {
+      if(_database.add(node_name.value(), ip_address, port, cores, memory, gpus) == ExecutorDB::ResultCode::OK) {
         response.send(Pistache::Http::Code::Ok, "Sucess");
       } else {
         response.send(Pistache::Http::Code::Internal_Server_Error, "Failure");

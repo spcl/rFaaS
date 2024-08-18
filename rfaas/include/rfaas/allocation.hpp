@@ -10,6 +10,7 @@ namespace rfaas {
     // > 0: Number of cores to be allocated
     // < 0: client_id with negative sign, deallocation & disconnect request
     int16_t cores;
+    int16_t gpus;
     int32_t memory;
   };
 

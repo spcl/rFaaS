@@ -15,9 +15,10 @@ namespace rfaas {
     memory(-1)
   {}
 
-  server_data::server_data(const std::string & node, const std::string & ip, int32_t port, int16_t cores, int32_t memory):
+  server_data::server_data(const std::string & node, const std::string & ip, int32_t port, int16_t cores, int32_t memory, int16_t gpus):
     port(port),
     cores(cores),
+    gpus(gpus),
     memory(memory),
     address(ip),
     node(node)

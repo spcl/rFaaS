@@ -297,14 +297,16 @@ void Manager::_handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send
   Client& client = (*it).second;
   int16_t cores = client.allocation_requests.data()[id].cores;
   int32_t memory = client.allocation_requests.data()[id].memory;
+  int16_t gpus = client.allocation_requests.data()[id].gpus;
 
   if (cores > 0) {
-    spdlog::info("Client requests executor with {} threads, it should have {} memory", 
+    spdlog::info("Client requests executor with {} threads, it should have {} memory, {} gpus", 
                 client.allocation_requests.data()[id].cores,
-                client.allocation_requests.data()[id].memory
+                client.allocation_requests.data()[id].memory,
+                client.allocation_requests.data()[id].gpus
     );
 
-    auto allocated = _executor_data.open_lease(cores, memory, *client.response().data());
+    auto allocated = _executor_data.open_lease(cores, memory, gpus, *client.response().data());
     if(allocated) {
       spdlog::info("[Manager] Client receives lease with id {}", client.response().data()->lease_id);
     } else {
