@@ -72,7 +72,7 @@ namespace rfaas {
 
       server_data instance = nodes_data.server(0);
 
-      return std::make_optional<rfaas::executor>(instance.address, instance.port, cores, memory, -1, _device);
+      return std::make_optional<rfaas::executor>(instance.address, instance.port, cores, memory, 0, _device);
     }
 
   private:

@@ -92,6 +92,35 @@ namespace rfaas {
     obj._active_polling.store(false);
   }
 
+  executor& executor::operator=(executor&& obj)
+  {
+
+    this->deallocate();
+
+    _state = std::move(obj._state);
+    _execs_buf = std::move(obj._execs_buf);
+    _device = std::move(obj._device);
+    _numcores = std::move(obj._numcores);
+    _memory = std::move(obj._memory);
+    _executions = std::move(obj._executions);
+    _invoc_id = std::move(obj._invoc_id);
+    _lease_id = std::move(obj._lease_id);
+    _connections = std::move(obj._connections);
+    _exec_manager = std::move(obj._exec_manager);
+    _func_names = std::move(obj._func_names);
+    _futures = std::move(obj._futures);
+    _background_thread = std::move(obj._background_thread);
+
+    _end_requested = obj._end_requested.load();
+    obj._end_requested.store(false);
+
+    _active_polling = obj._active_polling.load();
+    obj._active_polling.store(false);
+
+
+    return *this;
+  }
+
   rdmalib::Buffer<char> executor::load_library(std::string path)
   {
     _func_names.clear();
@@ -265,7 +294,7 @@ namespace rfaas {
   }
 
   bool executor::allocate(std::string functions_path, int max_input_size,
-      int hot_timeout, bool skip_manager, rdmalib::Benchmarker<5> * benchmarker)
+      int hot_timeout, bool skip_manager, bool skip_resource_manger, rdmalib::Benchmarker<5> * benchmarker)
   {
     rdmalib::Buffer<char> functions = load_library(functions_path);
 
@@ -275,6 +304,7 @@ namespace rfaas {
       if(benchmarker)
         benchmarker->start();
       bool ret = _exec_manager->connect();
+      spdlog::error("connect");
       if(benchmarker) {
         benchmarker->end(0);
         benchmarker->start();
@@ -295,6 +325,15 @@ namespace rfaas {
         ""
       };
       strcpy(_exec_manager->request().listen_address, _device.ip_address.c_str());
+
+      // Legacy path
+      if(skip_resource_manger) {
+
+        spdlog::error("{} {}", _numcores, _memory);
+        _exec_manager->request().cores = _numcores;
+        _exec_manager->request().memory = _memory;
+
+      }
 
       if(!_exec_manager->submit()) {
         return false;
