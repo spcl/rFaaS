@@ -6,6 +6,7 @@
     "resource_manager_port": 0
   },
   "benchmark": {
+    "memory": 256,
     "pin_threads": false,
     "repetitions": 100,
     "warmup_repetitions": 0,
@@ -13,4 +14,3 @@
     "hot_timeout": -1
   }
 }
-

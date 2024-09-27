@@ -2,9 +2,11 @@
   "config": {
     "rdma_device": "",
     "rdma_device_port": 10000,
+    "node_name": "exec-mgr-node",
     "resource_manager_address": "",
     "resource_manager_port": 0,
-    "resource_manager_secret": 0
+    "resource_manager_secret": 0,
+    "rdma-sleep": true
   },
   "executor": {
     "use_docker": false,
@@ -13,4 +15,3 @@
     "pin_threads": false
   }
 }
-
