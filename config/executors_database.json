@@ -3,7 +3,7 @@
     {
       "node": "exec-mgr-node",
       "address": "",
-      "port": 10000,
+      "port": 10005,
       "cores": 1,
       "memory": 512
     }
