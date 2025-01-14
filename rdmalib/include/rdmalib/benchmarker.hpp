@@ -45,6 +45,9 @@ namespace rdmalib {
 
     std::tuple<double, double> summary(int idx = 0)
     {
+      if(_measurements.size() == 0)
+        return std::make_tuple(0.0, 0.0);
+
       // FIXME: reenable
       long sum = std::accumulate(_measurements.begin(), _measurements.end(), 0L,
         [idx](long x, const std::array<uint64_t, Cols> & y) {

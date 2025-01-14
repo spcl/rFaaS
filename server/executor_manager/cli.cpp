@@ -47,7 +47,7 @@ int main(int argc, char ** argv)
   sigemptyset(&sigIntHandler.sa_mask);
   sigIntHandler.sa_flags = 0;
   sigaction(SIGINT, &sigIntHandler, NULL);
-  sigaction(SIGKILL, &sigIntHandler, NULL);
+  sigaction(SIGTERM, &sigIntHandler, NULL);
 
   // Read device details
   std::ifstream in_dev{opts.device_database};
@@ -74,6 +74,8 @@ int main(int argc, char ** argv)
   mgr.start();
 
   spdlog::info("Executor manager is closing down");
+  std::flush(std::cout);
+  std::flush(std::cerr);
   std::this_thread::sleep_for(std::chrono::seconds(1)); 
 
   return 0;

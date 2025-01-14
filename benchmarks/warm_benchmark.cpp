@@ -1,8 +1,11 @@
 
+#include <atomic>
 #include <chrono>
-#include <rdma/fabric.h>
 #include <thread>
 #include <fstream>
+
+#include <rdma/fabric.h>
+#include <signal.h>
 
 #include <spdlog/spdlog.h>
 #include <cxxopts.hpp>
@@ -17,6 +20,14 @@
 
 #include "warm_benchmark.hpp"
 #include "settings.hpp"
+
+std::atomic<bool> finish_work;
+
+void signal_handler(int)
+{
+  finish_work.store(true, std::memory_order_release);
+  //std::terminate();
+}
 
 int main(int argc, char ** argv)
 {
@@ -41,6 +52,8 @@ int main(int argc, char ** argv)
   std::ifstream benchmark_cfg{opts.json_config};
   rfaas::benchmark::Settings settings = rfaas::benchmark::Settings::deserialize(benchmark_cfg);
   benchmark_cfg.close();
+
+  spdlog::info("Execute {} iterations of function.", settings.benchmark.repetitions);
 
   // Read connection details to the executors
   if(opts.executors_database != "") {
@@ -87,31 +100,75 @@ int main(int argc, char ** argv)
   }
 
   rdmalib::Benchmarker<1> benchmarker{settings.benchmark.repetitions};
-  spdlog::info("Warmups begin");
-  for(int i = 0; i < settings.benchmark.warmup_repetitions; ++i) {
-    SPDLOG_DEBUG("Submit warm {}", i);
-    executor.execute(opts.fname, in, out);
-  }
-  spdlog::info("Warmups completed");
 
-  // Start actual measurements
-  for(int i = 0; i < settings.benchmark.repetitions;) {
-    benchmarker.start();
-    SPDLOG_DEBUG("Submit execution {}", i);
-    auto ret = executor.execute(opts.fname, in, out);
-    if(std::get<0>(ret)) {
-      SPDLOG_DEBUG("Finished execution {} out of {}", i, settings.benchmark.repetitions);
-      benchmarker.end(0);
-      ++i;
-    } else {
-      continue;
+  if(settings.benchmark.repetitions > 0) {
+
+    spdlog::info("Warmups begin");
+    for(int i = 0; i < settings.benchmark.warmup_repetitions; ++i) {
+      SPDLOG_DEBUG("Submit warm {}", i);
+      executor.execute(opts.fname, in, out);
+    }
+    spdlog::info("Warmups completed");
+
+    // Start actual measurements
+    for(int i = 0; i < settings.benchmark.repetitions;) {
+      benchmarker.start();
+      SPDLOG_DEBUG("Submit execution {}", i);
+      auto ret = executor.execute(opts.fname, in, out);
+      if(std::get<0>(ret)) {
+        SPDLOG_DEBUG("Finished execution {} out of {}", i, settings.benchmark.repetitions);
+        benchmarker.end(0);
+        ++i;
+      } else {
+        continue;
+      }
     }
   }
+  // Infinite loop repetitions 
+  else {
+
+    finish_work.store(false, std::memory_order_release);
+
+    // Catch SIGINT
+    struct sigaction sigIntHandler;
+    sigIntHandler.sa_handler = &signal_handler;
+    sigemptyset(&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
+    sigaction(SIGINT, &sigIntHandler, NULL);
+    sigaction(SIGTERM, &sigIntHandler, NULL);
+
+    // Start actual measurements
+    int i = 0;
+    while(true) {
+      
+      bool flag = finish_work.load(std::memory_order_acquire);
+      if(flag) {
+        spdlog::info("Flag {}", flag);
+        break;
+      } else
+        spdlog::info("Flag {}", flag);
+      benchmarker.start();
+      SPDLOG_DEBUG("Submit execution {}", i);
+      auto ret = executor.execute(opts.fname, in, out);
+      if(std::get<0>(ret)) {
+        SPDLOG_DEBUG("Finished execution {}", i);
+        benchmarker.end(0);
+        ++i;
+      } else {
+        continue;
+      }
+    }
+    spdlog::info("Caught SIGINT, ending benchmarking");
+    std::flush(std::cout);
+
+  }
+
   auto [median, avg] = benchmarker.summary();
   spdlog::info(
     "Executed {} repetitions, avg {} usec/iter, median {}",
     settings.benchmark.repetitions, avg, median
   );
+  std::flush(std::cout);
   if(opts.output_stats != "")
     benchmarker.export_csv(opts.output_stats, {"time"});
   executor.deallocate();

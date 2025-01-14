@@ -29,20 +29,20 @@ namespace server {
 
   bool SignalHandler::closing = false;
 
-  // SignalHandler::SignalHandler()
-  // {
-  //   struct sigaction sigIntHandler;
-  //   sigIntHandler.sa_handler = &SignalHandler::handler;
-  //   sigemptyset(&sigIntHandler.sa_mask);
-  //   sigIntHandler.sa_flags = 0;
-  //   //FIXME: disable signals to avoid potential interrupts
-  //   sigaction(SIGINT, &sigIntHandler, nullptr);
-  // }
+  SignalHandler::SignalHandler()
+  {
+    struct sigaction sigIntHandler;
+    sigIntHandler.sa_handler = &SignalHandler::handler;
+    sigemptyset(&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
+    //FIXME: disable signals to avoid potential interrupts
+    sigaction(SIGINT, &sigIntHandler, nullptr);
+  }
 
-  // void SignalHandler::handler(int)
-  // {
-  //   SignalHandler::closing = true;
-  // }
+  void SignalHandler::handler(int)
+  {
+    SignalHandler::closing = true;
+  }
 
   Accounting::timepoint_t Thread::work(int invoc_id, int func_id, bool solicited, uint32_t in_size)
   {
@@ -95,7 +95,8 @@ namespace server {
     SPDLOG_DEBUG("Thread {} Begins hot polling", id);
     auto start = std::chrono::high_resolution_clock::now();
     int i = 0;
-    while(repetitions < max_repetitions && !SignalHandler::closing) {
+    //while(repetitions < max_repetitions && !SignalHandler::closing) {
+    while(!SignalHandler::closing) {
 
       // if we block, we never handle the interruption
       #ifdef USE_LIBFABRIC
@@ -124,7 +125,8 @@ namespace server {
           int invoc_id = info >> 16;
           bool solicited = info & solicited_mask;
           #endif
-          SPDLOG_DEBUG(
+          //SPDLOG_DEBUG(
+          spdlog::info(
             "Thread {} Invoc id {} Execute func {} Repetition {}",
             id, invoc_id, func_id, repetitions
           );
@@ -183,7 +185,8 @@ namespace server {
     // FIXME: this should be automatic
     SPDLOG_DEBUG("Thread {} Begins warm polling", id);
 
-    while(repetitions < max_repetitions && !SignalHandler::closing) {
+    //while(repetitions < max_repetitions && !SignalHandler::closing) {
+    while(!SignalHandler::closing) {
 
       // if we block, we never handle the interruption
       #ifdef USE_LIBFABRIC
@@ -212,7 +215,7 @@ namespace server {
           bool solicited = info & solicited_mask;
           int invoc_id = info >> 16;
           #endif
-          SPDLOG_DEBUG(
+          spdlog::info(
             "Thread {} Invoc id {} Execute func {} Repetition {}",
             id, invoc_id, func_id, repetitions
           );
