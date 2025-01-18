@@ -71,7 +71,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads)
 
 ###
-# PkgConfig 
+# PkgConfig
 ###
 
 find_package(PkgConfig REQUIRED)
@@ -89,11 +89,6 @@ pkg_check_modules(rdmacm REQUIRED IMPORTED_TARGET librdmacm)
 # libibverbs
 ###
 pkg_check_modules(ibverbs REQUIRED IMPORTED_TARGET libibverbs)
-
-###
-# pistache
-###
-pkg_check_modules(Pistache REQUIRED IMPORTED_TARGET libpistache)
 
 ###
 # External dependencies
@@ -185,8 +180,8 @@ foreach(target ${targets})
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 endforeach()
 target_link_libraries(executor PRIVATE dl)
-target_include_directories(resource_manager SYSTEM PUBLIC $<TARGET_PROPERTY:PkgConfig::Pistache,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(resource_manager PRIVATE PkgConfig::Pistache)
+target_include_directories(resource_manager SYSTEM PUBLIC $<TARGET_PROPERTY:pistache_static,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(resource_manager PRIVATE pistache_static)
 
 ###
 # Benchmark apps

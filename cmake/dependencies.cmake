@@ -1,4 +1,4 @@
-
+ 
 set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 
 ###
@@ -55,13 +55,13 @@ endif()
 ###
 if(${RFAAS_WITH_TESTING})
   include(FetchContent)
-  message(STATUS "Downloading and building gtest")
-  FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG release-1.11.0
-  )
-  FetchContent_MakeAvailable(googletest)
+message(STATUS "Downloading and building gtest")
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG release-1.11.0
+)
+FetchContent_MakeAvailable(googletest)
 endif()
 
 ###
@@ -78,3 +78,16 @@ if(NOT readerwriterqueue_FOUND)
   FetchContent_MakeAvailable(readerwriterqueue)
 endif()
 
+###
+# pistache
+###
+find_package(libpistache 0.0.5 EXACT QUIET)
+if(NOT libpistache_FOUND)
+  message(STATUS "Downloading and building libpistache dependency")
+  FetchContent_Declare(
+    libpistache
+    GIT_REPOSITORY https://github.com/pistacheio/pistache
+    GIT_TAG        0.0.5
+  )
+  FetchContent_MakeAvailable(libpistache)
+endif()
