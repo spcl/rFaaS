@@ -1,4 +1,4 @@
- 
+
 set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 
 ###
@@ -55,13 +55,13 @@ endif()
 ###
 if(${RFAAS_WITH_TESTING})
   include(FetchContent)
-message(STATUS "Downloading and building gtest")
-FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG release-1.11.0
-)
-FetchContent_MakeAvailable(googletest)
+  message(STATUS "Downloading and building gtest")
+  FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG release-1.11.0
+  )
+  FetchContent_MakeAvailable(googletest)
 endif()
 
 ###
