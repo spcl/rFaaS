@@ -185,6 +185,7 @@ foreach(target ${targets})
   endif()
 endforeach()
 target_link_libraries(executor PRIVATE dl)
+add_dependencies(resource_manager pistache_static)
 target_include_directories(resource_manager SYSTEM PUBLIC $<TARGET_PROPERTY:pistache_static,INTERFACE_INCLUDE_DIRECTORIES>)
 target_link_libraries(resource_manager PRIVATE pistache_static)
 
