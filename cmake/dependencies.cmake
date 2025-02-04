@@ -73,7 +73,7 @@ if(NOT readerwriterqueue_FOUND)
   FetchContent_Declare(
     readerwriterqueue
     GIT_REPOSITORY    https://github.com/cameron314/readerwriterqueue
-    GIT_TAG           v1.0.6
+    GIT_TAG           v1.0.5
   )
   FetchContent_MakeAvailable(readerwriterqueue)
 endif()
