@@ -17,7 +17,8 @@ function log () {
 get_device() {
   device=$1
   port=$2
-  addr=$(ip -j address show dev $device | jq -r '.[0].addr_info[] | select(.family=="inet") | .local')
+  netdev=$3
+  addr=$(ip -j address show dev $netdev | jq -r '.[0].addr_info[] | select(.family=="inet") | .local')
 
   # case-insensitive comparison
   if [[ -z "${addr}" || "${addr,,}" = "null" ]]; then
@@ -45,25 +46,26 @@ done
 
 output_json=$(jq --null-input '{"devices": []}')
 
+rdma_devices=$(rdma link)
 if [[ -n $devices ]]; then
   log "Querying the following devices: ${devices[@]}"
-  for netdev in "${devices[@]}"
-  do
-    log "Process $netdev"
-    get_device "$netdev" "$port"
-  done
+  pattern=$(IFS='|'; echo "${devices[*]}")
+  rdma_devices=$(echo "$rdma_devices" | 
+  awk -v pat="$pattern" '{
+    split($2, a, "/");
+    if(a[1] ~ "^"pat"$") print
+  }')
 else
   log "Querying devices from the rdma command."
-  rdma_devices=$(rdma link)
-
-  while read -r _ _ _ state _ _ _ netdev; do
-    if [ "$state" = "ACTIVE" ]; then
-      log "Process $netdev"
-      get_device "$netdev" "$port"
-    fi
-  done <<< "${rdma_devices}"
-
 fi
+
+while read -r _ device _ state _ _ _ netdev; do
+  if [ "$state" = "ACTIVE" ]; then
+    device=${device%%/*}
+    log "Process $device"
+    get_device "$device" "$port" "$netdev"
+  fi
+done <<< "${rdma_devices}"
 
 if [[ ! -z $output ]]; then
   log "Writing to $output"
