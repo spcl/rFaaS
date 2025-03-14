@@ -24,7 +24,7 @@ get_device() {
   if [[ -z "${addr}" || "${addr,,}" = "null" ]]; then
     echoerr "Could not determine the address of device $device"
   else
-    output_json=$(jq --arg device $device --arg addr $addr --argjson port $port '.devices += [{"name": $device, "ip_address": $addr, "port": $port, "default_receive_buffer_size": 32, "max_inline_data": 0}]' <<< ${output_json})
+    output_json=$(jq --arg netdev $netdev --arg device $device --arg addr $addr --argjson port $port '.devices += [{"name": $device, "netdev": $netdev, "ip_address": $addr, "port": $port, "default_receive_buffer_size": 32, "max_inline_data": 0}]' <<< ${output_json})
   fi
 }
 
