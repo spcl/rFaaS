@@ -122,13 +122,15 @@ namespace rfaas {
       int rcv_buf, int max_inline_data):
     _address(address),
     _port(port),
-    _active(_address, _port, rcv_buf),
     _rcv_buf_size(rcv_buf),
     _send_buffer(1),
     _receive_buffer(rcv_buf),
     _max_inline_data(max_inline_data)
   {
-    _active.allocate();
+    if(!address.empty()) {
+      _active = rdmalib::RDMAActive(_address, _port, rcv_buf);
+      _active.allocate();
+    }
   }
 
   bool resource_mgr_connection::connect()

@@ -39,6 +39,10 @@ namespace rfaas {
     uint32_t func_buf_size;
     int32_t listen_port;
     char listen_address[16];
+
+    // Legacy support for skipping resource manager
+    int16_t cores = 0;
+    int32_t memory = 0;
   };
 
   struct LeaseStatus {

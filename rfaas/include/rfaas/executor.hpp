@@ -77,12 +77,13 @@ namespace rfaas {
     ~executor();
 
     executor(executor&& obj);
+    executor& operator=(executor&& obj);
 
     bool connect(const std::string & ip, int port);
 
     // Skipping managers is useful for benchmarking
     bool allocate(std::string functions_path, int max_input_size, int hot_timeout,
-        bool skip_manager = false, rdmalib::Benchmarker<5> * benchmarker = nullptr);
+        bool skip_manager = false, bool skip_resource_manager = false, rdmalib::Benchmarker<5> * benchmarker = nullptr);
     void deallocate();
     rdmalib::Buffer<char> load_library(std::string path);
     void poll_queue();

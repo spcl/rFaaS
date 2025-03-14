@@ -1,8 +1,11 @@
 {
   "config": {
     "rdma_device": "",
-    "rdma_device_port": 0,
-    "http_network_address": "",
-    "http_network_port": 0
+    "rdma_device_port": 10000,
+    "http_network_address": "0.0.0.0",
+    "http_network_port": 5000,
+    "rdma-threads": 1,
+    "rdma-secret": 42,
+    "rdma-sleep": true
   }
 }

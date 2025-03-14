@@ -16,7 +16,7 @@ namespace rfaas { namespace resource_manager {
 
   ExecutorDB::ResultCode ExecutorDB::add(const std::string & node_name, const std::string & ip_address, int port, int cores, int memory)
   {
-    if(node_name.length() < rfaas::server_data::NODE_NAME_LENGTH) {
+    if(node_name.length() > rfaas::server_data::NODE_NAME_LENGTH) {
       return ResultCode::MALFORMED_DATA;
     }
 

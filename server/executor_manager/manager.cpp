@@ -269,14 +269,26 @@ namespace rfaas::executor_manager {
 
       auto lease = _leases.get_threadsafe(lease_id);
 
-      if(!lease.has_value()) {
-        spdlog::warn("Received request for unknown lease {}", lease_id);
-        *_client_responses.data() = (LeaseStatus) {LeaseStatus::UNKNOWN};
-        client.connection->post_send(_client_responses);
-        client.connection->receive_wcs().update_requests(-1);
-        client.connection->receive_wcs().refill();
-        client.connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
-        return true;
+      if(!_skip_rm) {
+
+        if(!lease.has_value()) {
+          spdlog::warn("Received request for unknown lease {}", lease_id);
+          *_client_responses.data() = (LeaseStatus) {LeaseStatus::UNKNOWN};
+          client.connection->post_send(_client_responses);
+          client.connection->receive_wcs().update_requests(-1);
+          client.connection->receive_wcs().refill();
+          client.connection->poll_wc(rdmalib::QueueType::SEND, true, 1);
+          return true;
+        }
+
+      } else {
+
+        lease = Lease{
+          client.allocation_requests.data()[wr_id].lease_id,
+          client.allocation_requests.data()[wr_id].cores,
+          client.allocation_requests.data()[wr_id].memory
+        };
+
       }
 
       rdmalib::PrivateData<0,0,32> data;
@@ -498,12 +510,18 @@ namespace rfaas::executor_manager {
     client_poller.set_nonblocking();
     client_poller.notify_events(false);
 
-    rdmalib::Poller res_mgr{_res_mgr_connection->connection().qp()->recv_cq};
-    res_mgr.set_nonblocking();
-    res_mgr.notify_events(false);
+    rdmalib::Poller res_mgr;
+
+    if(!_skip_rm) {
+
+      res_mgr = rdmalib::Poller{_res_mgr_connection->connection().qp()->recv_cq};
+      res_mgr.set_nonblocking();
+      res_mgr.notify_events(false);
+      event_poller.add_channel(res_mgr, 1);
+
+    }
 
     event_poller.add_channel(client_poller, 0);
-    event_poller.add_channel(res_mgr, 1);
 
     std::vector<Client*> poll_send;
     std::vector<rdmalib::Connection*> disconnections;
