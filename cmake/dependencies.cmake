@@ -81,13 +81,13 @@ endif()
 ###
 # pistache
 ###
-find_package(libpistache 0.0.5 EXACT QUIET)
+find_package(libpistache 0.4.23 QUIET)
 if(NOT libpistache_FOUND)
   message(STATUS "Downloading and building libpistache dependency")
   FetchContent_Declare(
     libpistache
     GIT_REPOSITORY https://github.com/pistacheio/pistache
-    GIT_TAG        0.0.5
+    GIT_TAG        v0.4.25
   )
   FetchContent_MakeAvailable(libpistache)
 endif()
