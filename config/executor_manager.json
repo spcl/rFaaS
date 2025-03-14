@@ -4,7 +4,7 @@
     "rdma_device_port": 10005,
     "node_name": "exec-mgr-node",
     "resource_manager_address": "",
-    "resource_manager_port": 0,
+    "resource_manager_port": 10000,
     "resource_manager_secret": 42,
     "rdma-sleep": true
   },

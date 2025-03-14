@@ -3,7 +3,7 @@
     "rdma_device": "",
     "rdma_device_port": 10006,
     "resource_manager_address": "",
-    "resource_manager_port": 0
+    "resource_manager_port": 10000
   },
   "benchmark": {
     "memory": 256,
