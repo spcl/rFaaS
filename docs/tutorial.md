@@ -5,15 +5,16 @@ capable of launching serverless executors, and how to use one of our benchmarkin
 to allocate an executor and submit function invocations over the RDMA network.
 
 A resource manager is an integral component of the system, as it provides executors with
-global management of billing and it distributes data on active executor servers to clients.
-Here, we skip the deployment of resource manager for simplicity.
-On small deployments with just few executor servers, we can bypass this step.
+global billing management and distributes data on active executor servers to clients.
+On small deployments with just a few executor servers, we can bypass this step.
+Here, we begin with a simple deployment that uses executor manager only,
+and then show a full deployment with three components: resource manager, executor manager, and rFaaS client.
 
 ### RDMA Configuration
 
 rFaaS currently supports InfiniBand and RoCE devices through the ibverbs library.
 If you do not own such a device, you can still emulate it on a regular Ethernet network 
-with [SoftROCE](https://github.com/SoftRoCE). This kernel driver allows to create an emulated
+with [SoftROCE](https://github.com/SoftRoCE). This kernel driver allows creating an emulated
 RDMA device on top of a regular network. Of course, it won't be able to achieve the same performance
 as a regular RDMA device but it will implement a similar set of functionalities.
 
@@ -74,33 +75,33 @@ rping -c -a <ip-address> -v
 ### Setup
 
 We assume that rFaaS executor will be executed on one server, using the RDMA device `server_device` and the network address `server_ip`.
-Then, we're going to deploy the benchmarker on another machine, using the RDMA device `benchmark_device` and the netwrok address `benchmark_ip`.
+Then, we're going to deploy the benchmarker on another machine, using the RDMA device `benchmark_device` and the network address `benchmark_ip`.
 
-These four variables will be used when modifying JSON config files.
-If only a single machine is used, then both pairs can point to the same device using the same
-network address.
+These four variables will be used when modifying JSON config files. If only a single machine is used, then both pairs can point to the same device using the same
+network address. However, make sure that each component uses a different port in such deployment!
 
 ### Device Database
 
-Each system component uses a simple JSON data structure to store the configuration of available
-RDMA devices.
+Each system component uses a simple JSON data structure to store the configuration of available RDMA devices.
 The database simplifies the command-line interface of each system component, as it's no longer
 necessary to specify all device properties in each executable - users need to provide just the
 device name and optionally specify the network port.
 
-An example of configuration is available in `config/devices.json`.
+To generate the database automatically, we can use the helper script `tools/device_generator.sh > devices.json`.
+
+Alternatively, an example of configuration is available in `config/devices.json`.
 Here we need to only specify the device name as it is visible when running the `ibv_devices`
 tool, the IP address of the interface associated with the device, and default port selection for
 the device.
-We can use default values for maximal size of inline messaged and the receive buffer size.
+We can use default values for the maximal size of inline messages and the receive buffer size.
 
 ```json
 {
   "devices": [
     {
-      "name": IBV_DEVICE_NAME,
-      "ip_address": IP_ADDRESS,
-      "port": PORT,
+      "name": "IBV_DEVICE_NAME",
+      "ip_address": "IP_ADDRESS",
+      "port": "PORT",
       "max_inline_data": 0,
       "default_receive_buffer_size": 32
     }
@@ -108,7 +109,12 @@ We can use default values for maximal size of inline messaged and the receive bu
 }
 ```
 
-To generate these automatically, we can the helper script `tools/device_generator.sh > devices.json`
+> [!WARNING]  
+> When working with multiple servers and a shared filesystem, we recommend including system name in the filename, e.g., `devices_$(hostname).json`. This way, you can avoid errors caused by accidentally providing wrong device configuration. These errors manifest themselves usually with a failed assertion early in the allocation of `RDMAPassive` or `RDMAActive`.
+
+> [!NOTE]  
+> Data inlining improves the performance of small messages, but it is not supported by every RDMA provider.
+> In particular, it does not work on the SoftROCE emulation. The default behavior is to disable this feature with value "0".
 
 ### rFaaS function
 
@@ -125,7 +131,7 @@ and the return value of the function is the number of bytes returned.
 
 
 `rFaaS` expects to receive a shared library with the function.
-We provide an simple example in `example/functions.cpp`:
+We provide a simple example in `example/functions.cpp`:
 
 ```c++
 extern "C" uint32_t empty(void* args, uint32_t size, void* res)
@@ -146,7 +152,7 @@ allocating function executors, and measuring costs associated with resource cons
 
 First, we need to configure the executor.
 An example of a configuration is available in `config/executor_manager.json`
-and it needs to be extended with device.
+and it needs to be extended with the device selection.
 
 ```json
 {
@@ -171,7 +177,7 @@ and it needs to be extended with device.
 We can use the following command:
 
 ```
-jq --arg device "$server_device" '.config.rdma_device = $device' <src-dir>/config/executor_manager.json > executor_manager.json
+jq --arg device "<your-device>" '.config.rdma_device = $device' <src-dir>/config/executor_manager.json > executor_manager.json
 ```
 
 To start an instance of the executor manager, we use the following command:
@@ -180,8 +186,8 @@ To start an instance of the executor manager, we use the following command:
 PATH=<build-dir>/bin:$PATH <build-dir>/bin/executor_manager -c executor_manager.json --device-database server_devices.json --skip-resource-manager
 ```
 
-**IMPORTANT** The environment variable `PATH` must include the directory `<build-dir>/bin`.
-This is caused by executor manager using `fork` and `execvp` to start a new executor process.
+> [!WARNING]  
+> **IMPORTANT** The environment variable `PATH` must include the directory `<build-dir>/bin`. This is caused by executor manager using `fork` and `execvp` to start a new executor process.
 
 After starting the manager, you should see the output similar to this:
 
@@ -217,7 +223,7 @@ configuration from the previous step:
 We can generate this using the following command:
 
 ```
-jq --arg address "$server_ip" '.executors[0].address = $address' <src-dir>/config/executors_database.json > executors_database.json
+jq --arg address "<exec-mgr-device-address>" '.executors[0].address = $address' <src-dir>/config/executors_database.json > executors_database.json
 ```
 
 To invoke functions, we use a benchmark application that evaluates warm and hot invocations.
@@ -241,6 +247,7 @@ value describes the hot polling timeout in milliseconds.
     "repetitions": 100,
     "warmup_repetitions": 0,
     "numcores": 1,
+    "memory": 256,
     "hot_timeout": -1
   }
 }
@@ -249,14 +256,14 @@ value describes the hot polling timeout in milliseconds.
 We generate the configuration using the following command:
 
 ```
-jq --arg device "$client_device" '.config.rdma_device = $device' <src-dir>/config/benchmark.json > benchmark.json
+jq --arg device "<client-rdma-device>" '.config.rdma_device = $device' <src-dir>/config/benchmark.json > benchmark.json
 ```
 
 To start a benchmark instance with the `name` functions from `examples/libfunctions.so`,
 we use the following command:
 
 ```
-<build-dir>/benchmarks/warm_benchmarker --config benchmark.json --device-database client_devices.json --name empty --functions <build-dir>/examples/libfunctions.so --executors-database executors_database.json -s <payload-size>
+<build-dir>/benchmarks/warm_benchmarker --config benchmark.json --device-database devices.json --name empty --functions <build-dir>/examples/libfunctions.so --executors-database executors_database.json -s <payload-size>
 ```
 
 We should see the following output for payload of size1:
@@ -273,6 +280,9 @@ Data: 1
 ```
 
 For details about this and other benchmarks, please take a look [at the documentation](benchmarks.md).
+
+> [!NOTE]  
+> If you observe failed assertions or you applications hang, first check if all devices and IP addresses are correct.
 
 ### Using Resource Manager
 
@@ -300,13 +310,13 @@ and port 5000 for the HTTP server.
 We can use the following command to generate the configuration:
 
 ```
-jq --arg device "$server_device" '.config.rdma_device = $device' <src-dir>/config/resource_manager.json > resource_manager.json
+jq --arg device "<res-mgr-rdma-device>" '.config.rdma_device = $device' <src-dir>/config/resource_manager.json > resource_manager.json
 ```
 
 To start an instance of the resource manager, we use the following command:
 
 ```
-bin/resource_manager -c config/resource_manager.json --device-database server_devices.json -i executors_database.json
+bin/resource_manager -c config/resource_manager.json --device-database devices.json -i executors_database.json
 ```
 
 Here, we populate the database of all executors by providing a JSON list generated previously: `-i executors_database.json`.
@@ -319,3 +329,16 @@ curl http://127.0.0.1:5000/add\?node\=exec-mgr-node -X POST -d '{"ip_address": "
 Then, we only need to modify the configuration of `executor_manager.json` and `benchmark.json` to add the IP address and port of resource manager.
 For executor manager, we remove the `--skip-resource-manager` flag. For benchmarker, we remove the `--executors-database executors_database.json`
 parameter, as all executor data will now be handled by the resource manager.
+
+```
+jq --arg device "<client-device>" --arg addr "<res-mgr-address>" '.config.rdma_device = $device | .config.resource_manager_address = $addr' <src-dir>//config/benchmark.json > benchmark.json
+jq --arg device "<client-device>" --arg addr "<res-mgr-address>" '.config.rdma_device = $device | .config.resource_manager_address = $addr' <src-dir>//config/executor_manager.json > executor_manager.json
+```
+
+And then:
+
+```
+PATH=<build-dir>/bin:$PATH <build-dir>/bin/executor_manager -c executor_manager.json --device-database devices.json
+
+<build-dir>/benchmarks/warm_benchmarker --config benchmark.json --device-database devices.json --name empty --functions <build-dir>/examples/libfunctions.so -s <payload-size>
+```
