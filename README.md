@@ -47,13 +47,14 @@ its `ugni` provider.
 - C++ compiler with C++17 support.
 - `libibverbs` with headers installed.
 - `librdmacm` with headers installed.
-- [pistache](https://github.com/pistacheio/pistache) - HTTP and REST framework.
 
 Furthermore, we fetch and build the following dependencies during CMake build - unless
 they are found already in the system.
 
 - [spdlog](https://github.com/gabime/spdlog) 1.8
 - [cereal](https://uscilab.github.io/cereal/) 1.3
+- [readerwriterqueue](https://github.com/cameron314/readerwriterqueue) 1.0.6
+- [pistache](https://github.com/pistacheio/pistache) 0.0.5
 - [cxxopts](https://github.com/jarro2783/cxxopts) 
 - [googletest](https://github.com/google/googletest)
 

@@ -11,6 +11,8 @@
 #include <map>
 #include <optional>
 
+#include <readerwriterqueue.h>
+
 #include <rdmalib/connection.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/server.hpp>
@@ -18,7 +20,6 @@
 
 #include <rfaas/devices.hpp>
 
-#include "common/readerwriterqueue.h"
 #include "client.hpp"
 #include "db.hpp"
 #include "http.hpp"

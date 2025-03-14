@@ -10,6 +10,8 @@
 #include <mutex>
 #include <map>
 
+#include <readerwriterqueue.h>
+
 #include <rdmalib/connection.hpp>
 #include <rdmalib/rdmalib.hpp>
 #include <rdmalib/server.hpp>
@@ -21,7 +23,6 @@
 #include "settings.hpp"
 #include "common/messages.hpp"
 #include "common.hpp"
-#include "common/readerwriterqueue.h"
 
 namespace rdmalib {
   struct AllocationRequest;

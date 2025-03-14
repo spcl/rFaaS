@@ -64,3 +64,30 @@ if(${RFAAS_WITH_TESTING})
   FetchContent_MakeAvailable(googletest)
 endif()
 
+###
+# readerwriterqueue
+###
+find_package(readerwriterqueue QUIET)
+if(NOT readerwriterqueue_FOUND)
+  message(STATUS "Downloading and building readerwriterqueue dependency")
+  FetchContent_Declare(
+    readerwriterqueue
+    GIT_REPOSITORY    https://github.com/cameron314/readerwriterqueue
+    GIT_TAG           v1.0.5
+  )
+  FetchContent_MakeAvailable(readerwriterqueue)
+endif()
+
+###
+# pistache
+###
+find_package(libpistache 0.0.5 EXACT QUIET)
+if(NOT libpistache_FOUND)
+  message(STATUS "Downloading and building libpistache dependency")
+  FetchContent_Declare(
+    libpistache
+    GIT_REPOSITORY https://github.com/pistacheio/pistache
+    GIT_TAG        0.0.5
+  )
+  FetchContent_MakeAvailable(libpistache)
+endif()

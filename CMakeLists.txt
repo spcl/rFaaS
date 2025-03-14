@@ -91,11 +91,6 @@ pkg_check_modules(rdmacm REQUIRED IMPORTED_TARGET librdmacm)
 pkg_check_modules(ibverbs REQUIRED IMPORTED_TARGET libibverbs)
 
 ###
-# pistache
-###
-pkg_check_modules(Pistache REQUIRED IMPORTED_TARGET libpistache)
-
-###
 # External dependencies
 ###
 include(dependencies)
@@ -183,10 +178,16 @@ foreach(target ${targets})
   target_link_libraries(${target} PRIVATE rfaaslib)
   target_link_libraries(${target} PRIVATE Threads::Threads)
   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
+  if(${target} STREQUAL "executor_manager" OR ${target} STREQUAL "resource_manager")
+    add_dependencies(${target} readerwriterqueue)
+    target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:readerwriterqueue,INTERFACE_INCLUDE_DIRECTORIES>)
+    target_link_libraries(${target} PRIVATE readerwriterqueue)
+  endif()
 endforeach()
 target_link_libraries(executor PRIVATE dl)
-target_include_directories(resource_manager SYSTEM PUBLIC $<TARGET_PROPERTY:PkgConfig::Pistache,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(resource_manager PRIVATE PkgConfig::Pistache)
+add_dependencies(resource_manager pistache_static)
+target_include_directories(resource_manager SYSTEM PUBLIC $<TARGET_PROPERTY:pistache_static,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(resource_manager PRIVATE pistache_static)
 
 ###
 # Benchmark apps
