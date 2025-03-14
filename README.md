@@ -91,8 +91,9 @@ To learn how to use rFaaS, please follow the [tutorial](docs/tutorial.md)
 
 For an in-depth analysis of each component and their configuration, please look at [the system documentation](docs/system.md).
 
-## Authors
+## Authors & Contributors
 
 * [Marcin Copik (ETH Zurich)](https://github.com/mcopik/) - main author.
 * [Konstantin Taranov (ETH Zurich)](https://github.com/TaranovK) - troubleshooting and optimizating RDMA.
 * [Marcin Chrapek (ETH Zurich)](https://github.com/marchrap) - libfabrics port and support for Cray GNI.
+* [ Nicolò Monaldini (University of Bologna)](https://github.com/nicolo-mn) - improvements to build and RDMA toolchains.
