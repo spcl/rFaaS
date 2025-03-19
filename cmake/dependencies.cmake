@@ -89,5 +89,6 @@ if(NOT libpistache_FOUND)
     GIT_REPOSITORY https://github.com/pistacheio/pistache
     GIT_TAG        v0.4.25
   )
+  set(PISTACHE_BUILD_TESTS OFF CACHE INTERNAL "")
   FetchContent_MakeAvailable(libpistache)
 endif()

@@ -18,7 +18,7 @@ with [SoftROCE](https://github.com/SoftRoCE). This kernel driver allows creating
 RDMA device on top of a regular network. Of course, it won't be able to achieve the same performance
 as a regular RDMA device but it will implement a similar set of functionalities.
 
-The installation of [SoftROCE] should be straightforward on most modern Linux distributions,
+The installation of SoftROCE should be straightforward on most modern Linux distributions,
 and it should not be necessary to manually compile and install kernel modules.
 
 For example, on Ubuntu-based distributions, you need to install `rdma-core`, `ibverbs-utils`.
@@ -30,6 +30,9 @@ sudo rdma link add test type rxe netdev <netdev>
 
 where `netdev` is the name of your Ethernet device used for emulation. You can check the device
 has been created with the following command:
+
+> [!WARNING]
+> Do NOT use the loopback (lo) device / localhost address (127.0.0.1). Add the virtual RDMA device to the normal ethernet interface (wired or WiFi).
 
 ```
 ibv_devices
@@ -101,7 +104,7 @@ We can use default values for the maximal size of inline messages and the receiv
     {
       "name": "IBV_DEVICE_NAME",
       "ip_address": "IP_ADDRESS",
-      "port": "PORT",
+      "port": <PORT_NUMBER>,
       "max_inline_data": 0,
       "default_receive_buffer_size": 32
     }
@@ -263,10 +266,10 @@ To start a benchmark instance with the `name` functions from `examples/libfuncti
 we use the following command:
 
 ```
-<build-dir>/benchmarks/warm_benchmarker --config benchmark.json --device-database devices.json --name empty --functions <build-dir>/examples/libfunctions.so --executors-database executors_database.json -s <payload-size>
+<build-dir>/benchmarks/warm_benchmarker --config benchmark.json --device-database benchmark_devices.json --name empty --functions <build-dir>/examples/libfunctions.so --executors-database executors_database.json -s <payload-size>
 ```
 
-We should see the following output for payload of size1:
+We should see the following output for payload of size 1:
 
 ```console
 [14:08:33:759206] [T 431516] [info] Executing serverless-rdma test warm_benchmarker! 
@@ -316,7 +319,7 @@ jq --arg device "<res-mgr-rdma-device>" '.config.rdma_device = $device' <src-dir
 To start an instance of the resource manager, we use the following command:
 
 ```
-bin/resource_manager -c config/resource_manager.json --device-database devices.json -i executors_database.json
+<build-dir>/bin/resource_manager -c resource_manager.json --device-database server_devices.json -i executors_database.json
 ```
 
 Here, we populate the database of all executors by providing a JSON list generated previously: `-i executors_database.json`.
@@ -335,10 +338,12 @@ jq --arg device "<client-device>" --arg addr "<res-mgr-address>" '.config.rdma_d
 jq --arg device "<client-device>" --arg addr "<res-mgr-address>" '.config.rdma_device = $device | .config.resource_manager_address = $addr' <src-dir>//config/executor_manager.json > executor_manager.json
 ```
 
-And then:
+Then start the executor manager:
 
 ```
-PATH=<build-dir>/bin:$PATH <build-dir>/bin/executor_manager -c executor_manager.json --device-database devices.json
-
-<build-dir>/benchmarks/warm_benchmarker --config benchmark.json --device-database devices.json --name empty --functions <build-dir>/examples/libfunctions.so -s <payload-size>
+PATH=<build-dir>/bin:$PATH <build-dir>/bin/executor_manager -c executor_manager.json --device-database server_devices.json
+```
+And finally the benchmark:
+```
+<build-dir>/benchmarks/warm_benchmarker --config benchmark.json --device-database benchmark_devices.json --name empty --functions <build-dir>/examples/libfunctions.so -s <payload-size>
 ```

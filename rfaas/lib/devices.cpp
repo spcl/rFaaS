@@ -2,6 +2,7 @@
 #include <cereal/archives/json.hpp>
 
 #include <rfaas/devices.hpp>
+#include <algorithm>
 
 namespace rfaas {
 
