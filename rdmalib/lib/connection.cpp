@@ -258,6 +258,17 @@ namespace rdmalib {
     return _post_write(std::forward<ScatterGatherElement>(elems), wr, force_inline, false);
   }
 
+  int32_t Connection::post_read(ScatterGatherElement && elems, const RemoteBuffer & rbuf)
+  {
+    ibv_send_wr wr;
+    memset(&wr, 0, sizeof(wr));
+    wr.opcode = IBV_WR_RDMA_READ;
+    wr.send_flags = IBV_SEND_SIGNALED;
+    wr.wr.rdma.remote_addr = rbuf.addr;
+    wr.wr.rdma.rkey = rbuf.rkey;
+    return _post_write(std::forward<ScatterGatherElement>(elems), wr, false, false);
+  }
+
   int32_t Connection::post_write(ScatterGatherElement && elems, const RemoteBuffer & rbuf, uint32_t immediate, bool force_inline, bool force_solicited)
   {
     ibv_send_wr wr;

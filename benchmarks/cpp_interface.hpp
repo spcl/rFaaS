@@ -17,6 +17,11 @@ namespace cpp_interface {
     std::string flib;
     int input_size;
 
+    bool rdma_type;
+    int pause;
+    int read_size;
+    std::string rma_address;
+
   };
 
   Options options(int argc, char ** argv);

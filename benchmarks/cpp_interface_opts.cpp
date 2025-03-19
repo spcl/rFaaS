@@ -21,6 +21,10 @@ namespace cpp_interface {
       ("name", "Function name", cxxopts::value<std::string>())
       ("functions", "Functions library", cxxopts::value<std::string>())
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
+      ("pause", "Packet size", cxxopts::value<int>()->default_value("500"))
+      ("read_size", "Packet size", cxxopts::value<int>()->default_value("10240"))
+      ("rdma_type", "Packet size", cxxopts::value<int>()->default_value("0"))
+      ("rma_address", "Packet size", cxxopts::value<std::string>()->default_value(""))
       ("h,help", "Print usage", cxxopts::value<bool>()->default_value("false"))
     ;
     auto parsed_options = options.parse(argc, argv);
@@ -39,6 +43,11 @@ namespace cpp_interface {
     result.input_size = parsed_options["size"].as<int>();
     result.output_stats = parsed_options["output-stats"].as<std::string>();
     result.executors_database = parsed_options["executors-database"].as<std::string>();
+
+    result.read_size = parsed_options["read_size"].as<int>();
+    result.pause = parsed_options["pause"].as<int>();
+    result.rdma_type = parsed_options["rdma_type"].as<int>();;
+    result.rma_address = parsed_options["rma_address"].as<std::string>();;
 
     return result;
   }

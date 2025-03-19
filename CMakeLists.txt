@@ -198,8 +198,11 @@ include(benchmarks)
 # Examples
 ###
 add_library(functions SHARED examples/functions.cpp)
+add_library(rma_functions SHARED examples/rma_functions.cpp)
 set_target_properties(functions PROPERTIES POSITION_INDEPENDENT_CODE On)
 set_target_properties(functions PROPERTIES LIBRARY_OUTPUT_DIRECTORY examples)
+set_target_properties(rma_functions PROPERTIES POSITION_INDEPENDENT_CODE On)
+set_target_properties(rma_functions PROPERTIES LIBRARY_OUTPUT_DIRECTORY examples)
 if( ${RFAAS_WITH_EXAMPLES} )
   include(examples)
 endif()
