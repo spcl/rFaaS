@@ -1,21 +1,21 @@
 
 #include <chrono>
-#include <thread>
 #include <fstream>
+#include <thread>
 
-#include <spdlog/spdlog.h>
 #include <cxxopts.hpp>
+#include <spdlog/spdlog.h>
 
-#include <rdmalib/rdmalib.hpp>
-#include <rdmalib/recv_buffer.hpp>
 #include <rdmalib/benchmarker.hpp>
 #include <rdmalib/functions.hpp>
+#include <rdmalib/rdmalib.hpp>
 
 #include <rfaas/executor.hpp>
 #include <rfaas/resources.hpp>
+#include <rfaas/rfaas.hpp>
 
-#include "cpp_interface.hpp"
 #include "settings.hpp"
+#include "cpp_interface.hpp"
 
 #include <unistd.h>
 
@@ -39,35 +39,52 @@ int main(int argc, char ** argv)
   rfaas::benchmark::Settings settings = rfaas::benchmark::Settings::deserialize(benchmark_cfg);
   benchmark_cfg.close();
 
-  // Read connection details to the executors
-  if(opts.executors_database != "") {
+  rfaas::client instance(
+    settings.resource_manager_address, settings.resource_manager_port,
+    *settings.device
+  );
+
+  bool skip_resource_manager = !opts.executors_database.empty();
+
+  std::optional<rfaas::executor> leased_executor;
+  if (!skip_resource_manager) {
+
+    if (!instance.connect()) {
+      spdlog::error("Connection to resource manager failed!");
+      return 1;
+    }
+
+    leased_executor = instance.lease(settings.benchmark.numcores, settings.benchmark.memory, *settings.device);
+    if (!leased_executor.has_value()) {
+      spdlog::error("Couldn't acquire a lease!");
+      return 1;
+    }
+
+  } else {
+
     std::ifstream in_cfg(opts.executors_database);
     rfaas::servers::deserialize(in_cfg);
     in_cfg.close();
-  } else {
-    spdlog::error(
-      "Connection to resource manager is temporarily disabled, use executor database "
-      "option instead!"
-    );
-    return 1;
+
+    leased_executor = instance.lease(rfaas::servers::instance(), settings.benchmark.numcores, settings.benchmark.memory);
+    if (!leased_executor.has_value()) {
+      spdlog::error("Couldn't acquire a lease!");
+      return 1;
+    }
+
   }
 
-  rfaas::executor executor(
-    settings.device->ip_address,
-    settings.rdma_device_port,
-    settings.device->default_receive_buffer_size,
-    settings.device->max_inline_data
-  );
-  if(!executor.allocate(
-    opts.flib,
-    2,
-    opts.input_size,
-    settings.benchmark.hot_timeout,
-    false
-  )) {
+  rfaas::executor executor = std::move(leased_executor.value());
+
+  if (!executor.allocate(opts.flib, opts.input_size,
+                         settings.benchmark.hot_timeout, false, skip_resource_manager)) {
     spdlog::error("Connection to executor and allocation failed!");
     return 1;
   }
+
+
+
+
   rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
   rdmalib::Buffer<char> in2(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out2(opts.input_size);
   in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
@@ -107,7 +124,6 @@ int main(int argc, char ** argv)
   auto f = executor.async(opts.fname, ins[0], outs[0]);
   //spdlog::info("NonBlocking execution done {}", f.get());
 
-  rdmalib::RecvBuffer _rcv_buffer{32};
   rdmalib::RDMAActive active(opts.rma_address, 20000, 32, 0);
   active.allocate();
   if(!active.connect())
@@ -131,7 +147,6 @@ int main(int argc, char ** argv)
   auto r_address = *reinterpret_cast<uint64_t*>(data.data());
   auto r_key = *reinterpret_cast<uint32_t*>(data.data()+8);
 
-  _rcv_buffer.connect(&active.connection());
 
   int i = 0;
   std::ofstream of("output", std::ios::out);

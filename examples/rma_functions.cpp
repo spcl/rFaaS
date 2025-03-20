@@ -28,9 +28,7 @@ extern "C" uint32_t empty(void* args, uint32_t size, void* res)
   while(true) {
     bool result = _state.nonblocking_poll_events(POLLING_TIMEOUT_MS);
     std::cerr << "Polled" << std::endl;
-    auto [conn, conn_status] = _state.poll_events(
-      false
-    );
+    auto [conn, conn_status] = _state.poll_events();
     std::cerr << "Polled 2 " << static_cast<int>(conn_status) << std::endl;
     if(conn == nullptr){
       std::cerr << "Failed connection creation" << std::endl;
