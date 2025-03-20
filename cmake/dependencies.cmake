@@ -25,6 +25,7 @@ if(NOT spdlog_FOUND)
     # default branch is v1.x - for some reason, cmake switches to master
     GIT_TAG v1.8.0
   )
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
   FetchContent_MakeAvailable(spdlog)
 else()
   message(STATUS "Using installed spdlog version")
