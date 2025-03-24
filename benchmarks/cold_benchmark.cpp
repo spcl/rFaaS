@@ -42,11 +42,21 @@ int main(int argc, char ** argv)
     settings.resource_manager_address, settings.resource_manager_port,
     *settings.device
   );
-  if (!instance.connect()) {
-    spdlog::error("Connection to resource manager failed!");
-    return 1;
-  }
 
+  bool skip_resource_manager = !opts.executors_database.empty();
+
+  if (!skip_resource_manager) {
+
+    if (!instance.connect()) {
+      spdlog::error("Connection to resource manager failed!");
+      return 1;
+    }
+  } else {
+
+    std::ifstream in_cfg(opts.executors_database);
+    rfaas::servers::deserialize(in_cfg);
+    in_cfg.close();
+  }
 
 
   rdmalib::Benchmarker<5> benchmarker{settings.benchmark.repetitions};
@@ -59,7 +69,13 @@ int main(int argc, char ** argv)
 
     spdlog::info("Begin iteration {}", i);
 
-    auto leased_executor = instance.lease(settings.benchmark.numcores, settings.benchmark.memory, *settings.device);
+    std::optional<rfaas::executor> leased_executor;
+    if (!skip_resource_manager) {
+      leased_executor = instance.lease(settings.benchmark.numcores, settings.benchmark.memory, *settings.device);
+    }
+    else {
+      leased_executor = instance.lease(rfaas::servers::instance(), settings.benchmark.numcores, settings.benchmark.memory);
+    }
     if (!leased_executor.has_value()) {
       spdlog::error("Couldn't acquire a lease!");
       return 1;

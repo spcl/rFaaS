@@ -51,25 +51,17 @@ int main(int argc, char **argv) {
       spdlog::error("Connection to resource manager failed!");
       return 1;
     }
-
     leased_executor = instance.lease(settings.benchmark.numcores, settings.benchmark.memory, *settings.device);
-    if (!leased_executor.has_value()) {
-      spdlog::error("Couldn't acquire a lease!");
-      return 1;
-    }
-
   } else {
 
     std::ifstream in_cfg(opts.executors_database);
     rfaas::servers::deserialize(in_cfg);
     in_cfg.close();
-
     leased_executor = instance.lease(rfaas::servers::instance(), settings.benchmark.numcores, settings.benchmark.memory);
-    if (!leased_executor.has_value()) {
-      spdlog::error("Couldn't acquire a lease!");
-      return 1;
-    }
-
+  }
+  if (!leased_executor.has_value()) {
+    spdlog::error("Couldn't acquire a lease!");
+    return 1;
   }
 
   rfaas::executor executor = std::move(leased_executor.value());
