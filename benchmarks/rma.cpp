@@ -16,6 +16,7 @@
 
 #include "settings.hpp"
 #include "cpp_interface.hpp"
+#include "../examples/rma_functions.hpp"
 
 #include <unistd.h>
 
@@ -84,48 +85,22 @@ int main(int argc, char ** argv)
 
 
 
+  unsigned int rma_buffer_size = 1024;
+  rmafunctions::RmaFunctionConfig rma_config {executor._device.ip_address, executor._device.port+100, rma_buffer_size};
 
-  rdmalib::Buffer<char> in(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(opts.input_size);
-  rdmalib::Buffer<char> in2(opts.input_size, rdmalib::functions::Submission::DATA_HEADER_SIZE), out2(opts.input_size);
+  rdmalib::Buffer<rmafunctions::RmaFunctionConfig> in(1, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(1);
   in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
   out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-  in2.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
-  out2.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-  std::vector<rdmalib::Buffer<char>> ins;
-  ins.push_back(std::move(in));
-  ins.push_back(std::move(in2));
-  std::vector<rdmalib::Buffer<char>> outs;
-  outs.push_back(std::move(out));
-  outs.push_back(std::move(out2));
-  // Iniitalize input buffers
-  int buf_idx = 1;
-  for(rdmalib::Buffer<char> & buf : ins) {
-    for(int i = 0; i < opts.input_size; ++i) {
-      ((char*)buf.data())[i] = buf_idx;
-    }
-    buf_idx++;
-  }
-  for(rdmalib::Buffer<char> & buf : outs) {
-    memset(buf.data(), 0, opts.input_size);
-  }
-  buf_idx = 0;
-  for(rdmalib::Buffer<char> & buf : ins) {
-    printf("Input %d Data: ", buf_idx++);
-    for(int i = 0; i < std::min(100, opts.input_size); ++i)
-      printf("%d ", ((char*)buf.data())[i]);
-    printf("\n");
-  }
 
-  //spdlog::info("Blocking execution");
-  //executor.execute(opts.fname, ins[0], outs[0]);
-  //spdlog::info("Blocking execution done");
 
   spdlog::info("Non-Blocking execution, pause {}, size {}, write? {}", opts.pause, opts.read_size, opts.rdma_type);
-  auto f = executor.async(opts.fname, ins[0], outs[0]);
+  auto f = executor.async(opts.fname, in, out);
   //spdlog::info("NonBlocking execution done {}", f.get());
 
-  rdmalib::RDMAActive active(opts.rma_address, 20000, 32, 0);
+  spdlog::info("ip: {}, port: {}, size: {}", rma_config.client_ip_address, rma_config.client_port, rma_config.rma_buffer_size);
+  rdmalib::RDMAActive active(rma_config.client_ip_address, rma_config.client_port, 32, 0);
   active.allocate();
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   if(!active.connect())
     return 1;
 
@@ -134,8 +109,8 @@ int main(int argc, char ** argv)
   rdmalib::Buffer<char> input(buf_size);
   rdmalib::Buffer<char> input2(buf_size);
   for(int i = 0; i < buf_size; ++i) {
-    input.data()[i] = 1;
-    input2.data()[i] = 0;
+    input.data()[i] = 'i';
+    input2.data()[i] = 'o';
   }
 
   rdmalib::Buffer<char> data(12);
@@ -148,86 +123,48 @@ int main(int argc, char ** argv)
   auto r_key = *reinterpret_cast<uint32_t*>(data.data()+8);
 
 
-  int i = 0;
   std::ofstream of("output", std::ios::out);
-  while(true) {
-    //spdlog::info("Post write {}", static_cast<int>(input.data()[0]));
+  while (true) {
 
-    if(opts.rdma_type) {
+    if (opts.rdma_type) {
       active.connection().post_write(
         input.sge(buf_size, 0),
         {r_address, r_key},
         false
       );
       active.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
-      if(i % 10 == 0)
-        spdlog::info("Posted write {}, sleep", i);
-      std::this_thread::sleep_for(std::chrono::milliseconds(opts.pause));
-    } else {
-    //spdlog::info("Sleep");
-    //sleep(1);
-    //spdlog::info("Post read {}", static_cast<int>(input2.data()[0]));
+      spdlog::info("Post write {}", (input.data()[0]));
+    }
+    else {
+
       auto start = std::chrono::high_resolution_clock::now();
       active.connection().post_read(
         input2.sge(buf_size, 0),
         {r_address, r_key}
       );
       active.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
+      spdlog::info("Post read {}", (input2.data()[0]));
+
       auto end = std::chrono::high_resolution_clock::now();
- 
       auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
       of << elapsed.count() << '\n';
-      if(i % 10 == 0)
-        spdlog::info("Done read {}, sleep", i);
-      std::this_thread::sleep_for(std::chrono::milliseconds(opts.pause));
     }
-    ++i;
-    //spdlog::info("Got read {}", static_cast<int>(input2.data()[0]));
-    //for(int i = 0; i < buf_size; ++i)
-    //input.data()[i]++;
+    std::this_thread::sleep_for(std::chrono::milliseconds(opts.pause));
+
+    active.connection().post_read(
+      input2.sge(buf_size, 0),
+      {r_address, r_key}
+    );
+    active.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
+    spdlog::info("RMA data read: {}", (input.data()[0]));
   }
-    //spdlog::info("Polled send");
-    //_rcv_buffer.poll(true);
 
   active.connection().close();
-
-  spdlog::info("Connected to RMA");
   f.get();
-  spdlog::info("Finished!");
-
-  //spdlog::info("Non-Blocking execution once more");
-  //auto f2 = executor.async(opts.fname, ins[0], outs[0]);
-  //spdlog::info("NonBlocking execution done {}", f2.get());
-
-  // The result of future should arrive while polling for blocking result
-  //spdlog::info("Mixed blocking and non-blocking execution");
-  //memset(outs[0].data(), 0, opts.input_size);
-  //memset(outs[1].data(), 0, opts.input_size);
-  //auto f3 = executor.async(opts.fname, ins[0], outs[0]);
-  //executor.execute(opts.fname, ins[1], outs[1]);
-  //buf_idx = 1;
-  //for(rdmalib::Buffer<char> & buf : outs) {
-  //  printf("Output %d Data: ", buf_idx++);
-  //  for(int i = 0; i < std::min(100, opts.input_size); ++i)
-  //    printf("%d ", ((char*)buf.data())[i]);
-  //  printf("\n");
-  //}
-  //spdlog::info("Mixed execution done {}", f3.get());
-
-  //spdlog::info("Non-Blocking execution on 2 buffers");
-  //auto f4 = executor.async(opts.fname, ins, outs);
-  //int ret = f4.get();
-  //buf_idx = 1;
-  //for(rdmalib::Buffer<char> & buf : outs) {
-  //  printf("Output %d Data: ", buf_idx++);
-  //  for(int i = 0; i < std::min(100, opts.input_size); ++i)
-  //    printf("%d ", ((char*)buf.data())[i]);
-  //  printf("\n");
-  //}
-  //spdlog::info("NonBlocking execution done {}", ret);
-
   executor.deallocate();
+  instance.disconnect();
 
+  spdlog::info("Finished!");
   return 0;
 }
