@@ -12,7 +12,7 @@ rFaaS comes with four benchmark applications. To set up the benchmark environmen
 
 ## Parallel Invocations
 ```
-<build-dir>/benchmarks/parallel_invocations --config benchmark.json --device-database benchmark_devices.json --name empty --functions <build-dir>/examples/libfunctions.so --executors-database executors_database.json -s <payload-size>
+<build-dir>/benchmarks/parallel_invocations --config benchmark.json --device-database benchmark_devices.json --name empty --functions <build-dir>/examples/libfunctions.so --executors-database executors_database.json -s <payload-size> --cores <number-of-cores>
 ```
 
 ## C++ Interface
@@ -22,5 +22,5 @@ rFaaS comes with four benchmark applications. To set up the benchmark environmen
 
 ## RMA Functions
 ```
-<build-dir>/benchmarks/rma --config benchmark.json --device-database benchmark_devices.json --name empty --functions <build-dir>/examples/librma_functions.so --executors-database executors_database.json -s <payload-size> --read_size <size> --rdma_type <rdma-type> --pause <milliseconds> --rma_address <executor-ip-address>
+<build-dir>/benchmarks/rma --config benchmark.json --device-database benchmark_devices.json --name empty --functions <build-dir>/examples/librma_functions.so --executors-database executors_database.json -s <payload-size> --read_size <size> --rdma_type <rdma-type> --pause <milliseconds>
 ```

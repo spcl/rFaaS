@@ -13,13 +13,12 @@
 #include <rfaas/executor.hpp>
 #include <rfaas/resources.hpp>
 
-#include "parallel_invocations.hpp"
 #include "settings.hpp"
 
 
 int main(int argc, char ** argv)
 {
-  auto opts = parallel_invocations::options(argc, argv);
+  auto opts = rfaas::benchmark::options(argc, argv);
   if(opts.verbose)
     spdlog::set_level(spdlog::level::debug);
   else
@@ -38,8 +37,8 @@ int main(int argc, char ** argv)
   benchmark_cfg.close();
 
   // For this benchmark, we override settings.
-  if(opts.numcores > 0) {
-    settings.benchmark.numcores = opts.numcores;
+  if(opts.cores > 0) {
+    settings.benchmark.numcores = opts.cores;
   }
 
   rfaas::client instance(

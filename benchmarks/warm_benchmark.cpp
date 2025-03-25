@@ -15,10 +15,9 @@
 #include <rfaas/rfaas.hpp>
 
 #include "settings.hpp"
-#include "warm_benchmark.hpp"
 
 int main(int argc, char **argv) {
-  auto opts = warm_benchmarker::options(argc, argv);
+  auto opts = rfaas::benchmark::options(argc, argv);
   if (opts.verbose)
     spdlog::set_level(spdlog::level::debug);
   else

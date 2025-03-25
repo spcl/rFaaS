@@ -15,14 +15,14 @@
 #include <rfaas/rfaas.hpp>
 
 #include "settings.hpp"
-#include "cpp_interface.hpp"
+// TODO
 #include "../examples/rma_functions.hpp"
 
 #include <unistd.h>
 
 int main(int argc, char ** argv)
 {
-  auto opts = cpp_interface::options(argc, argv);
+  auto opts = rfaas::benchmark::options(argc, argv);
   if(opts.verbose)
     spdlog::set_level(spdlog::level::debug);
   else

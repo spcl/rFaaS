@@ -15,12 +15,11 @@
 #include <rfaas/executor.hpp>
 #include <rfaas/resources.hpp>
 
-#include "cold_benchmark.hpp"
 #include "settings.hpp"
 
 int main(int argc, char ** argv)
 {
-  auto opts = cold_benchmarker::opts(argc, argv);
+  auto opts = rfaas::benchmark::options(argc, argv);
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
   if(opts.verbose)
     spdlog::set_level(spdlog::level::debug);
