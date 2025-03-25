@@ -96,7 +96,7 @@ int main(int argc, char ** argv)
   out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
   in.data()[0] = rma_config;
 
-  spdlog::info("Non-Blocking execution, pause {}, size {}, write? {}", opts.pause, opts.read_size, opts.rdma_type);
+  spdlog::info("Non-Blocking execution, pause {}, size {}, write? {}", opts.pause, opts.rma_payload_size, opts.rma_mode);
   auto f = executor.async(opts.fname, in, out);
   // spdlog::info("NonBlocking execution done {}", f.get());
 
@@ -108,7 +108,7 @@ int main(int argc, char ** argv)
     return 1;
 
   // Initialize buffers for access to remote memory
-  int buf_size = opts.read_size;
+  int buf_size = opts.rma_payload_size;
   rdmalib::Buffer<char> input(buf_size);
   rdmalib::Buffer<char> input2(buf_size);
   for(int i = 0; i < buf_size; ++i) {
@@ -130,7 +130,7 @@ int main(int argc, char ** argv)
   std::ofstream of("output", std::ios::out);
   while (true) {
 
-    if (opts.rdma_type) {
+    if (opts.rma_mode) {
       active.connection().post_write(
         input.sge(buf_size, 0),
         {r_address, r_key},

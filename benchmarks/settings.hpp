@@ -60,21 +60,18 @@ namespace rfaas::benchmark {
 
   struct Options {
 
+    bool verbose;
     std::string json_config;
     std::string device_database;
     std::string executors_database;
     std::string output_stats;
-    bool verbose;
     std::string fname;
     std::string flib;
     int input_size;
-
-    int cores;
-
-    bool rdma_type;
     int pause;
-    int read_size;
-
+    int rma_payload_size;
+    bool rma_mode;
+    int cores;
   };
 
   Options options(int argc, char ** argv);
