@@ -7,18 +7,16 @@
 extern "C" uint32_t empty(void* args, uint32_t size, void* res)
 {
   std::cerr << "FUNCTION START\n";
-  rmafunctions::RmaFunctionConfig* src = static_cast<rmafunctions::RmaFunctionConfig*>(args), *dest = static_cast<rmafunctions::RmaFunctionConfig*>(res);
+  rmafunctions::RmaFunctionConfig* src = static_cast<rmafunctions::RmaFunctionConfig*>(args);
+  rmafunctions::RmaFunctionConfig* dest = static_cast<rmafunctions::RmaFunctionConfig*>(res);
   *dest = *src;
-  std::cerr << "Config: ";
-  std::cerr << "ip: " << src->client_ip_address;
-  std::cerr << "port: " << src->client_port;
-  std::cerr << "buffer_size: " << src->rma_buffer_size;
-  std::cerr << std::endl;
+
+  std::cerr << "Config: ip: " << src->client_ip_address << ", port: " << src->client_port << ", memory: " << src->rma_memory_in_bytes << std::endl;
+
   rdmalib::RDMAPassive _state(src->client_ip_address, src->client_port, 32, true);
 
-  int buf_size = src->rma_buffer_size;
-  rdmalib::Buffer<char> memory_data(buf_size);
-  memset(memory_data.data(), 0, buf_size);
+  rdmalib::Buffer<char> memory_data(src->rma_memory_in_bytes);
+  memset(memory_data.data(), 0, src->rma_memory_in_bytes);
 
   rdmalib::Buffer<char> memory_cfg(12);
   memory_data.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
@@ -40,7 +38,7 @@ extern "C" uint32_t empty(void* args, uint32_t size, void* res)
 
     if(conn_status == rdmalib::ConnectionStatus::DISCONNECTED) {
       // FIXME: handle disconnect
-      std::cerr << "[Manager-listen] Disconnection on connection {}" << '\n';
+      std::cerr << "[Manager-listen] Disconnection on connection: ";
       std::cerr << static_cast<int>(memory_data.data()[0]) << '\n';
       break;
     }

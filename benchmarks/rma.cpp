@@ -77,34 +77,37 @@ int main(int argc, char ** argv)
 
   rfaas::executor executor = std::move(leased_executor.value());
 
-  if (!executor.allocate(opts.flib, opts.input_size,
+  // RMA function config
+  int function_input_buffer_len = 1;
+  int function_input_buffer_size = function_input_buffer_len*sizeof(rmafunctions::RmaFunctionConfig);
+  unsigned int rma_memory = 1024;
+  rmafunctions::RmaFunctionConfig rma_config {"0", executor._device.port+100, rma_memory};
+  strncpy(rma_config.client_ip_address, executor._device.ip_address.c_str(), rmafunctions::IPV4_ADDRESS_STRING_LENGTH);
+
+  if (!executor.allocate(opts.flib, function_input_buffer_size,
                          settings.benchmark.hot_timeout, false, skip_resource_manager)) {
     spdlog::error("Connection to executor and allocation failed!");
     return 1;
   }
 
-
-
-  unsigned int rma_buffer_size = 1024;
-  rmafunctions::RmaFunctionConfig rma_config {executor._device.ip_address, executor._device.port+100, rma_buffer_size};
-
-  rdmalib::Buffer<rmafunctions::RmaFunctionConfig> in(1, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(1);
+  // Initialize input buffers and send rma_config
+  rdmalib::Buffer<rmafunctions::RmaFunctionConfig> in(function_input_buffer_len, rdmalib::functions::Submission::DATA_HEADER_SIZE), out(function_input_buffer_len);
   in.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE);
   out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
-
+  in.data()[0] = rma_config;
 
   spdlog::info("Non-Blocking execution, pause {}, size {}, write? {}", opts.pause, opts.read_size, opts.rdma_type);
   auto f = executor.async(opts.fname, in, out);
-  //spdlog::info("NonBlocking execution done {}", f.get());
+  // spdlog::info("NonBlocking execution done {}", f.get());
 
-  spdlog::info("ip: {}, port: {}, size: {}", rma_config.client_ip_address, rma_config.client_port, rma_config.rma_buffer_size);
   rdmalib::RDMAActive active(rma_config.client_ip_address, rma_config.client_port, 32, 0);
   active.allocate();
+  // TODO: connection management
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   if(!active.connect())
     return 1;
 
-  // receive buffer data
+  // Initialize buffers for access to remote memory
   int buf_size = opts.read_size;
   rdmalib::Buffer<char> input(buf_size);
   rdmalib::Buffer<char> input2(buf_size);
@@ -113,6 +116,7 @@ int main(int argc, char ** argv)
     input2.data()[i] = 'o';
   }
 
+  // Get memory address of remote memory buffer
   rdmalib::Buffer<char> data(12);
   data.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
   input.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
