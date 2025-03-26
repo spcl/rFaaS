@@ -100,12 +100,15 @@ int main(int argc, char ** argv)
   auto f = executor.async(opts.fname, in, out);
   // spdlog::info("NonBlocking execution done {}", f.get());
 
-  rdmalib::RDMAActive active(rma_config.client_ip_address, rma_config.client_port, 32, 0);
-  active.allocate();
-  // TODO: connection management
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  if(!active.connect())
-    return 1;
+  rdmalib::RDMAActive active;
+  while (true) {
+    rdmalib::RDMAActive tmp_active(rma_config.client_ip_address, rma_config.client_port, 32, 0);
+    if (tmp_active.connect()) {
+      active = std::move(tmp_active);
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
 
   // Initialize buffers for access to remote memory
   int buf_size = opts.rma_payload_size;
