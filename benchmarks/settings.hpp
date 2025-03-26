@@ -69,7 +69,7 @@ namespace rfaas::benchmark {
     std::string flib;
     int input_size;
     int pause;
-    int rma_payload_size;
+    int rma_memory;
     bool rma_mode;
     int cores;
   };

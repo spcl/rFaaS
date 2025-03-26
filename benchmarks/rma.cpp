@@ -80,7 +80,7 @@ int main(int argc, char ** argv)
   // RMA function config
   int function_input_buffer_len = 1;
   int function_input_buffer_size = function_input_buffer_len*sizeof(rmafunctions::RmaFunctionConfig);
-  unsigned int rma_memory = 1024;
+  unsigned int rma_memory = opts.rma_memory;
   rmafunctions::RmaFunctionConfig rma_config {"0", executor._device.port+100, rma_memory};
   strncpy(rma_config.client_ip_address, executor._device.ip_address.c_str(), rmafunctions::IPV4_ADDRESS_STRING_LENGTH);
 
@@ -96,10 +96,11 @@ int main(int argc, char ** argv)
   out.register_memory(executor._state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
   in.data()[0] = rma_config;
 
-  spdlog::info("Non-Blocking execution, pause {}, size {}, write? {}", opts.pause, opts.rma_payload_size, opts.rma_mode);
+  spdlog::info("Invoke RMA function");
   auto f = executor.async(opts.fname, in, out);
   // spdlog::info("NonBlocking execution done {}", f.get());
 
+  spdlog::info("Connecting to RMA function...");
   rdmalib::RDMAActive active;
   while (true) {
     rdmalib::RDMAActive tmp_active(rma_config.client_ip_address, rma_config.client_port, 32, 0);
@@ -109,29 +110,37 @@ int main(int argc, char ** argv)
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
+  spdlog::info("Connected to RMA function");
 
   // Initialize buffers for access to remote memory
-  int buf_size = opts.rma_payload_size;
+  int buf_size = opts.input_size;
   rdmalib::Buffer<char> input(buf_size);
-  rdmalib::Buffer<char> input2(buf_size);
   for(int i = 0; i < buf_size; ++i) {
     input.data()[i] = 'i';
-    input2.data()[i] = 'o';
   }
 
   // Get memory address of remote memory buffer
   rdmalib::Buffer<char> data(12);
   data.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
   input.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
-  input2.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
   active.connection().post_recv(data);
   active.connection().poll_wc(rdmalib::QueueType::RECV, true, 1);
   auto r_address = *reinterpret_cast<uint64_t*>(data.data());
   auto r_key = *reinterpret_cast<uint32_t*>(data.data()+8);
 
 
-  std::ofstream of("output", std::ios::out);
-  while (true) {
+  spdlog::info("Starting benchmark with: pause {} ms, payload size {}, write? {}", opts.pause, opts.input_size, opts.rma_mode);
+
+  rdmalib::Benchmarker<1> benchmarker{settings.benchmark.repetitions};
+  int warmup_count = settings.benchmark.warmup_repetitions;
+  int iteration_count = settings.benchmark.repetitions;
+  if (warmup_count > 0)
+    spdlog::info("Warmups begin");
+
+  while (iteration_count > 0) {
+    
+    if (warmup_count <= 0)
+      benchmarker.start();
 
     if (opts.rma_mode) {
       active.connection().post_write(
@@ -139,33 +148,36 @@ int main(int argc, char ** argv)
         {r_address, r_key},
         false
       );
-      active.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
-      spdlog::info("Post write {}", (input.data()[0]));
+      spdlog::debug("Posted write {}", (input.data()[0]));
     }
     else {
-
-      auto start = std::chrono::high_resolution_clock::now();
       active.connection().post_read(
-        input2.sge(buf_size, 0),
+        input.sge(buf_size, 0),
         {r_address, r_key}
       );
-      active.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
-      spdlog::info("Post read {}", (input2.data()[0]));
+      spdlog::debug("Posted read {}", (input.data()[0]));
+    }
 
-      auto end = std::chrono::high_resolution_clock::now();
-      auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    active.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
 
-      of << elapsed.count() << '\n';
+    if (warmup_count <= 0)
+      benchmarker.end(0);
+    
+    if (warmup_count > 0) {
+      warmup_count--;
+      if (warmup_count == 0)
+        spdlog::info("Warmups completed");
+    }
+    else {
+      iteration_count--;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(opts.pause));
-
-    active.connection().post_read(
-      input2.sge(buf_size, 0),
-      {r_address, r_key}
-    );
-    active.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
-    spdlog::info("RMA data read: {}", (input.data()[0]));
   }
+
+  auto [median, avg] = benchmarker.summary();
+  spdlog::info("Executed {} repetitions, avg {} usec/iter, median {}", settings.benchmark.repetitions, avg, median);
+  if (opts.output_stats != "")
+    benchmarker.export_csv(opts.output_stats, {"time"});
 
   active.connection().close();
   f.get();
