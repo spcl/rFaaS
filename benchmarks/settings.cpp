@@ -36,7 +36,7 @@ namespace rfaas::benchmark {
       ("name", "Function name", cxxopts::value<std::string>())
       ("functions", "Functions library", cxxopts::value<std::string>())
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
-      ("pause", "Pause between iterations [ms]", cxxopts::value<int>()->default_value("1000"))
+      ("pause", "Pause between iterations [ms]", cxxopts::value<int>()->default_value("50"))
       ("rma_memory", "RMA function: Size of remote memory in [bytes]", cxxopts::value<int>()->default_value("1024"))
       ("rma_mode", "RMA function: For reading (0) or writing (1) the payload", cxxopts::value<int>()->default_value("0"))
       ("cores", "Number of cores", cxxopts::value<int>()->default_value("1"))

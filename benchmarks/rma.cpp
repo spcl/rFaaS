@@ -81,7 +81,7 @@ int main(int argc, char ** argv)
   int function_input_buffer_len = 1;
   int function_input_buffer_size = function_input_buffer_len*sizeof(rmafunctions::RmaFunctionConfig);
   unsigned int rma_memory = opts.rma_memory;
-  rmafunctions::RmaFunctionConfig rma_config {"0", executor._device.port+100, rma_memory};
+  rmafunctions::RmaFunctionConfig rma_config {"0", 54328, rma_memory};
   strncpy(rma_config.client_ip_address, executor._device.ip_address.c_str(), rmafunctions::IPV4_ADDRESS_STRING_LENGTH);
 
   if (!executor.allocate(opts.flib, function_input_buffer_size,
