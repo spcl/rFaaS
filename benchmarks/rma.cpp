@@ -28,7 +28,7 @@ int main(int argc, char ** argv)
   else
     spdlog::set_level(spdlog::level::info);
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
-  spdlog::info("Executing serverless-rdma test C++ interface.!");
+  spdlog::info("Executing serverless-rdma test rma!");
 
   // Read device details
   std::ifstream in_dev{opts.device_database};
@@ -158,7 +158,11 @@ int main(int argc, char ** argv)
       spdlog::debug("Posted read {}", (input.data()[0]));
     }
 
-    active.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
+    auto [wc, ret] = active.connection().poll_wc(rdmalib::QueueType::SEND, true, 1);
+    if (wc[0].status != 0) {
+      spdlog::error("Error when posting read/write to rma function");
+      return 1;
+    }
 
     if (warmup_count <= 0)
       benchmarker.end(0);

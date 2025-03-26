@@ -25,7 +25,7 @@ int main(int argc, char ** argv)
     spdlog::set_level(spdlog::level::debug);
   else
     spdlog::set_level(spdlog::level::info);
-  spdlog::info("Executing serverless-rdma test cold_benchmarker");
+  spdlog::info("Executing serverless-rdma test cold benchmark!");
  
   // Read device details
   std::ifstream in_dev{opts.device_database};

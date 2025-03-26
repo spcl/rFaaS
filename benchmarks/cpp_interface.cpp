@@ -24,7 +24,7 @@ int main(int argc, char ** argv)
   else
     spdlog::set_level(spdlog::level::info);
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
-  spdlog::info("Executing serverless-rdma test C++ interface.!");
+  spdlog::info("Executing serverless-rdma test C++ interface!");
 
   // Read device details
   std::ifstream in_dev{opts.device_database};

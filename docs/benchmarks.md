@@ -22,5 +22,5 @@ rFaaS comes with four benchmark applications. To set up the benchmark environmen
 
 ## RMA Functions
 ```
-<build-dir>/benchmarks/rma --config benchmark.json --device-database benchmark_devices.json --name empty --functions <build-dir>/examples/librma_functions.so --executors-database executors_database.json -s <payload-size> --rma_payload_size <size> --rma_mode <mode> --pause <milliseconds>
+<build-dir>/benchmarks/rma --config benchmark.json --device-database benchmark_devices.json --name empty --functions <build-dir>/examples/librma_functions.so --executors-database executors_database.json -s <payload-size> --rma_mode <mode> --rma_memory <size> --pause <milliseconds>
 ```
