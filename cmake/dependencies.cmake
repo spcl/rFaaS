@@ -26,6 +26,7 @@ if(NOT spdlog_FOUND)
     GIT_TAG v1.8.0
   )
   FetchContent_MakeAvailable(spdlog)
+  set_property(TARGET spdlog PROPERTY POSITION_INDEPENDENT_CODE ON)
 else()
   message(STATUS "Using installed spdlog version")
   add_custom_target(spdlog)

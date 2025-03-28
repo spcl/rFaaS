@@ -304,7 +304,6 @@ namespace rfaas {
       if(benchmarker)
         benchmarker->start();
       bool ret = _exec_manager->connect();
-      spdlog::error("connect");
       if(benchmarker) {
         benchmarker->end(0);
         benchmarker->start();
@@ -329,7 +328,6 @@ namespace rfaas {
       // Legacy path
       if(skip_resource_manger) {
 
-        spdlog::error("{} {}", _numcores, _memory);
         _exec_manager->request().cores = _numcores;
         _exec_manager->request().memory = _memory;
 

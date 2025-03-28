@@ -15,16 +15,15 @@
 #include <rfaas/rfaas.hpp>
 
 #include "settings.hpp"
-#include "warm_benchmark.hpp"
 
 int main(int argc, char **argv) {
-  auto opts = warm_benchmarker::options(argc, argv);
+  auto opts = rfaas::benchmark::options(argc, argv);
   if (opts.verbose)
     spdlog::set_level(spdlog::level::debug);
   else
     spdlog::set_level(spdlog::level::info);
   spdlog::set_pattern("[%H:%M:%S:%f] [T %t] [%l] %v ");
-  spdlog::info("Executing serverless-rdma test warm_benchmarker!");
+  spdlog::info("Executing serverless-rdma test warm benchmark!");
 
   // Read device details
   std::ifstream in_dev{opts.device_database};
@@ -51,25 +50,17 @@ int main(int argc, char **argv) {
       spdlog::error("Connection to resource manager failed!");
       return 1;
     }
-
     leased_executor = instance.lease(settings.benchmark.numcores, settings.benchmark.memory, *settings.device);
-    if (!leased_executor.has_value()) {
-      spdlog::error("Couldn't acquire a lease!");
-      return 1;
-    }
-
   } else {
 
     std::ifstream in_cfg(opts.executors_database);
     rfaas::servers::deserialize(in_cfg);
     in_cfg.close();
-
     leased_executor = instance.lease(rfaas::servers::instance(), settings.benchmark.numcores, settings.benchmark.memory);
-    if (!leased_executor.has_value()) {
-      spdlog::error("Couldn't acquire a lease!");
-      return 1;
-    }
-
+  }
+  if (!leased_executor.has_value()) {
+    spdlog::error("Couldn't acquire a lease!");
+    return 1;
   }
 
   rfaas::executor executor = std::move(leased_executor.value());

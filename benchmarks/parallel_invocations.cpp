@@ -13,13 +13,12 @@
 #include <rfaas/executor.hpp>
 #include <rfaas/resources.hpp>
 
-#include "parallel_invocations.hpp"
 #include "settings.hpp"
 
 
 int main(int argc, char ** argv)
 {
-  auto opts = parallel_invocations::options(argc, argv);
+  auto opts = rfaas::benchmark::options(argc, argv);
   if(opts.verbose)
     spdlog::set_level(spdlog::level::debug);
   else
@@ -38,20 +37,31 @@ int main(int argc, char ** argv)
   benchmark_cfg.close();
 
   // For this benchmark, we override settings.
-  if(opts.numcores > 0) {
-    settings.benchmark.numcores = opts.numcores;
+  if(opts.cores > 0) {
+    settings.benchmark.numcores = opts.cores;
   }
 
   rfaas::client instance(
     settings.resource_manager_address, settings.resource_manager_port,
     *settings.device
   );
-  if (!instance.connect()) {
-    spdlog::error("Connection to resource manager failed!");
-    return 1;
-  }
+  bool skip_resource_manager = !opts.executors_database.empty();
 
-  auto leased_executor = instance.lease(settings.benchmark.numcores, settings.benchmark.memory, *settings.device);
+  std::optional<rfaas::executor> leased_executor;
+  if (!skip_resource_manager) {
+
+    if (!instance.connect()) {
+      spdlog::error("Connection to resource manager failed!");
+      return 1;
+    }
+    leased_executor = instance.lease(settings.benchmark.numcores, settings.benchmark.memory, *settings.device);
+  } else {
+
+    std::ifstream in_cfg(opts.executors_database);
+    rfaas::servers::deserialize(in_cfg);
+    in_cfg.close();
+    leased_executor = instance.lease(rfaas::servers::instance(), settings.benchmark.numcores, settings.benchmark.memory);
+  }
   if (!leased_executor.has_value()) {
     spdlog::error("Couldn't acquire a lease!");
     return 1;
@@ -59,12 +69,8 @@ int main(int argc, char ** argv)
 
   rfaas::executor executor = std::move(leased_executor.value());
 
-  if(!executor.allocate(
-    opts.flib,
-    opts.input_size,
-    settings.benchmark.hot_timeout,
-    false
-  )) {
+  if (!executor.allocate(opts.flib, opts.input_size,
+                         settings.benchmark.hot_timeout, false, skip_resource_manager)) {
     spdlog::error("Connection to executor and allocation failed!");
     return 1;
   }

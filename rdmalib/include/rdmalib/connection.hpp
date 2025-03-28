@@ -143,6 +143,7 @@ namespace rdmalib {
     int32_t post_recv(ScatterGatherElement && elem, int32_t id = -1, int32_t count = 1);
 
     int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf, bool force_inline = false);
+    int32_t post_read(ScatterGatherElement && elems, const RemoteBuffer & buf);
     // Solicited makes sense only for RDMA write with immediate
     int32_t post_write(ScatterGatherElement && elems, const RemoteBuffer & buf,
       uint32_t immediate,

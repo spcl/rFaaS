@@ -58,6 +58,23 @@ namespace rfaas::benchmark {
     static Settings deserialize(std::istream & in);
   };
 
+  struct Options {
+
+    bool verbose;
+    std::string json_config;
+    std::string device_database;
+    std::string executors_database;
+    std::string output_stats;
+    std::string fname;
+    std::string flib;
+    int input_size;
+    int pause;
+    int rma_memory;
+    bool rma_mode;
+    int cores;
+  };
+
+  Options options(int argc, char ** argv);
 }
 
 #endif

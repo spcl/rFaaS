@@ -282,7 +282,7 @@ We should see the following output for payload of size 1:
 Data: 1 
 ```
 
-For details about this and other benchmarks, please take a look [at the documentation](benchmarks.md).
+For details about this and other benchmarks, please take a look [benchmarks.md](benchmarks.md).
 
 > [!NOTE]  
 > If you observe failed assertions or you applications hang, first check if all devices and IP addresses are correct.

@@ -22,7 +22,6 @@ namespace rdmalib {
 
     void initialize(ibv_cq* recv_cq)
     {
-      spdlog::error("POLLER {}", fmt::ptr(recv_cq));
       _recv_cq = recv_cq;
     }
 
