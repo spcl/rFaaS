@@ -16,10 +16,10 @@ extern "C" uint32_t empty(void* args, uint32_t size, void* res)
   rdmalib::RDMAPassive _state(src->client_ip_address, src->client_port, 32, true);
 
   rdmalib::Buffer<char> memory_data(src->rma_memory_in_bytes);
+  memory_data.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
   memset(memory_data.data(), 0, src->rma_memory_in_bytes);
 
   rdmalib::Buffer<char> memory_cfg(12);
-  memory_data.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE);
   memory_cfg.register_memory(_state.pd(), IBV_ACCESS_LOCAL_WRITE);
   *reinterpret_cast<uint64_t*>(memory_cfg.data()) = memory_data.address();
   *reinterpret_cast<uint32_t*>(memory_cfg.data()+8) = memory_data.rkey();
@@ -39,11 +39,8 @@ extern "C" uint32_t empty(void* args, uint32_t size, void* res)
     if(conn_status == rdmalib::ConnectionStatus::DISCONNECTED) {
       // FIXME: handle disconnect
       std::cerr << "[Manager-listen] Disconnection on connection: ";
-      std::cerr << static_cast<int>(memory_data.data()[0]) << '\n';
       break;
     }
-    // When client connects, we need to fill the receive queue with work requests before
-    // accepting connection. Otherwise, we could accept before we're ready to receive data.
     else if(conn_status == rdmalib::ConnectionStatus::REQUESTED) {
       std::cerr << "Polled, accept!" << std::endl;
       _state.accept(conn);

@@ -49,3 +49,8 @@ Benchmark for reads/writes to remote function memory. The client application rea
     * `--rma_mode [0 | 1]` for reading (0) or writing (1) the payload
     * `--rma_memory <size>` for size of the remote memory in bytes
     * `--pause <milliseconds>` for sleep time between iterations
+
+Example run:
+```
+<build-dir>/benchmarks/rma --config benchmark.json --device-database benchmark_devices.json --name empty --functions <build-dir>/examples/librma_functions.so --executors-database executors_database.json -s 1 --rma_mode 0 --rma_memory 1024 --pause 10
+```

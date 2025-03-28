@@ -115,6 +115,7 @@ int main(int argc, char ** argv)
   // Initialize buffers for access to remote memory
   int buf_size = opts.input_size;
   rdmalib::Buffer<char> input(buf_size);
+  input.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
   for(int i = 0; i < buf_size; ++i) {
     input.data()[i] = 'i';
   }
@@ -122,7 +123,6 @@ int main(int argc, char ** argv)
   // Get memory address of remote memory buffer
   rdmalib::Buffer<char> data(12);
   data.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
-  input.register_memory(active.pd(), IBV_ACCESS_LOCAL_WRITE);
   active.connection().post_recv(data);
   active.connection().poll_wc(rdmalib::QueueType::RECV, true, 1);
   auto r_address = *reinterpret_cast<uint64_t*>(data.data());
@@ -143,18 +143,11 @@ int main(int argc, char ** argv)
       benchmarker.start();
 
     if (opts.rma_mode) {
-      active.connection().post_write(
-        input.sge(buf_size, 0),
-        {r_address, r_key},
-        false
-      );
+      active.connection().post_write(input.sge(buf_size, 0), {r_address, r_key}, false);
       spdlog::debug("Posted write {}", (input.data()[0]));
     }
     else {
-      active.connection().post_read(
-        input.sge(buf_size, 0),
-        {r_address, r_key}
-      );
+      active.connection().post_read(input.sge(buf_size, 0), {r_address, r_key});
       spdlog::debug("Posted read {}", (input.data()[0]));
     }
 
