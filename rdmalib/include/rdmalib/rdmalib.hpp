@@ -47,6 +47,7 @@ namespace rdmalib {
     RDMAActive();
     RDMAActive(const std::string & ip, int port, int recv_buf = 1, int max_inline_data = 0);
     RDMAActive & operator=(RDMAActive &&);
+    RDMAActive(RDMAActive &&);
     ~RDMAActive();
 
     void allocate();

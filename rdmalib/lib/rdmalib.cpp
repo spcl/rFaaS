@@ -154,6 +154,17 @@ namespace rdmalib {
     return *this;
   }
 
+  RDMAActive::RDMAActive(RDMAActive && obj)
+  {
+    _conn = std::move(obj._conn);
+    _addr = std::move(obj._addr);
+    _ec = std::move(obj._ec);
+    _pd = std::move(obj._pd);
+    _cfg = std::move(obj._cfg);
+    _recv_buf = std::move(obj._recv_buf);
+    _is_connected = std::move(obj._is_connected);
+  }
+
   RDMAActive::~RDMAActive()
   {
     //ibv_dealloc_pd(this->_pd);
