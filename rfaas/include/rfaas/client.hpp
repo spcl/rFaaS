@@ -75,6 +75,18 @@ namespace rfaas {
       return std::make_optional<rfaas::executor>(instance.address, instance.port, cores, memory, 0, _device);
     }
 
+    std::optional<rfaas::executor> lease_max_memory(servers& nodes_data, uint server_idx, int16_t cores)
+    {
+      if(!nodes_data.size() || server_idx >= nodes_data.size()) {
+        return std::nullopt;
+      }
+
+      server_data instance = nodes_data.server(server_idx);
+      uint32_t memory = instance.memory;
+
+      return std::make_optional<rfaas::executor>(instance.address, instance.port, cores, memory, 0, _device);
+    }
+
   private:
     resource_mgr_connection _resource_mgr;
 
