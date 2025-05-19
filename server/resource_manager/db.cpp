@@ -75,6 +75,11 @@ namespace rfaas { namespace resource_manager {
         continue;
       }
 
+      // Lease entire free memory when receiving reserved value -1
+      if (memory == -1) {
+        memory = shared_ptr->_free_memory;
+      }
+
       if(!shared_ptr->lease(numcores, memory)) {
         ++it;
         SPDLOG_DEBUG("Node {} cannot be used, not enough resources!", shared_ptr->node);
@@ -84,6 +89,8 @@ namespace rfaas { namespace resource_manager {
       lease.lease_id = _lease_count++;
       lease.port = shared_ptr->port;
       strncpy(lease.address, shared_ptr->address.c_str(), Executor::ADDRESS_LENGTH);
+      lease.cores = numcores;
+      lease.memory = memory;
 
       bool is_total = shared_ptr->is_fully_leased();
       if(is_total) {
