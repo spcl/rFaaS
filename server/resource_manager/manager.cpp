@@ -322,8 +322,8 @@ void Manager::_handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send
     } else {
 
       allocated->_send_buffer[0].lease_id = client.response()[0].lease_id;
-      allocated->_send_buffer[0].cores = cores;
-      allocated->_send_buffer[0].memory = memory;
+      allocated->_send_buffer[0].cores = client.response()[0].cores;
+      allocated->_send_buffer[0].memory = client.response()[0].memory;
 
       allocated->_connection->post_send(
         allocated->_send_buffer,

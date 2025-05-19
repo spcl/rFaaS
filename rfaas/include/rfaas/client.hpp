@@ -54,12 +54,14 @@ namespace rfaas {
       }
 
       int response_id = responses[0].wr_id;
+      LeaseResponse& lease_response = _resource_mgr.response(response_id);
+
       return rfaas::executor{
-        std::string{_resource_mgr.response(response_id).address},
-        _resource_mgr.response(response_id).port,
-        cores,
-        memory,
-        _resource_mgr.response(response_id).lease_id,
+        std::string{lease_response.address},
+        lease_response.port,
+        lease_response.cores,
+        lease_response.memory,
+        lease_response.lease_id,
         dev
       };
     }

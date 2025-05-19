@@ -25,6 +25,8 @@ namespace rfaas {
     int32_t port;
     char address[16];
     //LeasedNode nodes[MAX_NODES_PER_LEASE];
+    int16_t cores;
+    int32_t memory;
   };
 
   struct AllocationRequest {
