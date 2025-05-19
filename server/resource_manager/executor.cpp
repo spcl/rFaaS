@@ -48,11 +48,18 @@ namespace rfaas::resource_manager {
 
   bool Executor::lease(int cores, int memory)
   {
+
+    // Lease entire free memory when receiving reserved value -1
+    if (memory == -1) {
+      memory = _free_memory;
+    }
+
     // Not enough memory? skip
     if(_free_memory < memory) {
       return false;
     }
 
+    // Note that values of cores <= 0 are reserved by the resource manager to disconnect clients
     if(_free_cores < cores) {
       return false;
     }
