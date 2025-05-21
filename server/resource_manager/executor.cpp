@@ -48,7 +48,10 @@ namespace rfaas::resource_manager {
 
   bool Executor::lease(int cores, int memory)
   {
-    // Not enough memory? skip
+    if (cores <= 0 || memory <= 0 || _free_cores <= 0 || _free_memory <= 0) {
+      return false;
+    }
+
     if(_free_memory < memory) {
       return false;
     }

@@ -8,7 +8,7 @@ namespace rfaas {
 
   struct LeaseRequest {
     // > 0: Number of cores to be allocated
-    // < 0: client_id with negative sign, deallocation & disconnect request
+    // <= 0: client_id with negative sign, deallocation & disconnect request
     int16_t cores;
     int32_t memory;
   };
@@ -25,6 +25,8 @@ namespace rfaas {
     int32_t port;
     char address[16];
     //LeasedNode nodes[MAX_NODES_PER_LEASE];
+    int16_t cores;
+    int32_t memory;
   };
 
   struct AllocationRequest {
