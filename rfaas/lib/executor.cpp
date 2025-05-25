@@ -203,12 +203,12 @@ namespace rfaas {
   void executor::poll_queue()
   {
     // FIXME: hide the details in rdmalib
-    spdlog::info("Background thread starts waiting for events");
+    spdlog::info("Executor background thread starts waiting for events");
     _connections[0].conn->notify_events(true);
     int flags = fcntl(_connections[0].conn->completion_channel()->fd, F_GETFL);
     int rc = fcntl(_connections[0].conn->completion_channel()->fd, F_SETFL, flags | O_NONBLOCK);
     if (rc < 0) {
-      fprintf(stderr, "Failed to change file descriptor of completion event channel\n");
+      spdlog::error("Failed to change file descriptor of completion event channel");
       return;
     }
 
@@ -220,12 +220,12 @@ namespace rfaas {
       do {
         rc = poll(&my_pollfd, 1, 100);
         if(_end_requested) {
-          spdlog::info("Background thread stops waiting for events");
+          spdlog::info("Executor background thread stops waiting for events");
           return;
         }
       } while (rc == 0);
       if (rc < 0) {
-        fprintf(stderr, "poll failed\n");
+        spdlog::error("Executor background thread poll failed");
         return;
       }
       if(!_end_requested) {
@@ -244,6 +244,7 @@ namespace rfaas {
           // FIXME: handle error
           if(!--std::get<0>(it->second)) {
             std::get<1>(it->second).set_value(return_val);
+            spdlog::info("Set return_val: {}", return_val);
 
             _connections[0].conn->receive_wcs().update_requests(_connections.size() - 1);
             for(int i = 1; i < _connections.size(); ++i) {
@@ -256,7 +257,7 @@ namespace rfaas {
           conn.conn->poll_wc(rdmalib::QueueType::SEND, false);
       }
     }
-    spdlog::info("Background thread stops waiting for events");
+    spdlog::info("Executor background thread stops waiting for events");
 
     // Wait for event
     // Ask for next events
