@@ -244,7 +244,6 @@ namespace rfaas {
           // FIXME: handle error
           if(!--std::get<0>(it->second)) {
             std::get<1>(it->second).set_value(return_val);
-            spdlog::info("Set return_val: {}", return_val);
 
             _connections[0].conn->receive_wcs().update_requests(_connections.size() - 1);
             for(int i = 1; i < _connections.size(); ++i) {
