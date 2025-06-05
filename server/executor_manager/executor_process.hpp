@@ -32,6 +32,7 @@ namespace rfaas::executor_manager {
     rdmalib::Connection** connections;
     int connections_len;
     int cores;
+    int32_t _lease_id;
 
     ActiveExecutor(int cores):
       connections(new rdmalib::Connection*[cores]),
@@ -49,7 +50,7 @@ namespace rfaas::executor_manager {
   {
     pid_t _pid;
 
-    ProcessExecutor(int cores, time_t alloc_begin, pid_t pid);
+    ProcessExecutor(int cores, time_t alloc_begin, pid_t pid, int32_t lease_id);
 
     // FIXME: kill active executor
     //~ProcessExecutor();

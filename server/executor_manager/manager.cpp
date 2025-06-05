@@ -311,8 +311,8 @@ namespace rfaas::executor_manager {
       );
       auto end = std::chrono::high_resolution_clock::now();
       spdlog::info(
-        "Client {} at {}:{} has executor with {} ID and {} cores, time {} us",
-        client.id(), client_address, client_port, client.executor->id(), lease->cores,
+        "Client {} at {}:{} has executor with pid {}, lease id {}, cores {}, time {} us",
+        client.id(), client_address, client_port, client.executor->id(), lease->id, lease->cores,
         std::chrono::duration_cast<std::chrono::microseconds>(end-now).count()
       );
 
@@ -327,7 +327,6 @@ namespace rfaas::executor_manager {
     } else {
 
       spdlog::info("Client {} disconnects", client.id());
-      //client.disable(i, _accounting_data.data()[i]);
       client.disable(_res_mgr_connection.get());
 
       return false;
@@ -340,7 +339,7 @@ namespace rfaas::executor_manager {
     for(auto it = _clients.begin(); it != _clients.end(); ++it) {
 
       Client & client = it->second;
-      int i = it->first;
+      uint32_t client_id = it->first;
       if(!client.active()) {
         continue;
       }
@@ -361,9 +360,9 @@ namespace rfaas::executor_manager {
         // send lease cancellation
         spdlog::info(
           "Executor at client {} exited, status {}, time allocated {} us, polling {} us, execution {} us",
-          i, std::get<1>(status), client.allocation_time,
-          client.accounting.data()[i].hot_polling_time / 1000.0,
-          client.accounting.data()[i].execution_time / 1000.0
+          client_id, std::get<1>(status), client.allocation_time,
+          client.accounting.data()[client_id].hot_polling_time / 1000.0,
+          client.accounting.data()[client_id].execution_time / 1000.0
         );
         client.executor.reset(nullptr);
         spdlog::info("Finished cleanup");
@@ -426,7 +425,6 @@ namespace rfaas::executor_manager {
       spdlog::debug("[Manager] Disconnecting client");
 
       Client& client = (*it).second;
-      //client.disable(i, _accounting_data.data()[i]);
       client.disable(_res_mgr_connection.get());
       _clients.erase(it);
 

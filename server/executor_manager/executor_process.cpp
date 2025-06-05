@@ -30,13 +30,15 @@ namespace rfaas::executor_manager {
     connections[pos] = connection;
   }
 
-  ProcessExecutor::ProcessExecutor(int cores, ProcessExecutor::time_t alloc_begin, pid_t pid):
+  ProcessExecutor::ProcessExecutor(int cores, ProcessExecutor::time_t alloc_begin, pid_t pid, int32_t lease_id):
     ActiveExecutor(cores),
     _pid(pid)
   {
     _allocation_begin = alloc_begin;
     // FIXME: remove after connection
     _allocation_finished = _allocation_begin;
+
+    _lease_id = lease_id;
   }
 
   std::tuple<ProcessExecutor::Status,int> ProcessExecutor::check() const
@@ -219,7 +221,7 @@ namespace rfaas::executor_manager {
     }
     if(counter == 36)
       counter = 0;
-    return new ProcessExecutor{lease.cores, begin, mypid};
+    return new ProcessExecutor{lease.cores, begin, mypid, lease.id};
   }
 
 }
