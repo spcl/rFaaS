@@ -95,6 +95,22 @@ namespace rfaas::executor_manager {
       waitpid(executor->id(), &status, WUNTRACED);
       auto e = std::chrono::high_resolution_clock::now();
       spdlog::info("Waited for child {} ms", std::chrono::duration_cast<std::chrono::milliseconds>(e-b).count());
+
+      int32_t lease_id = executor->_lease_id;
+      if (res_mgr_connection) {
+
+        spdlog::debug("Client {}: sending lease deallocation to resource manager for lease id {}", _id, lease_id);
+        res_mgr_connection->close_lease(
+          lease_id,
+          allocation_time,
+          accounting.data()[0].execution_time,
+          accounting.data()[0].hot_polling_time
+        );
+      }
+      else {
+        spdlog::error("Client {}: could not send lease deallocation to resource manager for lease id {}", _id, lease_id);
+      }
+
       executor.reset();
     }
     spdlog::info(
@@ -104,16 +120,6 @@ namespace rfaas::executor_manager {
       accounting.data()[0].execution_time / 1000.0
     );
 
-    if(res_mgr_connection) {
-
-      res_mgr_connection->close_lease(
-        _id,
-        allocation_time,
-        accounting.data()[0].execution_time,
-        accounting.data()[0].hot_polling_time
-      );
-
-    }
 
     //acc.hot_polling_time = acc.execution_time = 0;
     // SEGFAULT?
