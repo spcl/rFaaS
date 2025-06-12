@@ -13,7 +13,7 @@ namespace rfaas::resource_manager {
     _send_buffer(1)
   {}
 
-  Executor::Executor(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory):
+  Executor::Executor(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int64_t memory):
     _connection(nullptr),
     _free_cores(0),
     _free_memory(0),
@@ -23,7 +23,7 @@ namespace rfaas::resource_manager {
     this->initialize_data(node_name, ip, port, cores, memory);
   }
 
-  void Executor::initialize_data(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory)
+  void Executor::initialize_data(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int64_t memory)
   {
     this->node = node_name;
     this->address = ip;
@@ -46,7 +46,7 @@ namespace rfaas::resource_manager {
     return !node.empty() && _connection != nullptr;
   }
 
-  bool Executor::lease(int cores, int memory)
+  bool Executor::lease(int cores, int64_t memory)
   {
     if (cores <= 0 || memory <= 0 || _free_cores <= 0 || _free_memory <= 0) {
       return false;
@@ -92,7 +92,7 @@ namespace rfaas::resource_manager {
     this->_connection->receive_wcs().initialize(_receive_buffer, MSG_SIZE);
   }
 
-  std::tuple<std::weak_ptr<Executor>, bool> Executors::add_executor(const std::string& name, const std::string & ip, int32_t port, int16_t cores, int32_t memory)
+  std::tuple<std::weak_ptr<Executor>, bool> Executors::add_executor(const std::string& name, const std::string & ip, int32_t port, int16_t cores, int64_t memory)
   {
     auto exec = std::make_shared<Executor>(name, ip, port, cores, memory);
     auto [it, success] = _executors_by_name.insert(std::make_pair(name, exec));

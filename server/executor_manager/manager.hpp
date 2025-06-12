@@ -99,7 +99,7 @@ namespace rfaas::executor_manager {
   {
     int id;
     int cores;
-    int memory;
+    int64_t memory;
   };
 
   struct Leases

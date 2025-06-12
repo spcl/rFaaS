@@ -14,7 +14,7 @@
 
 namespace rfaas { namespace resource_manager {
 
-  ExecutorDB::ResultCode ExecutorDB::add(const std::string & node_name, const std::string & ip_address, int port, int cores, int memory)
+  ExecutorDB::ResultCode ExecutorDB::add(const std::string & node_name, const std::string & ip_address, int port, int cores, int64_t memory)
   {
     if(node_name.length() > rfaas::server_data::NODE_NAME_LENGTH) {
       return ResultCode::MALFORMED_DATA;
@@ -43,7 +43,7 @@ namespace rfaas { namespace resource_manager {
     return erased ? ResultCode::OK : ResultCode::EXECUTOR_DOESNT_EXIST;
   }
 
-  std::shared_ptr<Executor> ExecutorDB::open_lease(int numcores, int memory, rfaas::LeaseResponse& lease)
+  std::shared_ptr<Executor> ExecutorDB::open_lease(int numcores, int64_t memory, rfaas::LeaseResponse& lease)
   {
     // Obtain write access
     writer_lock_t lock(_mutex);

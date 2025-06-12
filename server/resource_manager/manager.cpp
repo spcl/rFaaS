@@ -296,7 +296,7 @@ void Manager::_handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send
 
   Client& client = (*it).second;
   int16_t cores = client.allocation_requests.data()[id].cores;
-  int32_t memory = client.allocation_requests.data()[id].memory;
+  int64_t memory = client.allocation_requests.data()[id].memory;
 
   if (cores > 0) {
     spdlog::info("Client requests executor with {} threads, it should have {} memory", 

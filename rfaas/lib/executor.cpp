@@ -37,7 +37,7 @@ namespace rfaas {
   {
   }
 
-  executor::executor(const std::string& address, int port, int numcores, int memory, int lease_id, device_data & dev):
+  executor::executor(const std::string& address, int port, int numcores, int64_t memory, int lease_id, device_data & dev):
     _state(dev.ip_address, dev.port, dev.default_receive_buffer_size + 1),
     _execs_buf(MAX_REMOTE_WORKERS),
     _device(dev),

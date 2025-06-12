@@ -20,12 +20,12 @@ namespace rfaas {
 
     int32_t port;
     int16_t cores;
-    int32_t memory;
+    int64_t memory;
     std::string address;
     std::string node;
 
     server_data();
-    server_data(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int32_t memory);
+    server_data(const std::string & node_name, const std::string & ip, int32_t port, int16_t cores, int64_t memory);
 
     template <class Archive>
     void save(Archive & ar) const

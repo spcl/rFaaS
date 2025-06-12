@@ -18,7 +18,7 @@ namespace rfaas::benchmark {
     bool pin_threads;
     int hot_timeout;
     int numcores;
-    int memory;
+    int64_t memory;
 
     template <class Archive>
     void load(Archive & ar )
@@ -69,7 +69,7 @@ namespace rfaas::benchmark {
     std::string flib;
     int input_size;
     int pause;
-    int rma_memory;
+    int64_t rma_memory;
     bool rma_mode;
     int cores;
   };

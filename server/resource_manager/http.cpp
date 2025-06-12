@@ -32,7 +32,7 @@ namespace rfaas::resource_manager {
           !(document.HasMember("ip_address")  && document["ip_address"].IsString()) ||
           !(document.HasMember("port")        && document["port"].IsInt()) ||
           !(document.HasMember("cores")       && document["cores"].IsInt()) ||
-          !(document.HasMember("memory")      && document["cores"].IsInt())
+          !(document.HasMember("memory")      && document["memory"].IsInt())
       ) {
         response.send(Pistache::Http::Code::Bad_Request, "Malformed Input");
         return;
@@ -41,12 +41,12 @@ namespace rfaas::resource_manager {
       std::string ip_address{document["ip_address"].GetString()};
       int port{document["port"].GetInt()};
       int cores{document["cores"].GetInt()};
-      int memory{document["memory"].GetInt()};
+      int64_t memory{document["memory"].GetInt()};
 
       // Return 400 if the request is malformed or incorret
       // If good, then return 200
       if(_database.add(node_name.value(), ip_address, port, cores, memory) == ExecutorDB::ResultCode::OK) {
-        response.send(Pistache::Http::Code::Ok, "Sucess");
+        response.send(Pistache::Http::Code::Ok, "Success");
       } else {
         response.send(Pistache::Http::Code::Internal_Server_Error, "Failure");
       }

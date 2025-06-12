@@ -55,7 +55,7 @@ namespace rfaas {
     device_data _device;
 
     int _numcores;
-    int _memory;
+    int64_t _memory;
     int _executions;
     int _invoc_id;
     int _lease_id;
@@ -73,7 +73,7 @@ namespace rfaas {
     int events;
 
     // Currently, we use the same device for listening and connecting to the manager.
-    executor(const std::string& address, int port, int numcores, int memory, int lease_id, device_data & dev);
+    executor(const std::string& address, int port, int numcores, int64_t memory, int lease_id, device_data & dev);
     ~executor();
 
     executor(executor&& obj);

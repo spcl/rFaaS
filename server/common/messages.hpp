@@ -30,7 +30,7 @@ namespace rfaas { namespace common {
   struct LeaseAllocation {
 
     const uint32_t message_id = id_to_int(MessageIDs::LEASE_ALLOCATION);
-    int memory;
+    int64_t memory;
     int cores;
     uint32_t lease_id;
 

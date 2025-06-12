@@ -30,7 +30,7 @@ namespace rfaas {
       _resource_mgr.disconnect();
     }
 
-    std::optional<rfaas::executor> lease(int16_t cores, int32_t memory, device_data & dev)
+    std::optional<rfaas::executor> lease(int16_t cores, int64_t memory, device_data & dev)
     { 
       if(!_resource_mgr.connected()) {
         return {};
@@ -66,7 +66,7 @@ namespace rfaas {
       };
     }
 
-    std::optional<rfaas::executor> lease(servers & nodes_data, int16_t cores, int32_t memory)
+    std::optional<rfaas::executor> lease(servers & nodes_data, int16_t cores, int64_t memory)
     {
       if(!nodes_data.size()) {
         return std::nullopt;
@@ -84,7 +84,7 @@ namespace rfaas {
       }
 
       server_data instance = nodes_data.server(server_idx);
-      uint32_t memory = instance.memory;
+      int64_t memory = instance.memory;
 
       return std::make_optional<rfaas::executor>(instance.address, instance.port, cores, memory, 0, _device);
     }

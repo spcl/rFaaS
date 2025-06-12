@@ -37,7 +37,7 @@ namespace rfaas::benchmark {
       ("functions", "Functions library", cxxopts::value<std::string>())
       ("s,size", "Packet size", cxxopts::value<int>()->default_value("1"))
       ("pause", "Pause between iterations [ms]", cxxopts::value<int>()->default_value("50"))
-      ("rma_memory", "RMA function: Size of remote memory in [bytes]", cxxopts::value<int>()->default_value("1024"))
+      ("rma_memory", "RMA function: Size of remote memory in [bytes]", cxxopts::value<int64_t>()->default_value("1024"))
       ("rma_mode", "RMA function: For reading (0) or writing (1) the payload", cxxopts::value<int>()->default_value("0"))
       ("cores", "Number of cores", cxxopts::value<int>()->default_value("1"))
     ;
@@ -58,7 +58,7 @@ namespace rfaas::benchmark {
     result.flib = parsed_options["functions"].as<std::string>();
     result.input_size = parsed_options["size"].as<int>();
     result.pause = parsed_options["pause"].as<int>();
-    result.rma_memory = parsed_options["rma_memory"].as<int>();
+    result.rma_memory = parsed_options["rma_memory"].as<int64_t>();
     result.rma_mode = parsed_options["rma_mode"].as<int>();
     result.cores = parsed_options["cores"].as<int>();
 

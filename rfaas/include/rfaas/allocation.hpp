@@ -10,7 +10,7 @@ namespace rfaas {
     // > 0: Number of cores to be allocated
     // <= 0: client_id with negative sign, deallocation & disconnect request
     int16_t cores;
-    int32_t memory;
+    int64_t memory;
   };
 
   struct LeasedNode {
@@ -26,7 +26,7 @@ namespace rfaas {
     char address[16];
     //LeasedNode nodes[MAX_NODES_PER_LEASE];
     int16_t cores;
-    int32_t memory;
+    int64_t memory;
   };
 
   struct AllocationRequest {
@@ -37,14 +37,14 @@ namespace rfaas {
     int16_t hot_timeout;
     int16_t timeout;
     int16_t input_buf_count;
-    int32_t input_buf_size;
-    uint32_t func_buf_size;
+    int64_t input_buf_size;
+    int64_t func_buf_size;
     int32_t listen_port;
     char listen_address[16];
 
     // Legacy support for skipping resource manager
     int16_t cores = 0;
-    int32_t memory = 0;
+    int64_t memory = 0;
   };
 
   struct LeaseStatus {

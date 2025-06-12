@@ -55,14 +55,14 @@ namespace rfaas { namespace resource_manager {
       _lease_count(0)
     {}
 
-    ResultCode add(const std::string& node_name, const std::string & ip_address, int port, int cores, int memory);
+    ResultCode add(const std::string& node_name, const std::string & ip_address, int port, int cores, int64_t memory);
     ResultCode remove(const std::string& node_name);
 
-    std::shared_ptr<Executor> open_lease(int numcores, int memory, rfaas::LeaseResponse& lease);
+    std::shared_ptr<Executor> open_lease(int numcores, int64_t memory, rfaas::LeaseResponse& lease);
 
     void close_lease(common::LeaseDeallocation & msg);
 
-    void reclaim(const std::string& node_name, int numcores, int memory);
+    void reclaim(const std::string& node_name, int numcores, int64_t memory);
 
     reader_lock_t read_lock();
 
