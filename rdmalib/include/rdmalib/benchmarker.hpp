@@ -8,6 +8,7 @@
 #include <tuple>
 #include <chrono>
 #include <fstream>
+#include <algorithm>
 
 //#include <sys/time.h>
 
