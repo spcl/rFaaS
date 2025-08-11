@@ -322,8 +322,8 @@ void Manager::_handle_client_message(ibv_wc& wc, std::vector<Client*>& poll_send
     } else {
 
       allocated->_send_buffer[0].lease_id = client.response()[0].lease_id;
-      allocated->_send_buffer[0].cores = cores;
-      allocated->_send_buffer[0].memory = memory;
+      allocated->_send_buffer[0].cores = client.response()[0].cores;
+      allocated->_send_buffer[0].memory = client.response()[0].memory;
 
       allocated->_connection->post_send(
         allocated->_send_buffer,
@@ -359,7 +359,6 @@ void Manager::process_clients()
   rdmalib::Poller recv_poller{std::get<1>(*_state.shared_queue(2))};
   int client_count = 0;
   std::vector<Client*> poll_send;
-  std::vector<client_t::iterator> removals;
 
   while (!_shutdown.load()) {
 
@@ -392,17 +391,6 @@ void Manager::process_clients()
       }
       poll_send.clear();
     }
-
-    if (removals.size()) {
-      for (auto it : removals) {
-        spdlog::info("Remove client id {}", it->second.client_id);
-        _clients.erase(it);
-      }
-
-      client_count -= removals.size();
-      removals.clear();
-    }
-
   }
 
   spdlog::info("Background thread stops processing client events");
