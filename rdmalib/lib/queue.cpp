@@ -142,4 +142,15 @@ namespace rdmalib {
     return false;
   }
 
+  bool RecvWorkCompletions::replenish()
+  {
+    if (_requests < _rcv_buf_size) {
+      SPDLOG_DEBUG("Post {} requests to buffer at QP {}", _rcv_buf_size - _requests, fmt::ptr(this->qp()));
+      this->post_batched_empty_recv(_rcv_buf_size - _requests);
+      _requests = _rcv_buf_size;
+      return true;
+    }
+    return false;
+  }
+
 }

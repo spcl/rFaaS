@@ -144,6 +144,7 @@ namespace rdmalib {
     void update_requests(int change);
 
     bool refill();
+    bool replenish();
 
   private:
 

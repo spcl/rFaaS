@@ -319,7 +319,7 @@ namespace rfaas {
 
       for(int i = 0; i < numcores; ++i) {
         //_connections[i]._rcv_buffer.refill();
-        _connections[i].conn->receive_wcs().refill();
+        _connections[i].conn->receive_wcs().replenish();
       }
       int expected = numcores;
       while(expected) {
@@ -352,11 +352,9 @@ namespace rfaas {
       _active_polling = false;
 
       // We polled from connection number 0, time to update.
-      //_connections[0]._rcv_buffer._requests += numcores - 1;
       _connections[0].conn->receive_wcs().update_requests(numcores - 1);
       for(int i = 1; i < numcores; ++i)
-        //_connections[i]._rcv_buffer._requests--;
-        _connections[0].conn->receive_wcs().update_requests(-1);
+        _connections[i].conn->receive_wcs().update_requests(-1);
       return correct;
     }
   };
