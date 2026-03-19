@@ -212,7 +212,7 @@ namespace rfaas::executor_manager {
     spdlog::info("Background thread stops waiting for rdmacm events.");
   }
 
-  void Manager::_handle_res_mgr_message(ibv_wc& wc)
+  void Manager::_handle_res_mgr_message(ibv_wc& wc, int update_requests)
   {
     if(wc.status != 0) {
       return;
@@ -228,6 +228,7 @@ namespace rfaas::executor_manager {
     };
     _leases.insert_threadsafe(std::move(lease));
 
+    _res_mgr_connection->_connection.connection().receive_wcs().update_requests(update_requests);
     _res_mgr_connection->_connection.connection().receive_wcs().refill();
   }
 
@@ -584,7 +585,7 @@ namespace rfaas::executor_manager {
           auto wcs = res_mgr.poll(false);
           if(std::get<1>(wcs)) {
             for (int j = 0; j < std::get<1>(wcs); ++j) {
-              _handle_res_mgr_message(std::get<0>(wcs)[j]);
+              _handle_res_mgr_message(std::get<0>(wcs)[j], -1);
             }
           }
 

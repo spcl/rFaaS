@@ -169,7 +169,7 @@ namespace rfaas::executor_manager {
     bool _process_client(Client & client, uint64_t wr_id);
     void _process_events_sleep();
     void _handle_client_message(ibv_wc& wc);
-    void _handle_res_mgr_message(ibv_wc& wc);
+    void _handle_res_mgr_message(ibv_wc& wc, int update_requests=0);
   };
 
 }
