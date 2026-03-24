@@ -319,7 +319,7 @@ namespace rfaas {
 
       for(int i = 0; i < numcores; ++i) {
         //_connections[i]._rcv_buffer.refill();
-        _connections[i].conn->receive_wcs().replenish();
+        _connections[i].conn->receive_wcs().refill(numcores);
       }
       int expected = numcores;
       while(expected) {
