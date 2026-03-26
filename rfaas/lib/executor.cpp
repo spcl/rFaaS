@@ -38,7 +38,7 @@ namespace rfaas {
   }
 
   executor::executor(const std::string& address, int port, int numcores, int memory, int lease_id, device_data & dev):
-    _state(dev.ip_address, dev.port, dev.default_receive_buffer_size + 1),
+    _state(dev.ip_address, dev.port, std::max(dev.default_receive_buffer_size, (int16_t)numcores) + 1),
     _execs_buf(MAX_REMOTE_WORKERS),
     _device(dev),
     _numcores(numcores),
@@ -370,7 +370,6 @@ namespace rfaas {
           _device.default_receive_buffer_size
         );
         this->_connections.back().conn->post_recv(_execs_buf.sge(obj_size, requested*obj_size), requested);
-        // FIXME: here it won't work if rcv_bufer_size < numcores
         this->_connections.back().conn->receive_wcs().refill();
 
         _state.accept(this->_connections.back().conn.get());

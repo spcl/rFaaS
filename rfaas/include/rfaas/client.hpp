@@ -43,6 +43,8 @@ namespace rfaas {
       _resource_mgr.submit();
 
       auto [responses, response_count] = _resource_mgr.connection().poll_wc(rdmalib::QueueType::RECV, true);
+      _resource_mgr.connection().receive_wcs().update_requests(-1);
+      _resource_mgr.connection().receive_wcs().refill();
 
       if(response_count > 1) {
         spdlog::warn("Received unexpected responses from resource manager, ignoring {} responses", response_count - 1);
